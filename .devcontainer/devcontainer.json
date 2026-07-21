@@ -38,6 +38,7 @@
   "customizations": {
     "vscode": {
       "extensions": [
+        "openai.chatgpt",
         "vscjava.vscode-java-pack",
         "shengchen.vscode-checkstyle",
         "vmware.vscode-spring-boot",
