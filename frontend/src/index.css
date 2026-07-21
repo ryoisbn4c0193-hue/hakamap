@@ -1,0 +1,11 @@
+:root {
+  color: #202124;
+  background: #f7f7f5;
+  font-family: system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+}

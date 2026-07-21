@@ -1,0 +1,33 @@
+# Java
+backend/target/
+*.class
+
+# Node.js / React
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/*.tsbuildinfo
+.pnpm-store/
+.m2-cache/
+
+# IDE
+.idea/
+*.iml
+.classpath
+.factorypath
+.project
+.settings/
+
+# OS、一時ファイル、ログ
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+*~
+
+# Hakamapのローカルデータ
+*.mv.db
+*.trace.db
+data/
+backups/

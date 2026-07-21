@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+  "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+  "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<!-- Mavenやコード生成ツールの成果物は検査対象にしない。 -->
+<suppressions>
+  <suppress files="[\\/](target|generated)[\\/]" checks=".*"/>
+</suppressions>

@@ -1,0 +1,81 @@
+{
+  "name": "Hakamap 開発環境",
+  "image": "mcr.microsoft.com/devcontainers/java:3-21-bookworm",
+
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "none",
+      "installMaven": true,
+      "installGradle": false
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts",
+      "nodeGypDependencies": true,
+      "pnpmVersion": "latest"
+    }
+  },
+
+  "containerEnv": {
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": "Asia/Tokyo"
+  },
+
+  "forwardPorts": [5173, 8080],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite 開発サーバー",
+      "onAutoForward": "notify"
+    },
+    "8080": {
+      "label": "Spring Boot 開発サーバー",
+      "onAutoForward": "notify"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "shengchen.vscode-checkstyle",
+        "vmware.vscode-spring-boot",
+        "vscjava.vscode-spring-initializr",
+        "vscjava.vscode-maven",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "editorconfig.editorconfig",
+        "vitest.explorer",
+        "ms-playwright.playwright",
+        "yoavbls.pretty-ts-errors",
+        "redhat.vscode-xml"
+      ],
+      "settings": {
+        "files.encoding": "utf8",
+        "files.eol": "\n",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "[javascript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[javascriptreact]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[typescriptreact]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "java.configuration.updateBuildConfiguration": "automatic",
+        "java.compile.nullAnalysis.mode": "automatic",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  "postCreateCommand": ".devcontainer/postCreate.sh",
+  "remoteUser": "vscode",
+  "shutdownAction": "stopContainer"
+}

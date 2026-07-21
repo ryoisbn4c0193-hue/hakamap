@@ -1,0 +1,6 @@
+.app-shell {
+  display: grid;
+  min-height: 100vh;
+  place-content: center;
+  text-align: center;
+}
