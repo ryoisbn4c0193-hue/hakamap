@@ -2,6 +2,8 @@
   "name": "Hakamap 開発環境",
   "image": "mcr.microsoft.com/devcontainers/java:3-21-bookworm",
 
+  "runArgs": ["--security-opt=seccomp=unconfined"],
+
   "features": {
     "ghcr.io/devcontainers/features/java:1": {
       "version": "none",
