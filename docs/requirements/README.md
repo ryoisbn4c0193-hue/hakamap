@@ -12,6 +12,7 @@
 - [地図編集画面・操作要件](editor-ui.md)
 - [写真・添付ファイル機能要件](assets.md)
 - [印刷・出力機能要件](output.md)
+- [将来拡張・検討中機能](future-extensions.md)
 
 ## 更新時の扱い
 
