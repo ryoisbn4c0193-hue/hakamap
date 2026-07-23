@@ -382,6 +382,8 @@ MVPのトップレベル構造は次のとおりとする。
 - JSON Schemaを読み込み時、保存前、および各段階の変換後の構造検証に使用する。
 - JSON Schemaの検証だけでなく、UUID参照、一意性、および配置制約などの業務整合性を
   Javaバックエンドで別途検証する。
+- Schema検証後に行うJava整合性検証の完全な一覧と実行契機は
+  `json-schema-and-persistence-model.md`を正とする。
 - JSON SchemaはDraft 2020-12を使用し、次の場所へ形式・バージョン別に配置する。
 
 ```text
