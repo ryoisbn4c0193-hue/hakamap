@@ -43,9 +43,15 @@ HakamapのブラウザUIとSpring Boot間の通信を端末内に限定し、同
 
 - 起動用認証情報からHttpOnlyセッションCookieを確立した後、React起動時に呼ぶ
   `GET /api/v1/session`のレスポンスヘッダー`X-Hakamap-CSRF-Token`でCSRFトークンを返す。
-- `GET /api/v1/session`は有効なHttpOnlyセッションCookie、同一オリジンのOrigin、
-  および正しいHostを要求する。起動用認証情報だけ、未認証状態、または外部Originからは
-  CSRFトークンを取得できない。
+- `GET /api/v1/session`は有効なHttpOnlyセッションCookieと正しいHostを要求する。
+- Originヘッダーが存在する場合は現在の`scheme://host:port`との完全一致を要求する。
+- 同一オリジンのGETでOriginヘッダーがない場合は、正しいHostとセッションCookieに加え、
+  `Sec-Fetch-Site: same-origin`または同一オリジンのRefererを要求する。
+- 外部Origin、`Sec-Fetch-Site: cross-site`、不正Host、およびOriginなしで
+  Fetch MetadataとRefererのどちらからも判定できない要求を拒否する。
+- `GET /api/v1/session`へ`Cache-Control: no-store`を必ず設定し、ブラウザ、中間キャッシュ、
+  Service Worker、および履歴から以前のCSRFトークン応答を再利用させない。
+- 起動用認証情報だけ、未認証状態、または外部サイトからはCSRFトークンを取得できない。
 - ReactはトークンをタブのJavaScriptメモリだけに保持し、localStorage、sessionStorage、
   IndexedDB、Cookie、URL、およびログへ保存しない。
 - 状態変更リクエストは`X-Hakamap-CSRF-Token`ヘッダーでトークンを送る。
@@ -92,6 +98,10 @@ HakamapのブラウザUIとSpring Boot間の通信を端末内に限定し、同
   取得したトークンだけで状態変更できることを確認する。
 - セッション再生成後に旧CSRFトークンが拒否され、複数タブが永続ストレージを使わず
   各タブのメモリで同じセッション用トークンを利用できることを確認する。
+- Chromium系の対象ブラウザでOriginが付くGETと付かないGETを確認し、正しいHost、
+  セッションCookie、およびFetch MetadataまたはRefererにより正常取得できることを確認する。
+- `GET /api/v1/session`が`Cache-Control: no-store`を返し、セッション再生成後に
+  古いレスポンスがキャッシュから復元されないことを確認する。
 - 2回目のランチャー起動で新しいバックエンドが作られず、既存の画面が開くことを確認する。
 - 最初のプロセスが準備中でも10秒以内に利用可能になれば既存画面が開き、利用できない場合に
   重複バックエンドが起動しないことを確認する。
