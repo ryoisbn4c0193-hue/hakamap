@@ -185,6 +185,17 @@ Hakamap MVPの基本設計レビューで挙がった必須・推奨事項を解
 - `GET /api/v1/session`ではOriginがあれば完全一致、なければHost、セッションCookie、
   Fetch MetadataまたはRefererで同一オリジンを判定し、`Cache-Control: no-store`を
   必須とすることを定めた。
+- 詳細設計の追加2点もレビューで承認され、詳細設計は正式合格となった。
+- 現在のコードは初期雛形であり、バックエンドに不採用のH2・JPA・Flyway依存、
+  フロントエンドに製品用UI・状態管理・PixiJS未導入という設計との差分があることを確認した。
+- 実装をビルド基盤、ドメイン、JSON保存、保存トランザクション、HTTP保護、Project管理、
+  編集API、React、PixiJS、検索・添付、バックアップ・入出力、Windows検証の12段階に分けた。
+- 実装はPhase単位で標準検査と文書更新まで完了してからコミットし、Phase途中では
+  原則コミットしない運用とした。
+- Phaseコミットは通常ローカルだけに保持し、外部ChatGPTレビューの節目でプッシュする。
+  プッシュ後は`HEAD`と`origin/main`を照合し、レビュー対象コミットハッシュを利用者へ伝える。
+- 外部ChatGPTレビューはPhase 3、6、8、10、11の完了時を基本とし、重大リスクが
+  見つかった場合は途中でも実施を提案する。
 - 背景差し替えでは現在の位置・回転・X/Y倍率を引き継いでプレビューし、画像サイズ差を
   自動補正せず、差し替え・削除でエリアと墓所の座標を変更しないことを定めた。
 - 複数添付追加は全ファイルを1コマンドとし、1件でも形式・容量・画素・参照・件数上限の
@@ -476,14 +487,15 @@ Hakamap MVPの基本設計レビューで挙がった必須・推奨事項を解
 7. PixiJSの描画、座標変換、および当たり判定（完了）
 8. テスト設計、テストデータ、およびWindowsパッケージ検証（完了）
 
-次は追加2点が解消されたことを再レビューで確認し、詳細設計を正式合格として、
-ドメイン・JSON Schema・ローカルHTTP基盤から実装計画を作成する。
+次は`docs/implementation-plan.md`のPhase 0から実装を開始する。最初の変更では
+バックエンドからH2・JPA・Flywayを除去し、JSON Schema検証基盤とスモークテストを追加する。
 
 ## 変更したファイル
 
 - `AGENTS.md`
 - `README.md`
 - `docs/development-handoff.md`
+- `docs/implementation-plan.md`
 - `docs/design/application-lifecycle.md`
 - `docs/design/basic-architecture.md`
 - `docs/design/backup-and-restore.md`

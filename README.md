@@ -125,6 +125,7 @@ cd backend
 - [フロントエンド状態管理](docs/design/frontend-state-management.md)
 - [PixiJS描画・座標変換・当たり判定](docs/design/pixi-map-interaction.md)
 - [テスト・テストデータ・Windows検証](docs/design/test-strategy.md)
+- [MVP実装計画](docs/implementation-plan.md)
 - [データ保存とプライバシー](docs/design/data-storage-and-privacy.md)
 - [バックアップと復元](docs/design/backup-and-restore.md)
 - [ADR](docs/adr/)
