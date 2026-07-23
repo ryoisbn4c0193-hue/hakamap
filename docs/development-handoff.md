@@ -590,20 +590,14 @@ Phase 4の実装・検査・文書更新を完了後、1つのローカルコミ
   `ca5f8b1`であり、
   `origin/main`へ反映済みである。
 - 現在のプッシュ済み作業再開基準は`origin/main`の
-  `dfb3e6062899691ce441ade5474d24946ffce38f`である。Phase 0～2のローカルコミットは
-  まだ反映していない。
-- Phase 0の完了コミットはローカルだけに保持し、Phase 3のレビュー節目までは
-  プッシュしない運用である。
-- Phase 1の完了コミットもローカルだけに保持し、Phase 3のレビュー節目までは
-  プッシュしない運用である。
+  `44fbfdab69dc68b47a1126036a16c897f9e379d2`である。このコミットをPhase 3の
+  外部ChatGPTレビュー基準とし、Phase 0～3の実装を`origin/main`へ反映済みである。
 - Phase 2ではProject、Catalog、Recovery v1の保存record、Project Mapper、防御的JSON Codec、
   Schema後のJava整合性検証、およびファイルRepositoryを実装した。
 - ProjectとRecoveryのアセットは相対パス、通常ファイル、シンボリックリンク拒否、
   UUIDファイル名、拡張子、容量、SHA-256、および画像シグネチャを検証する。
 - Catalogはドライブ絶対パスとSMB共有のUNCパスを扱い、Windowsの大文字小文字を無視した
   正規化後にUUID、パス、およびデフォルトProjectの整合性を検証する。
-- Phase 2の完了コミットもローカルだけに保持し、Phase 3のレビュー節目でまとめて
-  プッシュする運用である。
 - Phase 3では`.hakamap.lock`、保存処理の直列化、基準JSONのSHA-256照合、空き容量検査、
   ステージングアセットの同期・原子的配置、および検証済み一時JSONの原子的置換を実装した。
 - 原子的置換後の読戻し不能を`COMMIT_OUTCOME_UNKNOWN`として編集停止し、再接続後に
@@ -614,7 +608,7 @@ Phase 4の実装・検査・文書更新を完了後、1つのローカルコミ
   revision 0・空履歴・未保存状態の新しい編集セッションとして適用する。
 - Catalogは更新前の正常JSONを`catalog.json.bak`へ原子的に確定してから、新しいCatalogを
   原子的に置換する。下位のJSON Repositoryも同期済み一時ファイルから原子的に置換する。
-- Phase 3完了時は外部ChatGPTレビュー節目のため、Phase 0～3のローカルコミットを
-  `origin/main`へプッシュし、Phase 3コミットの完全なIDをレビュー対象として伝える。
+- Phase 3完了コミット`44fbfdab69dc68b47a1126036a16c897f9e379d2`までを
+  `origin/main`へプッシュし、`HEAD`と`origin/main`の一致を確認した。
 - 本メモのコミット後に追加された変更がある場合は、作業終了時に引き継ぎメモを更新し、
   利用者へコミットとプッシュを提案する。
