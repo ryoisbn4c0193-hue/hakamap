@@ -5,8 +5,9 @@
 ## 現在の目的
 
 レビュー合格済みの要件・基本設計・詳細設計に従い、Hakamap MVPを
-`docs/implementation-plan.md`のPhase単位で実装する。Phase 0のビルド・依存・品質基盤は完了し、
-次はPhase 1のドメインモデルと不変条件を実装する。
+`docs/implementation-plan.md`のPhase単位で実装する。Phase 0のビルド・依存・品質基盤と
+Phase 1のドメインモデル・不変条件は完了し、次はPhase 2のJSON保存モデルとRepositoryを
+実装する。
 - 当時のコミット`aa92223`に対する再レビューは合格となり、重要な矛盾が解消され、
   MVP、将来拡張、および未決事項の境界が明確であると確認された。
 - 基本アーキテクチャとして、React、TypeScript、PixiJS、Java 21、Spring Boot、および
@@ -16,6 +17,24 @@
 
 ## 今回完了した作業
 
+- Phase 1として、Project、Area、Grave、Person、Assetの型付きUUID、文字列値、
+  地図座標・寸法・長方形、回転、倍率、表示順、および各種列挙を実装した。
+- 文字列の前後Unicode空白除去、コードポイント単位上限、改行・制御文字検証、
+  NFKC、英字大小、全Unicode空白、ひらがな・カタカナを統一する比較キーを実装した。
+- 地図数値を`BigDecimal`の小数第3位へ丸め、長方形の中心、閉領域包含、面積を持つ交差、
+  辺・角接触、および上下重なりを判定する値オブジェクトを実装した。
+- Project集約と構成エンティティを実装し、種類横断UUID、参照、表示順、エリア数・名称・色、
+  添付上限、エリア・墓所重複、および墓所業務キーを候補状態全体で検証するようにした。
+- 墓所中心点とエリア表示順による所属、完成・未完成理由、および未割当・未採番・
+  エリア範囲外警告の導出を実装した。
+- 単体追加、行列・範囲埋め生成、複数移動、情報を引き継がない複数コピー、
+  関連データを含む削除、および一括採番のドメイン処理を実装した。
+- 一括操作は変更後候補を検証してから状態を一度に切り替え、1件でも違反があれば
+  元のProject状態を維持するようにした。
+- 一括採番の視覚行を、中心座標の安定順、基準墓所固定、上下重なり50%以上、
+  行内左から右・行間上から下の確定ルールで実装した。
+- Unicode、丸め、接触、共有境界、50%行判定、重複、参照、表示順、上限、完成状態、
+  コピー内容、および一括操作の原子性を単体テストへ追加した。
 - Phase 0として、H2、Spring Data JPA、およびFlywayの本番・テスト依存を除去した。
 - NetworkNT JSON Schema Validator 3.0.6を導入し、Project、Catalog、Recoveryの
   Draft 2020-12 Schemaをclasspathからコンパイル・検証する基盤とスモークテストを追加した。
@@ -481,14 +500,14 @@
 
 ## 次に行うこと
 
-`docs/implementation-plan.md`のPhase 1を開始する。
+`docs/implementation-plan.md`のPhase 2を開始する。
 
-1. UUID、日時、名称、管理番号、地図座標、長方形、背景配置の値オブジェクトを実装する。
-2. Project、Area、Grave、Person、AssetMetadataとProject集約を実装する。
-3. 文字列正規化、一意性、完成状態、警告、幾何、所属、一括操作、採番を実装する。
-4. `domain-model.md`の不変条件を単体テストへ対応付ける。
+1. Project、Catalog、Recovery v1のJackson保存recordとMapperを実装する。
+2. JSONストリーム防御値と、Schema後に実行するJava整合性検証を実装する。
+3. 決定的な順序、任意値省略、UTC日時、および小数第3位の出力を実装する。
+4. Repository interfaceとファイル実装、fixture、不正JSON、参照不整合テストを追加する。
 
-Phase 1の実装・検査・文書更新を完了後、1つのローカルコミットにまとめる。Phase 3の
+Phase 2の実装・検査・文書更新を完了後、1つのローカルコミットにまとめる。Phase 3の
 外部ChatGPTレビュー節目までは、利用者から明示指示がない限りプッシュしない。
 
 ## 変更したファイル
@@ -496,8 +515,10 @@ Phase 1の実装・検査・文書更新を完了後、1つのローカルコミ
 - `backend/config/checkstyle/checkstyle.xml`
 - `backend/pom.xml`
 - `backend/src/main/java/jp/hakamap/infrastructure/persistence/schema/`
+- `backend/src/main/java/jp/hakamap/project/domain/`
 - `backend/src/test/java/jp/hakamap/HakamapApplicationTests.java`
 - `backend/src/test/java/jp/hakamap/infrastructure/persistence/schema/`
+- `backend/src/test/java/jp/hakamap/project/domain/`
 - `frontend/package.json`
 - `frontend/pnpm-lock.yaml`
 - `frontend/src/`
@@ -544,7 +565,7 @@ Phase 1の実装・検査・文書更新を完了後、1つのローカルコミ
 
 ## 検査結果
 
-- `cd backend && ./mvnw clean verify`: 成功。フロントエンド標準検査、4件のJavaテスト、
+- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、22件のJavaテスト、
   Checkstyle、Spotless、および実行可能JAR生成を含む。
 - `cd frontend && pnpm lint`: 成功。
 - `cd frontend && pnpm format:check`: 成功。
@@ -563,6 +584,8 @@ Phase 1の実装・検査・文書更新を完了後、1つのローカルコミ
   `ca5f8b1`であり、
   `origin/main`へ反映済みである。
 - Phase 0の完了コミットはローカルだけに保持し、Phase 3のレビュー節目までは
+  プッシュしない運用である。
+- Phase 1の完了コミットもローカルだけに保持し、Phase 3のレビュー節目までは
   プッシュしない運用である。
 - 本メモのコミット後に追加された変更がある場合は、作業終了時に引き継ぎメモを更新し、
   利用者へコミットとプッシュを提案する。
