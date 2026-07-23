@@ -505,6 +505,8 @@ HTTP保護を実装する。
   Project集約コピーだけを評価へ渡すことで、評価中の直接変更が編集状態へ漏れないようにした。
 - JSON置換直後の読戻し障害でも参照アセットを維持するテスト、古いリビジョンでは
   コマンドを評価しないテスト、および評価用集約の変更が本体へ漏れないテストを追加した。
+- Phase 3レビュー指摘修正版コミット`4ce711886294770bf21bd12d0931ffe4dec597c8`は
+  外部ChatGPTの再レビューで合格となった。次回は予定どおりPhase 4から再開する。
 
 ## 次に行うこと
 
@@ -598,8 +600,8 @@ Phase 4の実装・検査・文書更新を完了後、1つのローカルコミ
   `ca5f8b1`であり、
   `origin/main`へ反映済みである。
 - 現在のプッシュ済み作業再開基準は`origin/main`の
-  `4ce711886294770bf21bd12d0931ffe4dec597c8`である。このコミットをPhase 3レビュー指摘修正版の
-  外部ChatGPTレビュー基準とし、Phase 0～3の実装を`origin/main`へ反映済みである。
+  `0c792dc106c6f6ff852e3274f4022cd6d61cc268`である。Phase 3レビュー指摘修正版は
+  外部ChatGPTレビュー合格済みで、Phase 0～3の実装を`origin/main`へ反映済みである。
 - Phase 2ではProject、Catalog、Recovery v1の保存record、Project Mapper、防御的JSON Codec、
   Schema後のJava整合性検証、およびファイルRepositoryを実装した。
 - ProjectとRecoveryのアセットは相対パス、通常ファイル、シンボリックリンク拒否、
