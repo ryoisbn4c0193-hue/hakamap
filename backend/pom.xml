@@ -32,19 +32,16 @@
 		<google-java-format.version>1.35.0</google-java-format.version>
 		<maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
 		<spotless-maven-plugin.version>3.6.0</spotless-maven-plugin.version>
+		<json-schema-validator.version>3.0.6</json-schema-validator.version>
+		<frontend-maven-plugin.version>2.0.0</frontend-maven-plugin.version>
+		<node.version>v24.18.0</node.version>
+		<pnpm.version>11.15.1</pnpm.version>
 	</properties>
 	<dependencies>
 		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-h2console</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-jpa</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-flyway</artifactId>
+			<groupId>com.networknt</groupId>
+			<artifactId>json-schema-validator</artifactId>
+			<version>${json-schema-validator.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -55,21 +52,6 @@
 			<artifactId>spring-boot-starter-webmvc</artifactId>
 		</dependency>
 
-		<dependency>
-			<groupId>com.h2database</groupId>
-			<artifactId>h2</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-jpa-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-flyway-test</artifactId>
-			<scope>test</scope>
-		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation-test</artifactId>
@@ -83,7 +65,82 @@
 	</dependencies>
 
 	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+			</resource>
+			<resource>
+				<directory>../frontend/dist</directory>
+				<targetPath>static</targetPath>
+			</resource>
+		</resources>
 		<plugins>
+			<plugin>
+				<groupId>com.github.eirslett</groupId>
+				<artifactId>frontend-maven-plugin</artifactId>
+				<version>${frontend-maven-plugin.version}</version>
+				<configuration>
+					<workingDirectory>../frontend</workingDirectory>
+					<installDirectory>${project.build.directory}/frontend-tools</installDirectory>
+				</configuration>
+				<executions>
+					<execution>
+						<id>install-node-and-pnpm</id>
+						<goals>
+							<goal>install-node-and-pnpm</goal>
+						</goals>
+						<configuration>
+							<nodeVersion>${node.version}</nodeVersion>
+							<pnpmVersion>${pnpm.version}</pnpmVersion>
+						</configuration>
+					</execution>
+					<execution>
+						<id>pnpm-install</id>
+						<goals>
+							<goal>pnpm</goal>
+						</goals>
+						<configuration>
+							<arguments>install --frozen-lockfile</arguments>
+						</configuration>
+					</execution>
+					<execution>
+						<id>pnpm-lint</id>
+						<goals>
+							<goal>pnpm</goal>
+						</goals>
+						<configuration>
+							<arguments>lint</arguments>
+						</configuration>
+					</execution>
+					<execution>
+						<id>pnpm-format-check</id>
+						<goals>
+							<goal>pnpm</goal>
+						</goals>
+						<configuration>
+							<arguments>format:check</arguments>
+						</configuration>
+					</execution>
+					<execution>
+						<id>pnpm-test</id>
+						<goals>
+							<goal>pnpm</goal>
+						</goals>
+						<configuration>
+							<arguments>test</arguments>
+						</configuration>
+					</execution>
+					<execution>
+						<id>pnpm-build</id>
+						<goals>
+							<goal>pnpm</goal>
+						</goals>
+						<configuration>
+							<arguments>build</arguments>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-checkstyle-plugin</artifactId>

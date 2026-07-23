@@ -4,10 +4,9 @@
 
 ## 現在の目的
 
-Hakamap MVPの基本設計レビューで挙がった必須・推奨事項を解消し、確定した責務順の
-詳細設計8工程を完了して、文書レビューと実装計画へ移行できる状態にする。
-2026-07-22に外部のChatGPTで検討した内容と、その後の文書レビュー結果が連携され、
-利用者の指示に従って最新要件へ反映した。
+レビュー合格済みの要件・基本設計・詳細設計に従い、Hakamap MVPを
+`docs/implementation-plan.md`のPhase単位で実装する。Phase 0のビルド・依存・品質基盤は完了し、
+次はPhase 1のドメインモデルと不変条件を実装する。
 - 当時のコミット`aa92223`に対する再レビューは合格となり、重要な矛盾が解消され、
   MVP、将来拡張、および未決事項の境界が明確であると確認された。
 - 基本アーキテクチャとして、React、TypeScript、PixiJS、Java 21、Spring Boot、および
@@ -17,6 +16,17 @@ Hakamap MVPの基本設計レビューで挙がった必須・推奨事項を解
 
 ## 今回完了した作業
 
+- Phase 0として、H2、Spring Data JPA、およびFlywayの本番・テスト依存を除去した。
+- NetworkNT JSON Schema Validator 3.0.6を導入し、Project、Catalog、Recoveryの
+  Draft 2020-12 Schemaをclasspathからコンパイル・検証する基盤とスモークテストを追加した。
+- MUI、Emotion、TanStack Query、Zustand、Zod、PixiJSを導入し、製品テーマ、
+  Provider、エラー境界、UI状態Store、PixiJSアダプター、および最小3領域画面を追加した。
+- 開発用Viteサーバーを`127.0.0.1`へ限定し、`/api`を同アドレスのSpring Bootへ
+  プロキシする設定を追加した。
+- Mavenから固定Node.js 24.18.0・pnpm 11.15.1でフロントエンド標準検査とビルドを実行し、
+  React成果物を実行可能JARへ同梱する統合ビルドを追加した。
+- 生成JARを`127.0.0.1`で起動し、画面のHTTP 200と未定義APIのHTTP 404を
+  同一オリジンで確認した。
 - 空だったルート`README.md`へ、製品概要、MVP、アーキテクチャ、開発コマンド、データ取扱い、
   文書への入口、および現在の設計状況を記載した。
 - `AGENTS.md`から重複する製品・設計詳細をREADMEと`docs`へ移し、AI・開発者向けの変更制約、
@@ -471,27 +481,27 @@ Hakamap MVPの基本設計レビューで挙がった必須・推奨事項を解
 
 ## 次に行うこと
 
-基本設計レビューの修正必須・推奨事項は反映済み。詳細設計は次の責務順で完了した。
+`docs/implementation-plan.md`のPhase 1を開始する。
 
-詳細設計では、利用者の操作、業務ルール、保存データ、および将来の互換性に影響する事項を
-中心に、関連する3～5件をまとめて利用者へ確認する。Javaの型、パッケージ、内部API構造など、
-確定済みの要件・基本設計から安全に決められる技術詳細はCodexが決定して文書化する。
-各工程の最後に決定事項をまとめて確認してから次工程へ進む。
+1. UUID、日時、名称、管理番号、地図座標、長方形、背景配置の値オブジェクトを実装する。
+2. Project、Area、Grave、Person、AssetMetadataとProject集約を実装する。
+3. 文字列正規化、一意性、完成状態、警告、幾何、所属、一括操作、採番を実装する。
+4. `domain-model.md`の不変条件を単体テストへ対応付ける。
 
-1. ドメインモデルと不変条件（完了）
-2. Project、Catalog、RecoveryのJSON SchemaとJava保存モデル（完了）
-3. コマンドとUndo／Redo差分（完了）
-4. 保存・置換・ロック・バックアップ・復旧のトランザクション（完了）
-5. ローカルAPI、DTO、およびProblem Detailsのエラーコード（完了）
-6. Reactコンポーネントとフロントエンド状態管理（完了）
-7. PixiJSの描画、座標変換、および当たり判定（完了）
-8. テスト設計、テストデータ、およびWindowsパッケージ検証（完了）
-
-次は`docs/implementation-plan.md`のPhase 0から実装を開始する。最初の変更では
-バックエンドからH2・JPA・Flywayを除去し、JSON Schema検証基盤とスモークテストを追加する。
+Phase 1の実装・検査・文書更新を完了後、1つのローカルコミットにまとめる。Phase 3の
+外部ChatGPTレビュー節目までは、利用者から明示指示がない限りプッシュしない。
 
 ## 変更したファイル
 
+- `backend/config/checkstyle/checkstyle.xml`
+- `backend/pom.xml`
+- `backend/src/main/java/jp/hakamap/infrastructure/persistence/schema/`
+- `backend/src/test/java/jp/hakamap/HakamapApplicationTests.java`
+- `backend/src/test/java/jp/hakamap/infrastructure/persistence/schema/`
+- `frontend/package.json`
+- `frontend/pnpm-lock.yaml`
+- `frontend/src/`
+- `frontend/vite.config.ts`
 - `AGENTS.md`
 - `README.md`
 - `docs/development-handoff.md`
@@ -534,10 +544,17 @@ Hakamap MVPの基本設計レビューで挙がった必須・推奨事項を解
 
 ## 検査結果
 
-- `git diff --check`でMarkdown差分に空白エラーがないことを確認した。
-- 要件文書一覧から参照するファイルが存在することを確認した。
-- Markdown専用Lintはリポジトリに設定されていない。
-- ソースコードは変更していないため、アプリケーションテストは実行しない。
+- `cd backend && ./mvnw clean verify`: 成功。フロントエンド標準検査、4件のJavaテスト、
+  Checkstyle、Spotless、および実行可能JAR生成を含む。
+- `cd frontend && pnpm lint`: 成功。
+- `cd frontend && pnpm format:check`: 成功。
+- `cd frontend && pnpm test`: 成功（1テスト）。
+- `cd frontend && pnpm build`: 成功。
+- 生成JARの`/`はHTTP 200、`/api/v1/not-defined`はHTTP 404となることを確認した。
+- JAR内の`BOOT-INF/classes/static`にReactのHTML、JavaScript、CSSがあることを確認した。
+- Maven依存ツリーにH2、Spring Data、およびFlywayが存在しないことを確認した。
+- `backend/target`、`frontend/dist`、`frontend/node_modules`がGit除外対象であることを確認した。
+- `git diff --check`: 成功。
 
 ## 注意事項
 
@@ -545,5 +562,7 @@ Hakamap MVPの基本設計レビューで挙がった必須・推奨事項を解
 - 詳細設計8工程、JSON Schema、および追加レビュー指摘反映までのレビュー基準コミットは
   `ca5f8b1`であり、
   `origin/main`へ反映済みである。
+- Phase 0の完了コミットはローカルだけに保持し、Phase 3のレビュー節目までは
+  プッシュしない運用である。
 - 本メモのコミット後に追加された変更がある場合は、作業終了時に引き継ぎメモを更新し、
   利用者へコミットとプッシュを提案する。

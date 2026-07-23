@@ -1,6 +1,51 @@
 .app-shell {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
-  place-content: center;
+}
+
+.editor-layout {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  transition: grid-template-columns 160ms ease;
+}
+
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  overflow: hidden auto;
+  padding: 16px;
+}
+
+.side-panel[aria-hidden='true'] {
+  padding: 0;
+  visibility: hidden;
+}
+
+.map-placeholder {
+  align-items: center;
+  background-color: #e8e5dc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  padding: 24px;
   text-align: center;
+}
+
+@media (max-width: 900px) {
+  .editor-layout {
+    grid-template-columns: 0 minmax(320px, 1fr) 0 !important;
+  }
+
+  .side-panel {
+    padding: 0;
+    visibility: hidden;
+  }
 }

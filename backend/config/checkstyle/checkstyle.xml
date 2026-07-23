@@ -48,7 +48,14 @@
     <module name="ParenPad"/>
     <module name="TypecastParenPad"/>
     <module name="OperatorWrap"/>
-    <module name="SeparatorWrap"/>
+    <module name="SeparatorWrap">
+      <property name="tokens" value="COMMA,SEMI,ELLIPSIS,ARRAY_DECLARATOR,METHOD_REF"/>
+      <property name="option" value="eol"/>
+    </module>
+    <module name="SeparatorWrap">
+      <property name="tokens" value="DOT"/>
+      <property name="option" value="nl"/>
+    </module>
     <module name="EmptyLineSeparator"/>
     <module name="OneStatementPerLine"/>
     <module name="MultipleVariableDeclarations"/>
