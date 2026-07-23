@@ -1,6 +1,7 @@
 package jp.hakamap.project.domain.model;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.Optional;
 import jp.hakamap.project.domain.value.DisplayOrder;
@@ -25,8 +26,8 @@ public record Person(
     if (name.isEmpty() && posthumousName.isEmpty()) {
       throw new IllegalArgumentException("person-name-required");
     }
-    Objects.requireNonNull(createdAt, "createdAt");
-    Objects.requireNonNull(updatedAt, "updatedAt");
+    createdAt = Objects.requireNonNull(createdAt, "createdAt").truncatedTo(ChronoUnit.MILLIS);
+    updatedAt = Objects.requireNonNull(updatedAt, "updatedAt").truncatedTo(ChronoUnit.MILLIS);
     Objects.requireNonNull(displayOrder, "displayOrder");
     if (updatedAt.isBefore(createdAt)) {
       throw new IllegalArgumentException("person-updated-before-created");

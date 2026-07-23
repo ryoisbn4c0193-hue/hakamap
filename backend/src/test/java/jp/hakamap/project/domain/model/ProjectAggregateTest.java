@@ -263,6 +263,7 @@ class ProjectAggregateTest {
         new AssetId(uuid(id)),
         AssetType.ATTACHMENT,
         Optional.of(graveId),
+        "attachment.png",
         "attachments/" + id + ".png",
         "image/png",
         "image/png",

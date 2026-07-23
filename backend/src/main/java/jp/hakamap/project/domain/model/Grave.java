@@ -1,6 +1,7 @@
 package jp.hakamap.project.domain.model;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.Optional;
 import jp.hakamap.project.domain.value.GraveId;
@@ -25,7 +26,7 @@ public record Grave(
     notes = ListCopies.optional(notes);
     Objects.requireNonNull(rectangle, "rectangle");
     Objects.requireNonNull(rotation, "rotation");
-    Objects.requireNonNull(updatedAt, "updatedAt");
+    updatedAt = Objects.requireNonNull(updatedAt, "updatedAt").truncatedTo(ChronoUnit.MILLIS);
   }
 
   public Grave move(MapRectangle target, Instant commandTime) {

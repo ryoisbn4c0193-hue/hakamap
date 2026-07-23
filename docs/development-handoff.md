@@ -6,8 +6,8 @@
 
 レビュー合格済みの要件・基本設計・詳細設計に従い、Hakamap MVPを
 `docs/implementation-plan.md`のPhase単位で実装する。Phase 0のビルド・依存・品質基盤と
-Phase 1のドメインモデル・不変条件は完了し、次はPhase 2のJSON保存モデルとRepositoryを
-実装する。
+Phase 2のJSON保存モデルとRepositoryまで完了し、次はPhase 3の保存トランザクションと
+履歴を実装する。
 - 当時のコミット`aa92223`に対する再レビューは合格となり、重要な矛盾が解消され、
   MVP、将来拡張、および未決事項の境界が明確であると確認された。
 - 基本アーキテクチャとして、React、TypeScript、PixiJS、Java 21、Spring Boot、および
@@ -500,24 +500,27 @@ Phase 1のドメインモデル・不変条件は完了し、次はPhase 2のJSO
 
 ## 次に行うこと
 
-`docs/implementation-plan.md`のPhase 2を開始する。
+`docs/implementation-plan.md`のPhase 3を開始する。
 
-1. Project、Catalog、Recovery v1のJackson保存recordとMapperを実装する。
-2. JSONストリーム防御値と、Schema後に実行するJava整合性検証を実装する。
-3. 決定的な順序、任意値省略、UTC日時、および小数第3位の出力を実装する。
-4. Repository interfaceとファイル実装、fixture、不正JSON、参照不整合テストを追加する。
+1. Projectロック、外部変更検知、ステージングアセット、および原子的JSON置換を実装する。
+2. 保存確定点、結果不明、清掃再試行、および空き容量不足を実装する。
+3. ChangeSet、最大100件のUndo／Redo、保存指紋、およびdirty判定を実装する。
+4. Recoveryの定期作成、候補検証、および未保存状態での適用を実装する。
+5. Clock、UUID、ファイル操作、および障害注入を差し替え可能にしてテストする。
 
-Phase 2の実装・検査・文書更新を完了後、1つのローカルコミットにまとめる。Phase 3の
-外部ChatGPTレビュー節目までは、利用者から明示指示がない限りプッシュしない。
+Phase 3の実装・検査・文書更新を完了後、1つのローカルコミットにまとめる。Phase 3は
+外部ChatGPTレビュー節目のため、完了コミットをプッシュしてレビュー対象ハッシュを伝える。
 
 ## 変更したファイル
 
 - `backend/config/checkstyle/checkstyle.xml`
 - `backend/pom.xml`
 - `backend/src/main/java/jp/hakamap/infrastructure/persistence/schema/`
+- `backend/src/main/java/jp/hakamap/persistence/json/`
 - `backend/src/main/java/jp/hakamap/project/domain/`
 - `backend/src/test/java/jp/hakamap/HakamapApplicationTests.java`
 - `backend/src/test/java/jp/hakamap/infrastructure/persistence/schema/`
+- `backend/src/test/java/jp/hakamap/persistence/json/`
 - `backend/src/test/java/jp/hakamap/project/domain/`
 - `frontend/package.json`
 - `frontend/pnpm-lock.yaml`
@@ -565,7 +568,7 @@ Phase 2の実装・検査・文書更新を完了後、1つのローカルコミ
 
 ## 検査結果
 
-- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、22件のJavaテスト、
+- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、35件のJavaテスト、
   Checkstyle、Spotless、および実行可能JAR生成を含む。
 - `cd frontend && pnpm lint`: 成功。
 - `cd frontend && pnpm format:check`: 成功。
@@ -583,9 +586,20 @@ Phase 2の実装・検査・文書更新を完了後、1つのローカルコミ
 - 詳細設計8工程、JSON Schema、および追加レビュー指摘反映までのレビュー基準コミットは
   `ca5f8b1`であり、
   `origin/main`へ反映済みである。
+- 現在のプッシュ済み作業再開基準は`origin/main`の
+  `dfb3e6062899691ce441ade5474d24946ffce38f`である。Phase 0～2のローカルコミットは
+  まだ反映していない。
 - Phase 0の完了コミットはローカルだけに保持し、Phase 3のレビュー節目までは
   プッシュしない運用である。
 - Phase 1の完了コミットもローカルだけに保持し、Phase 3のレビュー節目までは
   プッシュしない運用である。
+- Phase 2ではProject、Catalog、Recovery v1の保存record、Project Mapper、防御的JSON Codec、
+  Schema後のJava整合性検証、およびファイルRepositoryを実装した。
+- ProjectとRecoveryのアセットは相対パス、通常ファイル、シンボリックリンク拒否、
+  UUIDファイル名、拡張子、容量、SHA-256、および画像シグネチャを検証する。
+- Catalogはドライブ絶対パスとSMB共有のUNCパスを扱い、Windowsの大文字小文字を無視した
+  正規化後にUUID、パス、およびデフォルトProjectの整合性を検証する。
+- Phase 2の完了コミットもローカルだけに保持し、Phase 3のレビュー節目でまとめて
+  プッシュする運用である。
 - 本メモのコミット後に追加された変更がある場合は、作業終了時に引き継ぎメモを更新し、
   利用者へコミットとプッシュを提案する。
