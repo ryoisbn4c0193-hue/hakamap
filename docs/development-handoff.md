@@ -598,7 +598,7 @@ Phase 4の実装・検査・文書更新を完了後、1つのローカルコミ
   `ca5f8b1`であり、
   `origin/main`へ反映済みである。
 - 現在のプッシュ済み作業再開基準は`origin/main`の
-  `44fbfdab69dc68b47a1126036a16c897f9e379d2`である。このコミットをPhase 3の
+  `4ce711886294770bf21bd12d0931ffe4dec597c8`である。このコミットをPhase 3レビュー指摘修正版の
   外部ChatGPTレビュー基準とし、Phase 0～3の実装を`origin/main`へ反映済みである。
 - Phase 2ではProject、Catalog、Recovery v1の保存record、Project Mapper、防御的JSON Codec、
   Schema後のJava整合性検証、およびファイルRepositoryを実装した。
@@ -619,7 +619,7 @@ Phase 4の実装・検査・文書更新を完了後、1つのローカルコミ
   revision 0・空履歴・未保存状態の新しい編集セッションとして適用する。
 - Catalogは更新前の正常JSONを`catalog.json.bak`へ原子的に確定してから、新しいCatalogを
   原子的に置換する。下位のJSON Repositoryも同期済み一時ファイルから原子的に置換する。
-- Phase 3完了コミット`44fbfdab69dc68b47a1126036a16c897f9e379d2`までを
+- Phase 3レビュー指摘修正版コミット`4ce711886294770bf21bd12d0931ffe4dec597c8`までを
   `origin/main`へプッシュし、`HEAD`と`origin/main`の一致を確認した。
 - 本メモのコミット後に追加された変更がある場合は、作業終了時に引き継ぎメモを更新し、
   利用者へコミットとプッシュを提案する。
