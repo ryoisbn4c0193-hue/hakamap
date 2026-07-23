@@ -99,8 +99,22 @@ public final class ProjectStorageTransactionCoordinator {
       }
       SaveResult commitResult =
           commitJson(projectJson, temporaryJson, oldSha256, candidateSha256, candidate, session);
-      if (commitResult.status() != CommitStatus.COMMITTED) {
+      if (commitResult.status() == CommitStatus.NOT_COMMITTED) {
         cleanupBeforeCommit(temporaryJson, newlyPlacedAssets);
+        temporaryJson = null;
+        return commitResult;
+      }
+      if (commitResult.status() == CommitStatus.COMMIT_OUTCOME_UNKNOWN) {
+        pendingCommit =
+            Optional.of(
+                new PendingCommit(
+                    oldSha256,
+                    candidateSha256,
+                    candidate,
+                    temporaryJson,
+                    newlyPlacedAssets,
+                    stagedAssets,
+                    recoveryFile));
         temporaryJson = null;
         return commitResult;
       }
@@ -132,10 +146,13 @@ public final class ProjectStorageTransactionCoordinator {
       if (actual.equals(pending.newSha256())) {
         session.resumeAfterOutcomeResolution(
             pending.candidate(), fingerprints.calculate(pending.candidate()), pending.newSha256());
+        cleanupTemporaryJson(pending.temporaryJson());
+        cleanupAfterCommit(projectRoot, session, pending.stagedAssets(), pending.recoveryFile());
         pendingCommit = Optional.empty();
         return OutcomeResolution.COMMITTED;
       }
       if (actual.equals(pending.oldSha256())) {
+        cleanupBeforeCommit(pending.temporaryJson(), pending.newlyPlacedAssets());
         session.resumeEditing();
         pendingCommit = Optional.empty();
         return OutcomeResolution.NOT_COMMITTED;
@@ -163,14 +180,12 @@ public final class ProjectStorageTransactionCoordinator {
     try {
       if (!StorageHashes.sha256(files.read(projectJson)).equals(candidateSha256)) {
         session.stopEditing();
-        pendingCommit = Optional.of(new PendingCommit(oldSha256, candidateSha256, candidate));
         return SaveResult.outcomeUnknown();
       }
       session.markSaved(candidate, fingerprints.calculate(candidate), candidateSha256);
       return SaveResult.committed(List.of());
     } catch (StorageException exception) {
       session.stopEditing();
-      pendingCommit = Optional.of(new PendingCommit(oldSha256, candidateSha256, candidate));
       return SaveResult.outcomeUnknown();
     }
   }
@@ -194,7 +209,6 @@ public final class ProjectStorageTransactionCoordinator {
       // 原子的移動の結果を読み戻せない場合は結果不明として扱う。
     }
     session.stopEditing();
-    pendingCommit = Optional.of(new PendingCommit(oldSha256, candidateSha256, candidate));
     return SaveResult.outcomeUnknown();
   }
 
@@ -294,14 +308,19 @@ public final class ProjectStorageTransactionCoordinator {
   }
 
   private void cleanupBeforeCommit(Path temporaryJson, List<Path> newlyPlacedAssets) {
-    if (temporaryJson != null) {
-      try {
-        files.deleteIfExists(temporaryJson);
-      } catch (StorageException ignored) {
-        // 次回起動時の既知一時ファイル清掃へ回す。
-      }
-    }
+    cleanupTemporaryJson(temporaryJson);
     cleanupPlacedAssets(newlyPlacedAssets);
+  }
+
+  private void cleanupTemporaryJson(Path temporaryJson) {
+    if (temporaryJson == null) {
+      return;
+    }
+    try {
+      files.deleteIfExists(temporaryJson);
+    } catch (StorageException ignored) {
+      // 次回起動時の既知一時ファイル清掃へ回す。
+    }
   }
 
   private void cleanupPlacedAssets(List<Path> paths) {
@@ -322,5 +341,17 @@ public final class ProjectStorageTransactionCoordinator {
     }
   }
 
-  private record PendingCommit(String oldSha256, String newSha256, ProjectAggregate candidate) {}
+  private record PendingCommit(
+      String oldSha256,
+      String newSha256,
+      ProjectAggregate candidate,
+      Path temporaryJson,
+      List<Path> newlyPlacedAssets,
+      List<StagedAsset> stagedAssets,
+      Path recoveryFile) {
+    private PendingCommit {
+      newlyPlacedAssets = List.copyOf(newlyPlacedAssets);
+      stagedAssets = List.copyOf(stagedAssets);
+    }
+  }
 }

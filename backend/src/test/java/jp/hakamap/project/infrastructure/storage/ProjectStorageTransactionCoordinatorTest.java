@@ -151,6 +151,85 @@ class ProjectStorageTransactionCoordinatorTest {
   }
 
   @Test
+  void retainsPlacedAssetUntilUnknownCommitIsResolved() throws Exception {
+    Path root = initializedProject();
+    String baseSha = StorageHashes.sha256(Files.readAllBytes(root.resolve("project.json")));
+    ProjectEditingSession session =
+        new ProjectEditingSession(PersistenceTestFixtures.emptyProject(), baseSha, fingerprints);
+    UUID assetUuid = UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    byte[] png = new byte[] {(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0};
+    Path stagedPath = temporaryDirectory.resolve("unknown-outcome-staged.png");
+    Files.write(stagedPath, png);
+    AssetMetadata metadata =
+        new AssetMetadata(
+            new AssetId(assetUuid),
+            AssetType.BACKGROUND,
+            Optional.empty(),
+            "background.png",
+            "assets/backgrounds/" + assetUuid + ".png",
+            "image/png",
+            "image/png",
+            png.length,
+            StorageHashes.sha256(png),
+            PersistenceTestFixtures.CREATED_AT,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+    session.apply(
+        0,
+        new ProjectChangeSet(
+            new CommandId(UUID.fromString("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")),
+            CommandType.SET_BACKGROUND,
+            PersistenceTestFixtures.CREATED_AT,
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(EntityDelta.created(new AssetId(assetUuid), metadata)),
+            Optional.empty(),
+            Optional.empty(),
+            Set.of()));
+    AtomicBoolean disconnected = new AtomicBoolean(true);
+    StorageFileOperations operations =
+        new ForwardingOperations(new NioStorageFileOperations()) {
+          private Path committedTarget;
+
+          @Override
+          public void atomicMoveReplacing(Path source, Path target) {
+            delegate.atomicMoveReplacing(source, target);
+            committedTarget = target;
+            throw new StorageException("injected-after-move");
+          }
+
+          @Override
+          public byte[] read(Path path) {
+            if (disconnected.get() && path.equals(committedTarget)) {
+              throw new StorageException("injected-disconnect");
+            }
+            return delegate.read(path);
+          }
+        };
+    ProjectStorageTransactionCoordinator coordinator = coordinator(operations);
+    Path placedAsset = root.resolve(metadata.relativePath());
+
+    try (ProjectFileLock lock = ProjectFileLock.acquire(root)) {
+      SaveResult result =
+          coordinator.save(
+              root, session, 1, lock, List.of(new StagedAsset(stagedPath, metadata)), null);
+
+      assertThat(result.status()).isEqualTo(CommitStatus.COMMIT_OUTCOME_UNKNOWN);
+      assertThat(Files.readAllBytes(placedAsset)).isEqualTo(png);
+      assertThat(Files.exists(stagedPath)).isTrue();
+
+      disconnected.set(false);
+      assertThat(coordinator.resolveUnknownOutcome(root, session, lock))
+          .isEqualTo(OutcomeResolution.COMMITTED);
+      assertThat(Files.readAllBytes(placedAsset)).isEqualTo(png);
+      assertThat(Files.exists(stagedPath)).isFalse();
+    }
+  }
+
+  @Test
   void rejectsInsufficientSpaceAndDuplicateLock() throws Exception {
     Path root = initializedProject();
     ProjectEditingSession session = dirtySession(root);
