@@ -401,8 +401,10 @@ backend/src/main/resources/json-schema/
 - 隣接バージョン間の変換はJavaで`V1ToV2ProjectMigrator`のように、変換元、変換先、
   対象形式が分かるクラスとして実装する。
 - 変換元Schema検証、変換、変換先Schema検証、Javaによる業務整合性検証の順で実行する。
-- 使用するSchema検証ライブラリはJava 21、Draft 2020-12、オフライン同梱、および
-  デスクトップ配布可能なライセンスへの適合を実装時に確認して選定する。
+- Schema検証ライブラリには、Java 21、Jackson 3、およびDraft 2020-12に対応する
+  `com.networknt:json-schema-validator:3.0.6`を使用する。
+- Schemaはクラスパスまたはメモリからだけ供給して外部取得を無効にし、Apache License 2.0の
+  ライセンスとNOTICEを配布物の第三者ライセンス一覧へ含める。
 - MVPのProject Schema、Catalog Schema、およびRecovery Schemaはいずれも初期バージョン1とし、
   旧版が存在しないためMVPリリース時点ではバージョン変換処理を持たない。
 - バージョン2以降を追加する変更で、その変更内容に対応する隣接バージョン間の変換仕様と
@@ -622,6 +624,8 @@ backend/src/main/resources/json-schema/
 ## 保存と書き込み
 
 - プロジェクトの保存は利用者が明示的に実行する手動保存とする。
+- 未保存変更がない状態での手動保存は成功したno-opとし、JSONの再書き込み、更新日時、
+  編集リビジョン、履歴、および自動バックアップを変更しない。
 - プロジェクトを開いている間の編集状態はJavaバックエンドの`ProjectAggregate`として
   メモリ上で保持し、編集状態の正とする。
 - プロジェクトを開くたびに`revision`を0から開始し、成功したデータ変更とUndo／Redoごとに
@@ -684,6 +688,11 @@ backend/src/main/resources/json-schema/
   親参照、および管理領域外を指すパスを拒否する。
 - Undo／Redo履歴、編集リビジョン、ズーム、パン、および選択状態は復旧JSONへ含めない。
 - 復旧を適用した新しい編集セッションの`revision`は0から開始する。
+- 復旧適用後のUndo／Redo履歴は空とし、復旧内容を未保存変更として開く。
+- 復旧候補の確認では、正式保存データの更新日時と復旧候補の作成日時を表示し、
+  最大30秒程度前の状態である可能性を案内する。
+- 復旧内容を正式`project.json`へ直ちに上書きせず、利用者が確認後に手動保存または
+  変更破棄できるようにする。
 - `projectSnapshot`は復旧Schema内の構造検証に加え、対応するProject Schemaと
   Javaの業務整合性検証にも通す。
 - 復旧JSONは利用者入力を含むため、その内容をログへ出力しない。
@@ -695,7 +704,7 @@ backend/src/main/resources/json-schema/
 - 別プロジェクトとして復旧する場合は、別保存と同様に新しいプロジェクトUUID、名称、
   `createdAt`、および`updatedAt`を設定し、配下データのUUIDは維持する。
 - 保存中および読み込み中の進捗表示とキャンセル可能範囲は`frontend-ui.md`に従う。
-  ファイル置換に使用する具体的なJava APIは詳細設計で定める。
+- ファイル置換の確定順序と具体的なJava APIは`storage-transactions.md`に従う。
 
 ## 未保存アセットのステージング
 
@@ -722,6 +731,12 @@ backend/src/main/resources/json-schema/
 2. 新しい編集状態を一時JSONへ全体出力し、構造とデータ整合性を検証する。
 3. 一時JSONを正式な`project.json`へ置換し、保存完了とする。
 4. 新しい`project.json`とUndo／Redo履歴のどちらからも参照されなくなった旧アセットを削除する。
+
+- `project.updatedAt`は正式JSONへ含める保存確定用時刻とし、原子的置換が成功した場合だけ
+  メモリ上のProjectへ反映する。
+- 原子的置換成功後の旧アセットまたは一時ファイルの清掃失敗は保存成功を取り消さず、
+  警告して次回起動または保存時に再試行する。
+- 保存成功では編集`revision`とUndo／Redo履歴を変更しない。
 
 - 確定前に処理が失敗した場合は、元の`project.json`とそれが参照する旧アセットを維持する。
 - 新規アセットのコピー後、JSONの確定前に中断した場合、そのファイルは未参照ファイルとして

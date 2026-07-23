@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hakamap:recovery:1",
+  "title": "Hakamap Recovery v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recoverySchemaVersion",
+    "applicationVersion",
+    "projectId",
+    "createdAt",
+    "baseProjectSha256",
+    "projectSnapshot",
+    "stagedAssets"
+  ],
+  "properties": {
+    "recoverySchemaVersion": {
+      "const": 1
+    },
+    "applicationVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[^\\u0000-\\u0020\\u007f]+$"
+    },
+    "projectId": {
+      "$ref": "#/$defs/uuidV4"
+    },
+    "createdAt": {
+      "$ref": "#/$defs/utcInstantMillis"
+    },
+    "baseProjectSha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "projectSnapshot": {
+      "type": "object",
+      "description": "The corresponding bundled Project Schema is applied separately."
+    },
+    "stagedAssets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/stagedAsset"
+      }
+    }
+  },
+  "$defs": {
+    "uuidV4": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "utcInstantMillis": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "stagedAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assetId",
+        "tempRelativePath",
+        "sizeBytes",
+        "sha256"
+      ],
+      "properties": {
+        "assetId": {
+          "$ref": "#/$defs/uuidV4"
+        },
+        "tempRelativePath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^[0-9a-f-]+/[0-9a-f-]+\\.(png|jpg|jpeg|webp)$"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 104857600
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}

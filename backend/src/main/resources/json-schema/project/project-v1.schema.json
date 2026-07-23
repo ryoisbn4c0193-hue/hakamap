@@ -1,0 +1,557 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hakamap:project:1",
+  "title": "Hakamap Project v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "project",
+    "areas",
+    "graves",
+    "people",
+    "assets"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "project": {
+      "$ref": "#/$defs/projectMetadata"
+    },
+    "background": {
+      "$ref": "#/$defs/backgroundPlacement"
+    },
+    "areas": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "$ref": "#/$defs/area"
+      }
+    },
+    "graves": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/grave"
+      }
+    },
+    "people": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/person"
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/backgroundAsset"
+          },
+          {
+            "$ref": "#/$defs/attachmentAsset"
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "uuidV4": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "utcInstantMillis": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "singleLineString": {
+      "type": "string",
+      "pattern": "^[^\\u0000-\\u001f\\u007f\\u2028\\u2029]*$"
+    },
+    "multiLineString": {
+      "type": "string",
+      "pattern": "^[^\\u0000-\\u0009\\u000b-\\u001f\\u007f\\u2028\\u2029]*$"
+    },
+    "mapCoordinate": {
+      "type": "number",
+      "multipleOf": 0.001
+    },
+    "positiveMapValue": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "multipleOf": 0.001
+    },
+    "rotation": {
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMaximum": 360,
+      "multipleOf": 0.001
+    },
+    "displayOrder": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "projectMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuidV4"
+        },
+        "name": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/singleLineString"
+            },
+            {
+              "minLength": 1,
+              "maxLength": 50
+            }
+          ]
+        },
+        "createdAt": {
+          "$ref": "#/$defs/utcInstantMillis"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/utcInstantMillis"
+        }
+      }
+    },
+    "backgroundPlacement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assetId",
+        "x",
+        "y",
+        "rotation",
+        "scaleX",
+        "scaleY"
+      ],
+      "properties": {
+        "assetId": {
+          "$ref": "#/$defs/uuidV4"
+        },
+        "x": {
+          "$ref": "#/$defs/mapCoordinate"
+        },
+        "y": {
+          "$ref": "#/$defs/mapCoordinate"
+        },
+        "rotation": {
+          "$ref": "#/$defs/rotation"
+        },
+        "scaleX": {
+          "$ref": "#/$defs/positiveMapValue"
+        },
+        "scaleY": {
+          "$ref": "#/$defs/positiveMapValue"
+        }
+      }
+    },
+    "area": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "x",
+        "y",
+        "width",
+        "height",
+        "colorPreset",
+        "visible",
+        "displayOrder"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuidV4"
+        },
+        "name": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/singleLineString"
+            },
+            {
+              "minLength": 1,
+              "maxLength": 25
+            }
+          ]
+        },
+        "x": {
+          "$ref": "#/$defs/mapCoordinate"
+        },
+        "y": {
+          "$ref": "#/$defs/mapCoordinate"
+        },
+        "width": {
+          "$ref": "#/$defs/positiveMapValue"
+        },
+        "height": {
+          "$ref": "#/$defs/positiveMapValue"
+        },
+        "colorPreset": {
+          "enum": [
+            "blue",
+            "green",
+            "purple",
+            "teal",
+            "indigo",
+            "brown",
+            "pink",
+            "navy",
+            "violet",
+            "turquoise",
+            "olive",
+            "burgundy"
+          ]
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "displayOrder": {
+          "$ref": "#/$defs/displayOrder"
+        }
+      }
+    },
+    "grave": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "x",
+        "y",
+        "width",
+        "height",
+        "rotation",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuidV4"
+        },
+        "managementNumber": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/singleLineString"
+            },
+            {
+              "minLength": 1,
+              "maxLength": 25
+            }
+          ]
+        },
+        "name": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/singleLineString"
+            },
+            {
+              "minLength": 1,
+              "maxLength": 50
+            }
+          ]
+        },
+        "notes": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/multiLineString"
+            },
+            {
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          ]
+        },
+        "x": {
+          "$ref": "#/$defs/mapCoordinate"
+        },
+        "y": {
+          "$ref": "#/$defs/mapCoordinate"
+        },
+        "width": {
+          "$ref": "#/$defs/positiveMapValue"
+        },
+        "height": {
+          "$ref": "#/$defs/positiveMapValue"
+        },
+        "rotation": {
+          "$ref": "#/$defs/rotation"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/utcInstantMillis"
+        }
+      }
+    },
+    "person": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "graveId",
+        "createdAt",
+        "updatedAt",
+        "displayOrder"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuidV4"
+        },
+        "graveId": {
+          "$ref": "#/$defs/uuidV4"
+        },
+        "name": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/singleLineString"
+            },
+            {
+              "minLength": 1,
+              "maxLength": 50
+            }
+          ]
+        },
+        "posthumousName": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/singleLineString"
+            },
+            {
+              "minLength": 1,
+              "maxLength": 50
+            }
+          ]
+        },
+        "createdAt": {
+          "$ref": "#/$defs/utcInstantMillis"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/utcInstantMillis"
+        },
+        "displayOrder": {
+          "$ref": "#/$defs/displayOrder"
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "name"
+          ]
+        },
+        {
+          "required": [
+            "posthumousName"
+          ]
+        }
+      ]
+    },
+    "originalFileName": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/singleLineString"
+        },
+        {
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[^/\\\\]+$"
+        }
+      ]
+    },
+    "sourceMediaType": {
+      "enum": [
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+        "application/pdf"
+      ]
+    },
+    "storedMediaType": {
+      "enum": [
+        "image/png",
+        "image/jpeg",
+        "image/webp"
+      ]
+    },
+    "backgroundAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "assetType",
+        "originalFileName",
+        "relativePath",
+        "sourceMediaType",
+        "storedMediaType",
+        "sizeBytes",
+        "sha256",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuidV4"
+        },
+        "assetType": {
+          "const": "background"
+        },
+        "originalFileName": {
+          "$ref": "#/$defs/originalFileName"
+        },
+        "relativePath": {
+          "type": "string",
+          "pattern": "^assets/backgrounds/[0-9a-f-]+\\.(png|jpg|jpeg|webp)$"
+        },
+        "sourceMediaType": {
+          "$ref": "#/$defs/sourceMediaType"
+        },
+        "storedMediaType": {
+          "$ref": "#/$defs/storedMediaType"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 104857600
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/utcInstantMillis"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sourceMediaType": {
+                "const": "application/pdf"
+              }
+            },
+            "required": [
+              "sourceMediaType"
+            ]
+          },
+          "then": {
+            "properties": {
+              "storedMediaType": {
+                "const": "image/png"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "attachmentAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "assetType",
+        "originalFileName",
+        "relativePath",
+        "sourceMediaType",
+        "storedMediaType",
+        "sizeBytes",
+        "sha256",
+        "createdAt",
+        "graveId",
+        "displayName",
+        "updatedAt",
+        "displayOrder"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuidV4"
+        },
+        "assetType": {
+          "const": "attachment"
+        },
+        "originalFileName": {
+          "$ref": "#/$defs/originalFileName"
+        },
+        "relativePath": {
+          "type": "string",
+          "pattern": "^assets/attachments/[0-9a-f-]+\\.(png|jpg|jpeg|webp)$"
+        },
+        "sourceMediaType": {
+          "$ref": "#/$defs/sourceMediaType"
+        },
+        "storedMediaType": {
+          "$ref": "#/$defs/storedMediaType"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 26214400
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/utcInstantMillis"
+        },
+        "graveId": {
+          "$ref": "#/$defs/uuidV4"
+        },
+        "displayName": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/singleLineString"
+            },
+            {
+              "minLength": 1,
+              "maxLength": 100
+            }
+          ]
+        },
+        "description": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/multiLineString"
+            },
+            {
+              "minLength": 1,
+              "maxLength": 500
+            }
+          ]
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/utcInstantMillis"
+        },
+        "displayOrder": {
+          "$ref": "#/$defs/displayOrder"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sourceMediaType": {
+                "const": "application/pdf"
+              }
+            },
+            "required": [
+              "sourceMediaType"
+            ]
+          },
+          "then": {
+            "properties": {
+              "storedMediaType": {
+                "const": "image/png"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

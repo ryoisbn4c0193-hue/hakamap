@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hakamap:catalog:1",
+  "title": "Hakamap Catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "projects"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "defaultProjectId": {
+      "$ref": "#/$defs/uuidV4"
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/activeProject"
+          },
+          {
+            "$ref": "#/$defs/trashedProject"
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "uuidV4": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "utcInstantMillis": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$"
+    },
+    "singleLineString": {
+      "type": "string",
+      "pattern": "^[^\\u0000-\\u001f\\u007f\\u2028\\u2029]*$"
+    },
+    "windowsPath": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/singleLineString"
+        },
+        {
+          "minLength": 1,
+          "maxLength": 32767
+        }
+      ]
+    },
+    "lastKnownName": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/singleLineString"
+        },
+        {
+          "minLength": 1,
+          "maxLength": 50
+        }
+      ]
+    },
+    "activeProject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "path",
+        "lastKnownName",
+        "lastKnownCreatedAt",
+        "lastKnownUpdatedAt",
+        "state"
+      ],
+      "properties": {
+        "projectId": {
+          "$ref": "#/$defs/uuidV4"
+        },
+        "path": {
+          "$ref": "#/$defs/windowsPath"
+        },
+        "lastKnownName": {
+          "$ref": "#/$defs/lastKnownName"
+        },
+        "lastKnownCreatedAt": {
+          "$ref": "#/$defs/utcInstantMillis"
+        },
+        "lastKnownUpdatedAt": {
+          "$ref": "#/$defs/utcInstantMillis"
+        },
+        "state": {
+          "const": "active"
+        }
+      }
+    },
+    "trashedProject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "path",
+        "originalPath",
+        "lastKnownName",
+        "lastKnownCreatedAt",
+        "lastKnownUpdatedAt",
+        "state"
+      ],
+      "properties": {
+        "projectId": {
+          "$ref": "#/$defs/uuidV4"
+        },
+        "path": {
+          "$ref": "#/$defs/windowsPath"
+        },
+        "originalPath": {
+          "$ref": "#/$defs/windowsPath"
+        },
+        "lastKnownName": {
+          "$ref": "#/$defs/lastKnownName"
+        },
+        "lastKnownCreatedAt": {
+          "$ref": "#/$defs/utcInstantMillis"
+        },
+        "lastKnownUpdatedAt": {
+          "$ref": "#/$defs/utcInstantMillis"
+        },
+        "state": {
+          "const": "trashed"
+        }
+      }
+    }
+  }
+}

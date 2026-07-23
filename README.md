@@ -3,7 +3,7 @@
 Hakamapは、墓地全体の図面を背景として取り込み、エリア、墓所、人物、写真・添付情報を
 地図上で管理する、オフラインかつ単一ユーザー向けのWindowsアプリです。
 
-MVPの要件定義と基本設計レビューの指摘反映は完了し、詳細設計へ移行できる状態です。
+MVPの要件定義、基本設計レビューの指摘反映、および詳細設計8工程は完了しています。
 既存の実装や依存関係には、設計確定前の構成が残っている場合があります。設計と実装では`docs/requirements`、
 `docs/design`、および`docs/adr`にある最新文書を正とします。
 
@@ -117,6 +117,14 @@ cd backend
 
 - [要件文書一覧](docs/requirements/README.md)
 - [基本アーキテクチャ](docs/design/basic-architecture.md)
+- [ドメインモデルと不変条件](docs/design/domain-model.md)
+- [JSON SchemaとJava保存モデル](docs/design/json-schema-and-persistence-model.md)
+- [コマンドとUndo／Redo差分](docs/design/commands-and-history.md)
+- [保存・バックアップ・復旧トランザクション](docs/design/storage-transactions.md)
+- [ローカルAPI・DTO・エラーコード](docs/design/local-api.md)
+- [フロントエンド状態管理](docs/design/frontend-state-management.md)
+- [PixiJS描画・座標変換・当たり判定](docs/design/pixi-map-interaction.md)
+- [テスト・テストデータ・Windows検証](docs/design/test-strategy.md)
 - [データ保存とプライバシー](docs/design/data-storage-and-privacy.md)
 - [バックアップと復元](docs/design/backup-and-restore.md)
 - [ADR](docs/adr/)
@@ -127,7 +135,7 @@ cd backend
 アーキテクチャ判断は`docs/adr`です。同じ内容が他の文書と異なる場合は、正本を確認して
 未確定事項を推測で確定しないでください。
 
-詳細設計は、次の責務順で進めます。
+詳細設計は、次の責務順で作成しています。
 
 1. ドメインモデルと不変条件
 2. JSON SchemaとJava保存モデル
