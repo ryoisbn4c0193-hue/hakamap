@@ -34,7 +34,7 @@ import {
 } from '../api/hakamapClient';
 
 type ProjectCatalogViewProps = {
-  onOpened: () => void;
+  onOpened: (projectId: string) => void;
 };
 
 function ProjectCatalogView({ onOpened }: ProjectCatalogViewProps) {
@@ -57,7 +57,7 @@ function ProjectCatalogView({ onOpened }: ProjectCatalogViewProps) {
     async (projectId: string) => {
       const opened = await openProject(projectId);
       if (opened.recoveryCandidate === null) {
-        onOpened();
+        onOpened(projectId);
         return;
       }
       setRecoveryProjectId(projectId);
@@ -234,7 +234,7 @@ function ProjectCatalogView({ onOpened }: ProjectCatalogViewProps) {
                 .mutateAsync(() => resolveRecovery(recoveryProjectId, 'discard'))
                 .then(() => {
                   setRecoveryProjectId(undefined);
-                  onOpened();
+                  onOpened(recoveryProjectId);
                 });
             }}
           >
@@ -250,7 +250,7 @@ function ProjectCatalogView({ onOpened }: ProjectCatalogViewProps) {
                 .mutateAsync(() => resolveRecovery(recoveryProjectId, 'apply'))
                 .then(() => {
                   setRecoveryProjectId(undefined);
-                  onOpened();
+                  onOpened(recoveryProjectId);
                 });
             }}
             variant="contained"

@@ -180,25 +180,30 @@ public final class ProjectCatalogService {
       throw new ProjectCatalogException("project-close-action-invalid");
     }
     if ("save".equals(action)) {
-      var result = openProjects.save(projectId, storage, assetStaging.list(projectId));
-      if (result.status() == CommitStatus.COMMIT_OUTCOME_UNKNOWN) {
-        throw new ProjectCatalogException("storage-commit-outcome-unknown");
-      }
-      if (result.status() == CommitStatus.NOT_COMMITTED) {
-        throw new ProjectCatalogException(saveErrorCode(result.code()));
-      }
-      if (result.status() == CommitStatus.NO_CHANGES) {
-        assetStaging.discard(projectId);
-      } else {
-        assetStaging.forget(projectId);
-      }
-      recovery.cleanupAfterSave(projectId);
+      save(projectId);
     } else {
       recovery.cleanupAfterDiscard(projectId);
     }
     openProjects.close(projectId);
     selections.invalidateSession(sessionId);
     return new CloseProjectView("closed");
+  }
+
+  public synchronized SaveProjectView save(UUID projectId) {
+    var result = openProjects.save(projectId, storage, assetStaging.list(projectId));
+    if (result.status() == CommitStatus.COMMIT_OUTCOME_UNKNOWN) {
+      throw new ProjectCatalogException("storage-commit-outcome-unknown");
+    }
+    if (result.status() == CommitStatus.NOT_COMMITTED) {
+      throw new ProjectCatalogException(saveErrorCode(result.code()));
+    }
+    if (result.status() == CommitStatus.NO_CHANGES) {
+      assetStaging.discard(projectId);
+    } else {
+      assetStaging.forget(projectId);
+    }
+    recovery.cleanupAfterSave(projectId);
+    return new SaveProjectView(result.status() == CommitStatus.NO_CHANGES ? "noChanges" : "saved");
   }
 
   private String saveErrorCode(String code) {
@@ -589,4 +594,6 @@ public final class ProjectCatalogService {
       Instant recoveryCreatedAt, Instant formalUpdatedAt, int stagedAssetCount) {}
 
   public record CloseProjectView(String status) {}
+
+  public record SaveProjectView(String status) {}
 }

@@ -360,6 +360,7 @@ DELETE /api/v1/catalog/projects/{projectId}
 PUT    /api/v1/catalog/default-project
 DELETE /api/v1/catalog/default-project
 POST   /api/v1/projects
+POST   /api/v1/projects/{projectId}/save
 POST   /api/v1/projects/{projectId}/close
 POST   /api/v1/projects/{projectId}/recovery
 ```
@@ -370,6 +371,8 @@ POST   /api/v1/projects/{projectId}/recovery
 - 完全削除はCatalog上で`trashed`のProjectだけに許可する。
 - Project切り替え時の未保存確認は、保存、破棄、キャンセルの結果に応じて画面が
   明示的にAPIを呼び分ける。
+- 保存APIはProjectを開いたまま手動保存し、`saved | noChanges`を返す。保存成功後も
+  Undo／Redo履歴を維持し、Recovery JSONと確定済みステージングを清掃する。
 - Catalog一覧の各Projectには、起動時に検証した有効な自動復旧候補の有無を返す。
 - Projectを開く応答は、有効な候補がある場合だけ、復旧作成日時、正式保存更新日時、
   およびステージングアセット件数を`recoveryCandidate`として返す。内部パスは返さない。

@@ -57,6 +57,11 @@ public class ProjectCatalogController {
     return catalog.close(projectId, body.action(), sessionId(request));
   }
 
+  @PostMapping("/projects/{projectId}/save")
+  ProjectCatalogService.SaveProjectView save(@PathVariable UUID projectId) {
+    return catalog.save(projectId);
+  }
+
   @PostMapping("/projects/{projectId}/recovery")
   ProjectRecoveryCoordinator.RecoveryResult recover(
       @PathVariable UUID projectId, @RequestBody RecoveryRequest body) {

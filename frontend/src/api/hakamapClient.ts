@@ -46,8 +46,141 @@ const recoveryResultSchema = z.object({
   code: z.string(),
 });
 
+const historySummarySchema = z.object({
+  canUndo: z.boolean(),
+  canRedo: z.boolean(),
+  undoCount: z.number().int().nonnegative(),
+  redoCount: z.number().int().nonnegative(),
+});
+
+const graveSchema = z.object({
+  graveId: z.uuid(),
+  managementNumber: z.string().nullable(),
+  name: z.string().nullable(),
+  notes: z.string().nullable(),
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number(),
+  rotation: z.number(),
+  updatedAt: z.iso.datetime(),
+});
+
+const graveStateSchema = z.object({
+  graveId: z.uuid(),
+  areaId: z.uuid().nullable(),
+  completionStatus: z.string(),
+  incompleteReasons: z.array(z.string()),
+  warnings: z.array(z.string()),
+});
+
+const assetSchema = z.object({
+  assetId: z.uuid(),
+  assetType: z.string(),
+  graveId: z.uuid().nullable(),
+  displayName: z.string().nullable(),
+  description: z.string().nullable(),
+  mediaType: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime().nullable(),
+  displayOrder: z.number().int().nullable(),
+});
+
+const projectSnapshotSchema = z.object({
+  projectId: z.uuid(),
+  revision: z.number().int().nonnegative(),
+  dirty: z.boolean(),
+  project: z.object({
+    projectId: z.uuid(),
+    name: z.string(),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+  }),
+  background: z.unknown().nullable(),
+  areas: z.array(
+    z.object({
+      areaId: z.uuid(),
+      name: z.string(),
+      x: z.number(),
+      y: z.number(),
+      width: z.number(),
+      height: z.number(),
+      colorPreset: z.string(),
+      visible: z.boolean(),
+      displayOrder: z.number().int(),
+    }),
+  ),
+  graves: z.array(graveSchema),
+  assets: z.array(assetSchema),
+  graveStates: z.array(graveStateSchema),
+  historySummary: historySummarySchema,
+  capabilities: z.object({
+    canSave: z.boolean(),
+    canUndo: z.boolean(),
+    canRedo: z.boolean(),
+    canEdit: z.boolean(),
+  }),
+});
+
+const commandResponseSchema = z.object({
+  status: z.string(),
+  revision: z.number().int().nonnegative(),
+  dirty: z.boolean(),
+  upsertedAreas: z.array(z.unknown()),
+  deletedAreaIds: z.array(z.uuid()),
+  upsertedGraves: z.array(graveSchema),
+  deletedGraveIds: z.array(z.uuid()),
+  personChanges: z.array(z.unknown()),
+  upsertedAssets: z.array(assetSchema),
+  deletedAssetIds: z.array(z.uuid()),
+  graveStates: z.array(graveStateSchema),
+  warnings: z.array(z.object({ code: z.string(), count: z.number().int() })),
+  historySummary: historySummarySchema,
+  result: z.unknown(),
+});
+
+const personSchema = z.object({
+  personId: z.uuid(),
+  graveId: z.uuid(),
+  name: z.string().nullable(),
+  posthumousName: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+  displayOrder: z.number().int(),
+});
+
+const peoplePageSchema = z.object({
+  projectId: z.uuid(),
+  graveId: z.uuid(),
+  revision: z.number().int(),
+  items: z.array(personSchema),
+  nextCursor: z.string().nullable(),
+  totalCount: z.number().int().nonnegative(),
+});
+
+const historySchema = z.object({
+  projectId: z.uuid(),
+  revision: z.number().int(),
+  dirty: z.boolean(),
+  items: z.array(
+    z.object({
+      commandId: z.uuid(),
+      commandType: z.string(),
+      commandTimestamp: z.iso.datetime(),
+      targetCount: z.number().int(),
+      applied: z.boolean(),
+      savedMarker: z.boolean(),
+    }),
+  ),
+  historySummary: historySummarySchema,
+});
+
 export type CatalogProject = z.infer<typeof projectSchema>;
 export type ProjectCatalog = z.infer<typeof catalogSchema>;
+export type ProjectSnapshot = z.infer<typeof projectSnapshotSchema>;
+export type Grave = z.infer<typeof graveSchema>;
+export type Person = z.infer<typeof personSchema>;
 
 let csrfToken: string | undefined;
 
@@ -168,6 +301,18 @@ export async function chooseProjectDirectory(
   return { id, displayName };
 }
 
+export async function chooseAttachmentFiles(): Promise<string[]> {
+  const selected = await requireJson(
+    await hakamapFetch('/api/v1/file-selections', {
+      body: JSON.stringify({ purpose: 'attachmentImport', selectionMode: 'multipleFiles' }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    }),
+    fileSelectionSchema,
+  );
+  return selected.status === 'cancelled' ? [] : selected.fileSelectionIds;
+}
+
 export async function createProject(name: string, directorySelectionId: string): Promise<void> {
   await changeProject('/api/v1/projects', 'POST', { name, directorySelectionId });
 }
@@ -207,6 +352,10 @@ export async function closeProject(projectId: string, action: 'save' | 'discard'
   await changeProject(`/api/v1/projects/${projectId}/close`, 'POST', { action });
 }
 
+export async function saveProject(projectId: string): Promise<void> {
+  await changeProject(`/api/v1/projects/${projectId}/save`, 'POST');
+}
+
 export async function setDefaultProject(projectId: string): Promise<void> {
   await changeProject('/api/v1/catalog/default-project', 'PUT', { projectId });
 }
@@ -239,6 +388,55 @@ export async function restoreProject(
 
 export async function permanentlyDeleteProject(projectId: string): Promise<void> {
   await changeProject(`/api/v1/catalog/projects/${projectId}`, 'DELETE');
+}
+
+export async function getProjectSnapshot(projectId: string): Promise<ProjectSnapshot> {
+  return requireJson(
+    await hakamapFetch(`/api/v1/projects/${projectId}/snapshot`),
+    projectSnapshotSchema,
+  );
+}
+
+export async function executeProjectCommand(
+  projectId: string,
+  expectedRevision: number,
+  commandType: string,
+  payload: unknown,
+): Promise<z.infer<typeof commandResponseSchema>> {
+  return requireJson(
+    await hakamapFetch(`/api/v1/projects/${projectId}/commands`, {
+      body: JSON.stringify({ commandType, expectedRevision, payload }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    }),
+    commandResponseSchema,
+  );
+}
+
+export async function getGravePeople(projectId: string, graveId: string) {
+  return requireJson(
+    await hakamapFetch(`/api/v1/projects/${projectId}/graves/${graveId}/people`),
+    peoplePageSchema,
+  );
+}
+
+export async function getProjectHistory(projectId: string) {
+  return requireJson(await hakamapFetch(`/api/v1/projects/${projectId}/history`), historySchema);
+}
+
+export async function changeHistory(
+  projectId: string,
+  action: 'undo' | 'redo',
+  expectedRevision: number,
+) {
+  return requireJson(
+    await hakamapFetch(`/api/v1/projects/${projectId}/history/${action}`, {
+      body: JSON.stringify({ expectedRevision }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    }),
+    commandResponseSchema,
+  );
 }
 
 export function clearSessionForTest(): void {

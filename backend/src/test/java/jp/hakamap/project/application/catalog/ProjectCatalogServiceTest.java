@@ -176,7 +176,9 @@ class ProjectCatalogServiceTest {
             Optional.empty(),
             Set.of()));
 
-    assertThat(service.close(projectId, "save", "session").status()).isEqualTo("closed");
+    assertThat(service.save(projectId).status()).isEqualTo("saved");
+    assertThat(openProjects.isOpen(projectId)).isTrue();
+    assertThat(service.close(projectId, "discard", "session").status()).isEqualTo("closed");
     assertThat(service.open(projectId).name()).isEqualTo("保存後");
     var reopened = openProjects.editingSession(projectId, fingerprints);
     reopened.apply(

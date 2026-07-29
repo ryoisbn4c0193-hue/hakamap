@@ -1,4 +1,5 @@
 import {
+  Alert,
   AppBar,
   Box,
   Button,
@@ -6,8 +7,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
-  Paper,
   Stack,
   Toolbar,
   Typography,
@@ -15,20 +14,23 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { closeProject, requestApplicationExit } from './api/hakamapClient';
+import { closeProject, requestApplicationExit, saveProject } from './api/hakamapClient';
+import EditorView from './editor/EditorView';
 import ProjectCatalogView from './projects/ProjectCatalogView';
 import { useUiStore } from './state/uiStore';
 import './App.css';
 
 function App() {
   const queryClient = useQueryClient();
-  const leftPanelCollapsed = useUiStore((state) => state.leftPanelCollapsed);
-  const rightPanelCollapsed = useUiStore((state) => state.rightPanelCollapsed);
   const toggleLeftPanel = useUiStore((state) => state.toggleLeftPanel);
   const toggleRightPanel = useUiStore((state) => state.toggleRightPanel);
+  const resetEditor = useUiStore((state) => state.resetEditor);
   const [exitRequested, setExitRequested] = useState(false);
   const [editorVisible, setEditorVisible] = useState(false);
+  const [openProjectId, setOpenProjectId] = useState<string>();
   const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [appMessage, setAppMessage] = useState<string>();
 
   const exitApplication = async () => {
     setExitRequested(true);
@@ -40,12 +42,13 @@ function App() {
   };
 
   const leaveEditor = async (action: 'save' | 'discard') => {
-    const catalog = queryClient.getQueryData<{ openProjectId: string | null }>(['projectCatalog']);
-    if (catalog?.openProjectId !== null && catalog?.openProjectId !== undefined) {
-      await closeProject(catalog.openProjectId, action);
+    if (openProjectId !== undefined) {
+      await closeProject(openProjectId, action);
     }
     setCloseConfirmationOpen(false);
     setEditorVisible(false);
+    setOpenProjectId(undefined);
+    resetEditor();
     await queryClient.invalidateQueries({ queryKey: ['projectCatalog'] });
   };
 
@@ -59,6 +62,30 @@ function App() {
           <Stack direction="row" spacing={1}>
             {editorVisible ? (
               <>
+                <Button
+                  color="inherit"
+                  disabled={saving || openProjectId === undefined}
+                  onClick={() => {
+                    if (openProjectId === undefined) {
+                      return;
+                    }
+                    setSaving(true);
+                    setAppMessage(undefined);
+                    void saveProject(openProjectId)
+                      .then(() =>
+                        queryClient.invalidateQueries({
+                          queryKey: ['projectSnapshot', openProjectId],
+                        }),
+                      )
+                      .catch(() =>
+                        setAppMessage('保存できませんでした。編集内容は保持されています。'),
+                      )
+                      .finally(() => setSaving(false));
+                  }}
+                  size="small"
+                >
+                  {saving ? '保存中' : '保存'}
+                </Button>
                 <Button color="inherit" onClick={toggleLeftPanel} size="small">
                   エリア
                 </Button>
@@ -83,56 +110,21 @@ function App() {
           </Stack>
         </Toolbar>
       </AppBar>
+      {appMessage === undefined ? null : (
+        <Alert onClose={() => setAppMessage(undefined)} severity="error">
+          {appMessage}
+        </Alert>
+      )}
 
-      {editorVisible ? (
-        <Box
-          className="editor-layout"
-          component="main"
-          sx={{
-            gridTemplateColumns: `${leftPanelCollapsed ? 0 : 240}px minmax(320px, 1fr) ${
-              rightPanelCollapsed ? 0 : 320
-            }px`,
-          }}
-        >
-          <Paper
-            aria-hidden={leftPanelCollapsed}
-            className="side-panel"
-            component="aside"
-            elevation={0}
-            square
-          >
-            <Typography component="h2" variant="h2">
-              エリアと管理状態
-            </Typography>
-            <Divider />
-            <Typography color="text.secondary">プロジェクトを開くと一覧を表示します。</Typography>
-          </Paper>
-
-          <Box aria-label="墓地地図" className="map-placeholder" role="region">
-            <Typography component="h2" variant="h2">
-              地図
-            </Typography>
-            <Typography color="text.secondary">
-              Phase 8でPixiJSの地図キャンバスを接続します。
-            </Typography>
-          </Box>
-
-          <Paper
-            aria-hidden={rightPanelCollapsed}
-            className="side-panel"
-            component="aside"
-            elevation={0}
-            square
-          >
-            <Typography component="h2" variant="h2">
-              プロパティ
-            </Typography>
-            <Divider />
-            <Typography color="text.secondary">墓所を選択してください。</Typography>
-          </Paper>
-        </Box>
+      {editorVisible && openProjectId !== undefined ? (
+        <EditorView projectId={openProjectId} />
       ) : (
-        <ProjectCatalogView onOpened={() => setEditorVisible(true)} />
+        <ProjectCatalogView
+          onOpened={(projectId) => {
+            setOpenProjectId(projectId);
+            setEditorVisible(true);
+          }}
+        />
       )}
 
       <Dialog onClose={() => setCloseConfirmationOpen(false)} open={closeConfirmationOpen}>

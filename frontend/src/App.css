@@ -50,6 +50,21 @@
   text-align: center;
 }
 
+.property-panel .MuiTabs-root {
+  flex: 0 0 auto;
+}
+
+@media (max-height: 700px) {
+  .side-panel {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .map-placeholder {
+    padding: 12px;
+  }
+}
+
 @media (max-width: 900px) {
   .editor-layout {
     grid-template-columns: 0 minmax(320px, 1fr) 0 !important;
