@@ -62,10 +62,7 @@ public class ProjectCatalogController {
       @PathVariable UUID projectId, @RequestBody RecoveryRequest body) {
     return switch (body.action()) {
       case "apply" -> recovery.apply(projectId);
-      case "discard" -> {
-        recovery.discard(projectId);
-        yield new ProjectRecoveryCoordinator.RecoveryResult("discarded", "recovery-discarded");
-      }
+      case "discard" -> recovery.discard(projectId);
       default -> throw new ProjectCatalogException("recovery-action-invalid");
     };
   }

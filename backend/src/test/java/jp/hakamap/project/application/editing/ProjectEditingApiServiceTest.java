@@ -594,6 +594,91 @@ class ProjectEditingApiServiceTest {
     restartedProjects.close();
   }
 
+  @Test
+  void discardsRecoveryAndStagedAttachmentAfterRuntimeRestart() throws Exception {
+    GraveId graveId = new GraveId(UUID.randomUUID());
+    Grave grave =
+        new Grave(
+            graveId,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new MapRectangle(
+                java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.TEN,
+                java.math.BigDecimal.TEN),
+            RotationDegrees.ZERO,
+            NOW);
+    Path image = temporaryDirectory.resolve("破棄対象.png");
+    ImageIO.write(new BufferedImage(4, 3, BufferedImage.TYPE_INT_RGB), "png", image.toFile());
+    TestContext beforeRestart =
+        context(
+            new ProjectAggregate(
+                metadata(), Optional.empty(), List.of(), List.of(grave), List.of(), List.of()),
+            List.of(image));
+    UUID selectionId =
+        beforeRestart
+            .fileSelections()
+            .start(
+                "session-a",
+                FileSelectionMode.MULTIPLE_FILES,
+                FileSelectionPurpose.ATTACHMENT_IMPORT)
+            .fileSelectionIds()
+            .getFirst();
+    beforeRestart
+        .service()
+        .execute(
+            PROJECT_ID,
+            "session-a",
+            0,
+            CommandType.ADD_ATTACHMENTS,
+            new CommandPayloads.AddAttachments(graveId.value(), List.of(selectionId)));
+    Path stagedFile = beforeRestart.assetStaging().list(PROJECT_ID).getFirst().source();
+
+    ClasspathJsonSchemaValidator schemas = new ClasspathJsonSchemaValidator();
+    DefensiveJsonCodec codec = new DefensiveJsonCodec(schemas);
+    ProjectFileV1Mapper mapper = new ProjectFileV1Mapper();
+    ProjectFingerprintCalculator fingerprints = new ProjectFingerprintCalculator(codec, mapper);
+    Path recoveryRoot = temporaryDirectory.resolve("discard-recovery");
+    Path stagingRoot = temporaryDirectory.resolve("temporary-assets");
+    RecoverySnapshotService snapshots =
+        new RecoverySnapshotService(
+            new NioStorageFileOperations(),
+            codec,
+            mapper,
+            new RecoveryFileV1Validator(),
+            fingerprints,
+            Clock.fixed(NOW.plusSeconds(30), ZoneOffset.UTC),
+            UUID::randomUUID,
+            recoveryRoot,
+            stagingRoot,
+            "test");
+    new ProjectRecoveryCoordinator(
+            beforeRestart.openProjects(), beforeRestart.assetStaging(), snapshots)
+        .writeOpenProjectIfDue();
+    Path recoveryFile = recoveryRoot.resolve(PROJECT_ID + ".recovery.json");
+    assertThat(recoveryFile).isRegularFile();
+    beforeRestart.openProjects().close();
+
+    ProjectRepository projects =
+        new FileProjectRepository(codec, mapper, new ProjectAssetFileValidator());
+    OpenProjectManager restartedProjects = new OpenProjectManager();
+    ProjectAggregate formal =
+        restartedProjects.open(PROJECT_ID, beforeRestart.projectRoot(), projects);
+    ProjectAssetStaging restartedStaging = new ProjectAssetStaging(stagingRoot);
+    ProjectRecoveryCoordinator restartedRecovery =
+        new ProjectRecoveryCoordinator(restartedProjects, restartedStaging, snapshots);
+    assertThat(restartedRecovery.inspect(PROJECT_ID, beforeRestart.projectRoot(), formal))
+        .isPresent();
+
+    assertThat(restartedRecovery.discard(PROJECT_ID).status()).isEqualTo("discarded");
+    assertThat(stagedFile).doesNotExist();
+    assertThat(stagingRoot.resolve(PROJECT_ID.toString())).doesNotExist();
+    assertThat(recoveryFile).doesNotExist();
+    restartedProjects.close();
+  }
+
   private TestContext context(ProjectAggregate project) throws Exception {
     return context(project, List.of());
   }

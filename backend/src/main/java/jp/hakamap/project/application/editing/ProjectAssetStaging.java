@@ -131,6 +131,27 @@ public final class ProjectAssetStaging {
     deleteEmptyProjectDirectory(projectId);
   }
 
+  public synchronized void discardStrict(UUID projectId) {
+    Map<AssetId, StagedAsset> staged = stagedByProject.get(projectId);
+    if (staged != null) {
+      for (StagedAsset asset : staged.values()) {
+        try {
+          Files.deleteIfExists(asset.source());
+        } catch (IOException exception) {
+          throw new EditingApiException("asset-staging-cleanup-failed", exception);
+        }
+      }
+    }
+    stagedByProject.remove(projectId);
+    Path projectRoot = root.resolve(projectId.toString()).normalize();
+    try {
+      Files.deleteIfExists(projectRoot.resolve("conversion"));
+      Files.deleteIfExists(projectRoot);
+    } catch (IOException exception) {
+      throw new EditingApiException("asset-staging-cleanup-failed", exception);
+    }
+  }
+
   public synchronized void forget(UUID projectId) {
     stagedByProject.remove(projectId);
     deleteEmptyProjectDirectory(projectId);

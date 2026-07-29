@@ -41,6 +41,11 @@ const openedProjectSchema = z.object({
     .nullable(),
 });
 
+const recoveryResultSchema = z.object({
+  status: z.enum(['applied', 'discarded', 'base_mismatch', 'invalid']),
+  code: z.string(),
+});
+
 export type CatalogProject = z.infer<typeof projectSchema>;
 export type ProjectCatalog = z.infer<typeof catalogSchema>;
 
@@ -184,7 +189,18 @@ export async function resolveRecovery(
   projectId: string,
   action: 'apply' | 'discard',
 ): Promise<void> {
-  await changeProject(`/api/v1/projects/${projectId}/recovery`, 'POST', { action });
+  const result = await requireJson(
+    await hakamapFetch(`/api/v1/projects/${projectId}/recovery`, {
+      body: JSON.stringify({ action }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    }),
+    recoveryResultSchema,
+  );
+  const expectedStatus = action === 'apply' ? 'applied' : 'discarded';
+  if (result.status !== expectedStatus) {
+    throw new Error(result.code);
+  }
 }
 
 export async function closeProject(projectId: string, action: 'save' | 'discard'): Promise<void> {

@@ -192,9 +192,9 @@ public final class ProjectCatalogService {
       } else {
         assetStaging.forget(projectId);
       }
-      recovery.cleanup(projectId, false);
+      recovery.cleanupAfterSave(projectId);
     } else {
-      recovery.discard(projectId);
+      recovery.cleanupAfterDiscard(projectId);
     }
     openProjects.close(projectId);
     selections.invalidateSession(sessionId);

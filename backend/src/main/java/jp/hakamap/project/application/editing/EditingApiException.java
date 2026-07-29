@@ -8,6 +8,11 @@ public final class EditingApiException extends RuntimeException {
     this.code = code;
   }
 
+  public EditingApiException(String code, Throwable cause) {
+    super(code, cause);
+    this.code = code;
+  }
+
   public String code() {
     return code;
   }

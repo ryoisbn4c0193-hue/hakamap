@@ -56,16 +56,29 @@ public final class ProjectRecoveryCoordinator {
     return new RecoveryResult("applied", result.code());
   }
 
-  public synchronized void discard(UUID projectId) {
+  public synchronized RecoveryResult discard(UUID projectId) {
+    Path projectRoot = openProjects.projectRoot(projectId);
+    ProjectAggregate formalProject = openProjects.current(projectId);
+    RecoveryApplyResult result =
+        snapshots.apply(
+            snapshots.recoveryFile(projectId), projectRoot.resolve("project.json"), formalProject);
+    if (result.status() != RecoveryApplyStatus.APPLIED) {
+      return new RecoveryResult(result.status().name().toLowerCase(), result.code());
+    }
+    var recoveredSession = result.session().orElseThrow();
+    assetStaging.restore(projectId, recoveredSession.current(), result.stagedAssets());
+    assetStaging.discardStrict(projectId);
     snapshots.delete(projectId);
-    assetStaging.discard(projectId);
+    return new RecoveryResult("discarded", "recovery-discarded");
   }
 
-  public synchronized void cleanup(UUID projectId, boolean discardStagedAssets) {
+  public synchronized void cleanupAfterSave(UUID projectId) {
     snapshots.delete(projectId);
-    if (discardStagedAssets) {
-      assetStaging.discard(projectId);
-    }
+  }
+
+  public synchronized void cleanupAfterDiscard(UUID projectId) {
+    assetStaging.discardStrict(projectId);
+    snapshots.delete(projectId);
   }
 
   public record RecoveryResult(String status, String code) {}

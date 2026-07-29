@@ -375,7 +375,9 @@ POST   /api/v1/projects/{projectId}/recovery
   およびステージングアセット件数を`recoveryCandidate`として返す。内部パスは返さない。
 - 復旧APIの`action`は`apply | discard`だけを許可する。`apply`は正式JSONを直ちに
   上書きせず、revision 0・空履歴・dirtyの編集セッションとステージング参照を復元する。
-  `discard`は対応する復旧JSONとステージングアセットを削除する。
+  `discard`は検証済み復旧JSONからステージング参照を再構築し、一時アセットをすべて
+  削除できた後だけ対応する復旧JSONを削除する。一時アセットの削除に失敗した場合は
+  復旧JSONを維持し、失敗として応答する。
 - 手動保存または変更破棄が成功した場合は、対応する復旧JSONを削除する。
 
 ## ファイル・フォルダ選択
