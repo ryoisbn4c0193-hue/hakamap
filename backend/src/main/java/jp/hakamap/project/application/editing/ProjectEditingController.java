@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.UUID;
 import jp.hakamap.infrastructure.http.LocalApiSecurityFilter;
 import jp.hakamap.project.application.history.CommandType;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -59,14 +60,66 @@ public class ProjectEditingController {
 
   private final JsonMapper json;
 
+  private final BackgroundTileService backgroundTiles;
+
   public ProjectEditingController(ProjectEditingApiService editing, JsonMapper json) {
+    this(editing, json, null);
+  }
+
+  @Autowired
+  public ProjectEditingController(
+      ProjectEditingApiService editing, JsonMapper json, BackgroundTileService backgroundTiles) {
     this.editing = editing;
+    this.backgroundTiles = backgroundTiles;
     this.json =
         json.rebuild()
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
             .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
             .build();
+  }
+
+  @GetMapping("/background/tiles/manifest")
+  BackgroundTileService.TileManifest backgroundManifest(@PathVariable UUID projectId) {
+    requireBackgroundTiles();
+    EditingApiModels.BackgroundResponse background = editing.snapshot(projectId).background();
+    if (background == null) {
+      throw new EditingApiException("asset-not-found");
+    }
+    return backgroundTiles.manifest(editing.assetContent(projectId, background.assetId()));
+  }
+
+  @GetMapping("/background/tiles/{level}/{column}/{row}")
+  ResponseEntity<byte[]> backgroundTile(
+      @PathVariable UUID projectId,
+      @PathVariable int level,
+      @PathVariable int column,
+      @PathVariable int row) {
+    requireBackgroundTiles();
+    EditingApiModels.BackgroundResponse background = editing.snapshot(projectId).background();
+    if (background == null) {
+      throw new EditingApiException("asset-not-found");
+    }
+    BackgroundTileService.TileContent tile =
+        backgroundTiles.tile(
+            editing.assetContent(projectId, background.assetId()), level, column, row);
+    try {
+      byte[] bytes = Files.readAllBytes(tile.path());
+      return ResponseEntity.ok()
+          .contentType(MediaType.IMAGE_PNG)
+          .contentLength(tile.sizeBytes())
+          .header("X-Content-Type-Options", "nosniff")
+          .header(HttpHeaders.CACHE_CONTROL, "private, max-age=3600")
+          .body(bytes);
+    } catch (IOException exception) {
+      throw new EditingApiException("background-tile-not-found");
+    }
+  }
+
+  private void requireBackgroundTiles() {
+    if (backgroundTiles == null) {
+      throw new EditingApiException("background-tile-invalid");
+    }
   }
 
   @GetMapping("/snapshot")

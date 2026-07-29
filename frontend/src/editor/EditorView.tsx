@@ -32,7 +32,10 @@ import {
   getProjectSnapshot,
   type Grave,
 } from '../api/hakamapClient';
+import MapCanvas from '../map/MapCanvas';
 import { useUiStore } from '../state/uiStore';
+
+import type { MapRect } from '../map/mapGeometry';
 
 type EditorViewProps = {
   projectId: string;
@@ -59,7 +62,9 @@ function draftFrom(grave?: Grave): GraveDraft {
 function EditorView({ projectId }: EditorViewProps) {
   const queryClient = useQueryClient();
   const selectedGraveId = useUiStore((state) => state.selectedGraveId);
+  const selectedMapIds = useUiStore((state) => state.selectedMapIds);
   const selectGrave = useUiStore((state) => state.selectGrave);
+  const selectMapIds = useUiStore((state) => state.selectMapIds);
   const tab = useUiStore((state) => state.propertyTab);
   const setTab = useUiStore((state) => state.setPropertyTab);
   const leftCollapsed = useUiStore((state) => state.leftPanelCollapsed);
@@ -105,6 +110,7 @@ function EditorView({ projectId }: EditorViewProps) {
       return executeProjectCommand(projectId, snapshot.data.revision, commandType, payload);
     },
     onError: (error) => {
+      void queryClient.invalidateQueries({ queryKey: ['projectSnapshot', projectId] });
       if (error instanceof Error && error.message === 'api-request-failed-409') {
         setConflict(true);
       } else {
@@ -127,6 +133,18 @@ function EditorView({ projectId }: EditorViewProps) {
     }
     selectGrave(graveId);
   };
+
+  const mapCommand = (commandType: string, payload: unknown) => {
+    command.mutate({ commandType, payload });
+  };
+
+  const createPayload = (rectangle: MapRect) => ({
+    clientRef: crypto.randomUUID(),
+    height: rectangle.height,
+    width: rectangle.width,
+    x: rectangle.x,
+    y: rectangle.y,
+  });
 
   if (snapshot.isPending) {
     return <CircularProgress aria-label="編集データを読み込み中" />;
@@ -195,25 +213,87 @@ function EditorView({ projectId }: EditorViewProps) {
           </List>
         </Paper>
 
-        <Box
-          aria-label="墓地地図"
-          className="map-placeholder"
-          onClick={(event) => {
-            if (event.currentTarget === event.target) {
-              requestSelection(undefined);
+        <MapCanvas
+          busy={command.isPending}
+          onBackgroundFieldChange={(field, value) => {
+            const background = snapshot.data.background;
+            if (background !== null && background[field] !== value) {
+              mapCommand('transformBackground', {
+                rotation: background.rotation,
+                scaleX: background.scaleX,
+                scaleY: background.scaleY,
+                x: background.x,
+                y: background.y,
+                [field]: value,
+              });
             }
           }}
-          role="region"
-          tabIndex={0}
-        >
-          <Typography component="h2" variant="h2">
-            {snapshot.data.project.name}
-          </Typography>
-          <Typography color="text.secondary">
-            地図描画はPhase 8で接続します。左の一覧から墓所を選択できます。
-          </Typography>
-          {snapshot.data.dirty ? <Chip color="warning" label="未保存の変更あり" /> : null}
-        </Box>
+          onCreateArea={(rectangle) =>
+            mapCommand('createArea', {
+              ...createPayload(rectangle),
+              colorPreset: 'blue',
+              name: `エリア ${snapshot.data.areas.length + 1}`,
+              visible: true,
+            })
+          }
+          onCreateGrave={(rectangle) => mapCommand('createGrave', createPayload(rectangle))}
+          onMoveGraves={(graveIds, delta) =>
+            mapCommand('moveGraves', {
+              deltaX: delta.x,
+              deltaY: delta.y,
+              graveIds,
+            })
+          }
+          onNudgeGraves={(graveIds, delta) =>
+            mapCommand('moveGraves', {
+              deltaX: delta.x,
+              deltaY: delta.y,
+              graveIds,
+            })
+          }
+          onResizeGrave={(rectangle) =>
+            mapCommand('resizeGrave', {
+              graveId: rectangle.id,
+              height: rectangle.height,
+              width: rectangle.width,
+              x: rectangle.x,
+              y: rectangle.y,
+            })
+          }
+          onUpdateArea={(rectangle) => {
+            const area = snapshot.data.areas.find(({ areaId }) => areaId === rectangle.id);
+            if (area !== undefined) {
+              mapCommand('updateArea', {
+                areaId: area.areaId,
+                colorPreset: area.colorPreset,
+                height: rectangle.height,
+                name: area.name,
+                visible: area.visible,
+                width: rectangle.width,
+                x: rectangle.x,
+                y: rectangle.y,
+              });
+            }
+          }}
+          onTransformBackground={(x, y) => {
+            const background = snapshot.data.background;
+            if (background !== null) {
+              mapCommand('transformBackground', {
+                rotation: background.rotation,
+                scaleX: background.scaleX,
+                scaleY: background.scaleY,
+                x,
+                y,
+              });
+            }
+          }}
+          onSelectionChange={(graveIds) => {
+            if (graveIds.length <= 1) requestSelection(graveIds[0]);
+            else if (!draftDirty) selectMapIds(graveIds);
+          }}
+          selectedIds={selectedMapIds}
+          snapshot={snapshot.data}
+        />
 
         <Paper
           aria-hidden={rightCollapsed}
@@ -225,7 +305,19 @@ function EditorView({ projectId }: EditorViewProps) {
           <Typography component="h2" variant="h2">
             プロパティ
           </Typography>
-          {selectedGrave === undefined ? (
+          {selectedMapIds.length > 1 ? (
+            <Stack spacing={2}>
+              <Typography>{selectedMapIds.length}件の墓所を選択中</Typography>
+              <Button
+                color="error"
+                disabled={command.isPending}
+                onClick={() => mapCommand('deleteGraves', { graveIds: selectedMapIds })}
+                variant="outlined"
+              >
+                一括削除
+              </Button>
+            </Stack>
+          ) : selectedGrave === undefined ? (
             <Typography color="text.secondary">墓所を選択してください。</Typography>
           ) : (
             <>

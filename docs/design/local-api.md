@@ -336,6 +336,8 @@ POST /api/v1/projects/{projectId}/search
 ```http
 GET /api/v1/projects/{projectId}/assets/{assetId}/content
 GET /api/v1/projects/{projectId}/assets/{assetId}/thumbnail
+GET /api/v1/projects/{projectId}/background/tiles/manifest
+GET /api/v1/projects/{projectId}/background/tiles/{level}/{column}/{row}
 ```
 
 - Project集約から参照され、現在のセッションで表示可能なアセットだけを返す。
@@ -345,6 +347,11 @@ GET /api/v1/projects/{projectId}/assets/{assetId}/thumbnail
 - 元ファイル名を`Content-Disposition`へ含めず、インライン表示に必要な安全な固定名を使用する。
 - MVPではRangeリクエストに対応せず、画像または1ページPDFから変換した画像の全体を返す。
 - 背景の通常地図表示では元画像配信ではなく、既存設計のタイルとサムネイルを使用する。
+- 背景タイルmanifestは原画像の幅、高さ、1024px以下のタイル寸法、および最大縮小階層を返す。
+- 背景タイルは原本のSHA-256単位で端末キャッシュへ生成し、Projectの保存データ、
+  バックアップ、およびエクスポートへ含めない。
+- `level`、`column`、`row`はmanifestの範囲内だけを許可し、内部パスと背景SHA-256を
+  APIレスポンスへ含めない。
 
 ## Project・Catalog API
 

@@ -20,4 +20,13 @@ public record CatalogPaths(Path catalogFile) {
   public Path recoveryDirectory() {
     return catalogFile.toAbsolutePath().normalize().getParent().resolve("recovery");
   }
+
+  public Path backgroundTileCache() {
+    return catalogFile
+        .toAbsolutePath()
+        .normalize()
+        .getParent()
+        .resolve("cache")
+        .resolve("background-tiles");
+  }
 }

@@ -297,7 +297,8 @@ public final class ProjectEditingApiService {
     if (staged.isPresent()) {
       Path content = staged.orElseThrow().source();
       if (!Files.isSymbolicLink(content) && Files.isRegularFile(content)) {
-        return new AssetContent(content, asset.storedMediaType(), asset.sizeBytes());
+        return new AssetContent(
+            content, asset.storedMediaType(), asset.sizeBytes(), asset.sha256());
       }
       throw new EditingApiException("asset-not-found");
     }
@@ -308,7 +309,7 @@ public final class ProjectEditingApiService {
         || !Files.isRegularFile(content)) {
       throw new EditingApiException("asset-not-found");
     }
-    return new AssetContent(content, asset.storedMediaType(), asset.sizeBytes());
+    return new AssetContent(content, asset.storedMediaType(), asset.sizeBytes(), asset.sha256());
   }
 
   private Mutation mutate(
@@ -1384,5 +1385,5 @@ public final class ProjectEditingApiService {
 
   private record Mutation(ProjectAggregate candidate, CommandResultResponse result) {}
 
-  public record AssetContent(Path path, String mediaType, long sizeBytes) {}
+  public record AssetContent(Path path, String mediaType, long sizeBytes, String sha256) {}
 }

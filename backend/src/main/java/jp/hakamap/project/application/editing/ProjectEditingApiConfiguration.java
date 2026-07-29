@@ -17,6 +17,11 @@ public class ProjectEditingApiConfiguration {
   }
 
   @Bean
+  BackgroundTileService backgroundTileService(CatalogPaths paths) {
+    return new BackgroundTileService(paths.backgroundTileCache());
+  }
+
+  @Bean
   ProjectEditingApiService projectEditingApiService(
       OpenProjectManager openProjects,
       ProjectFingerprintCalculator fingerprints,

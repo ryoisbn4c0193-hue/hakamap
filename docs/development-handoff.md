@@ -7,7 +7,7 @@
 レビュー合格済みの要件・基本設計・詳細設計に従い、Hakamap MVPを
 `docs/implementation-plan.md`のPhase単位で実装する。Phase 6の編集コマンドAPIと
 自動復旧の実行時接続と復旧破棄の再試行対応まで完了し、外部レビューに合格した。
-Phase 7のReact編集画面基盤まで完了した。次はPhase 8のPixiJS地図編集を実装する。
+Phase 8のPixiJS地図編集まで完了した。次はPhase 9の検索・人物・添付UIを実装する。
 - 当時のコミット`aa92223`に対する再レビューは合格となり、重要な矛盾が解消され、
   MVP、将来拡張、および未決事項の境界が明確であると確認された。
 - 基本アーキテクチャとして、React、TypeScript、PixiJS、Java 21、Spring Boot、および
@@ -614,18 +614,25 @@ Phase 7のReact編集画面基盤まで完了した。次はPhase 8のPixiJS地�
 - Projectを閉じずに保存するAPIとツールバーの手動保存を追加し、保存後も編集セッションと
   Undo／Redo履歴を維持するようにした。
 - 編集画面の3領域・4タブと、未適用入力がある選択変更の確認をフロントエンドテストへ追加した。
+- Phase 8として、PixiJSを専用アダプターへ閉じ込め、背景、エリア、墓所、
+  オーバーレイのレイヤーとviewport、座標変換、およびGPUリソース解放を実装した。
+- 墓所優先クリック、Ctrl複数選択、四方向矩形選択、エリア編集、墓所・エリア作成、
+  複数移動、サイズ変更、背景変形、および矢印キー移動を編集APIへ接続した。
+- 10%～800%のポインター中心ズーム、全体表示、8pxスナップ、ガイド、
+  重なり候補表示、およびJava拒否時の確定状態再取得を実装した。
+- 背景を最大1024pxの縮小タイル階層へ分割してSHA-256単位の端末キャッシュへ保存し、
+  viewport周辺だけをPixiJSへ読み込んで画面外テクスチャを解放するようにした。
+- 座標往復、負座標、ズーム境界、ポインター中心ズーム、当たり判定、矩形選択、
+  接触と重なり、ズーム別8pxスナップ、および5,000墓所の途中性能テストを追加した。
 
 ## 次に行うこと
 
-`docs/implementation-plan.md`のPhase 8を開始する。
+Phase 7～8の実装コミットを`origin/main`へプッシュし、外部ChatGPTレビューを実施する。
+レビュー合格後、`docs/implementation-plan.md`のPhase 9を開始する。
 
-1. PixiJSアダプター、レイヤー、viewport、座標変換、およびリソース解放を実装する。
-2. 墓所優先クリック、エリア編集、矩形・複数選択を実装する。
-3. 作成、移動、サイズ変更、背景変形、キーボード移動、およびスナップをAPIへ接続する。
-4. 5,000墓所の通常操作とメモリ使用量を途中測定する。
-
-Phase 8の実装・検査・文書更新を1つのローカルコミットへまとめ、Phase 7～8を
-外部ChatGPTレビューへ提示する。
+1. 検索カーソル、検索結果一覧、最初の結果へのズーム、および選択連携を実装する。
+2. 人物の100件ページング、直近5墓所キャッシュ、および仮想スクロールを実装する。
+3. 人物の追加・編集・削除と、添付の追加・並べ替え・削除・安全なプレビューを完成させる。
 
 ## 変更したファイル
 
@@ -692,11 +699,11 @@ Phase 8の実装・検査・文書更新を1つのローカルコミットへま
 
 ## 検査結果
 
-- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、105件のJavaテスト、
+- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、106件のJavaテスト、
   Checkstyle、Spotless、および実行可能JAR生成を含む。
 - `cd frontend && pnpm lint`: 成功。
 - `cd frontend && pnpm format:check`: 成功。
-- `cd frontend && pnpm test`: 成功（6テスト）。
+- `cd frontend && pnpm test`: 成功（17テスト）。
 - `cd frontend && pnpm build`: 成功。
 - 生成JARの`/`はHTTP 200、`/api/v1/not-defined`はHTTP 404となることを確認した。
 - JAR内の`BOOT-INF/classes/static`にReactのHTML、JavaScript、CSSがあることを確認した。
@@ -714,8 +721,10 @@ Phase 8の実装・検査・文書更新を1つのローカルコミットへま
   `ca5f8b1`であり、
   `origin/main`へ反映済みである。
 - 現在のプッシュ済みレビュー基準は
-  `4ce711886294770bf21bd12d0931ffe4dec597c8`である。Phase 3レビュー指摘修正版は
-  外部ChatGPTレビュー合格済みで、Phase 0～3の実装を`origin/main`へ反映済みである。
+  `dbb616f8097a8e5c6296f8b0c6cc131f3a1060b0`である。Phase 0～6は
+  外部ChatGPTレビュー合格済みで、`origin/main`へ反映済みである。
+- Phase 7コミット`27836783a50e17d181b37e16e4172067b89e9389`と、このメモを含む
+  Phase 8コミットはローカルにあり、次の外部レビュー時にまとめてプッシュする。
 - Phase 2ではProject、Catalog、Recovery v1の保存record、Project Mapper、防御的JSON Codec、
   Schema後のJava整合性検証、およびファイルRepositoryを実装した。
 - ProjectとRecoveryのアセットは相対パス、通常ファイル、シンボリックリンク拒否、

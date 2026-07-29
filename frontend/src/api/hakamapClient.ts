@@ -74,6 +74,22 @@ const graveStateSchema = z.object({
   warnings: z.array(z.string()),
 });
 
+const backgroundSchema = z.object({
+  assetId: z.uuid(),
+  x: z.number(),
+  y: z.number(),
+  rotation: z.number(),
+  scaleX: z.number(),
+  scaleY: z.number(),
+});
+
+const backgroundTileManifestSchema = z.object({
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  tileSize: z.number().int().positive().max(1024),
+  maximumLevel: z.number().int().nonnegative(),
+});
+
 const assetSchema = z.object({
   assetId: z.uuid(),
   assetType: z.string(),
@@ -97,7 +113,7 @@ const projectSnapshotSchema = z.object({
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
   }),
-  background: z.unknown().nullable(),
+  background: backgroundSchema.nullable(),
   areas: z.array(
     z.object({
       areaId: z.uuid(),
@@ -181,6 +197,7 @@ export type ProjectCatalog = z.infer<typeof catalogSchema>;
 export type ProjectSnapshot = z.infer<typeof projectSnapshotSchema>;
 export type Grave = z.infer<typeof graveSchema>;
 export type Person = z.infer<typeof personSchema>;
+export type BackgroundTileManifest = z.infer<typeof backgroundTileManifestSchema>;
 
 let csrfToken: string | undefined;
 
@@ -394,6 +411,15 @@ export async function getProjectSnapshot(projectId: string): Promise<ProjectSnap
   return requireJson(
     await hakamapFetch(`/api/v1/projects/${projectId}/snapshot`),
     projectSnapshotSchema,
+  );
+}
+
+export async function getBackgroundTileManifest(
+  projectId: string,
+): Promise<BackgroundTileManifest> {
+  return requireJson(
+    await hakamapFetch(`/api/v1/projects/${projectId}/background/tiles/manifest`),
+    backgroundTileManifestSchema,
   );
 }
 
