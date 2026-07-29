@@ -16,6 +16,9 @@ public final class LocalApiSecurityFilter extends OncePerRequestFilter {
 
   public static final String CSRF_HEADER = "X-Hakamap-CSRF-Token";
 
+  public static final String AUTHENTICATED_SESSION_ATTRIBUTE =
+      LocalApiSecurityFilter.class.getName() + ".sessionId";
+
   private final BrowserSessionRegistry sessions;
 
   private final LocalRequestValidator requests;
@@ -56,6 +59,7 @@ public final class LocalApiSecurityFilter extends OncePerRequestFilter {
       problems.write(response, HttpStatus.FORBIDDEN, "csrf-token-invalid");
       return;
     }
+    request.setAttribute(AUTHENTICATED_SESSION_ATTRIBUTE, session.orElseThrow().sessionId());
     filterChain.doFilter(request, response);
   }
 

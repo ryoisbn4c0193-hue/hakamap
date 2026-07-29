@@ -1,11 +1,24 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import App from './App';
 import AppProviders from './app/AppProviders';
 
 describe('App', () => {
-  it('3領域の編集画面を表示する', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('初回のプロジェクト管理画面を表示する', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ openProjectId: null, projects: [] }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      ),
+    );
     render(
       <AppProviders>
         <App />
@@ -13,8 +26,8 @@ describe('App', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Hakamap' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'エリアと管理状態' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: '墓地地図' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'プロパティ' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'プロジェクト' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '新規作成' })).toBeInTheDocument();
+    expect(await screen.findByText('プロジェクトはまだありません。')).toBeInTheDocument();
   });
 });

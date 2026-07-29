@@ -5,8 +5,8 @@
 ## 現在の目的
 
 レビュー合格済みの要件・基本設計・詳細設計に従い、Hakamap MVPを
-`docs/implementation-plan.md`のPhase単位で実装する。Phase 4のアプリライフサイクルと
-HTTP保護まで完了し、次はPhase 5のProject管理とファイル選択を実装する。
+`docs/implementation-plan.md`のPhase単位で実装する。Phase 5のProject管理と
+ファイル選択まで完了し、次はPhase 6の編集コマンドAPIを実装する。
 - 当時のコミット`aa92223`に対する再レビューは合格となり、重要な矛盾が解消され、
   MVP、将来拡張、および未決事項の境界が明確であると確認された。
 - 基本アーキテクチャとして、React、TypeScript、PixiJS、Java 21、Spring Boot、および
@@ -521,30 +521,51 @@ HTTP保護まで完了し、次はPhase 5のProject管理とファイル選択�
   例外値・認証情報・ポートを通常ログへ含めない設定を実装した。
 - 保護された終了APIとReactの「Hakamapを終了」操作を追加し、受付後にSpringコンテキスト、
   セッション、ランタイム情報、およびapplication lockを正常に閉じるようにした。
+- Phase 5として、Catalog一覧、新規Project作成、既存Project登録、open、close、
+  デフォルト設定、再関連付け、および登録解除のAPIを実装した。
+- Projectを同じストレージ内の`.hakamap-trash/<project UUID>`へ原子的に移動し、
+  元の場所または指定場所への復元、明示的な完全削除を実装した。
+- Project open中は`.hakamap.lock`を保持して同時に1件だけ開き、close時にロック、
+  編集対象、およびセッションに紐づく一時ファイル選択を破棄するようにした。
+- Catalog更新をPhase 3のCatalog保存トランザクションへ接続し、更新前の正常な
+  `catalog.json`を1世代バックアップしてから原子的に確定するようにした。
+- Swing `JFileChooser`をEDTで実行し、単一ファイル、複数ファイル、フォルダ、
+  用途の組み合わせ、5分期限、セッション・用途拘束、単一使用、明示無効化、
+  キャンセル、および多重ダイアログ拒否を実装した。
+- ファイル選択結果とProject一覧は末尾の表示名だけを返し、絶対パスをAPIへ
+  露出しないようにした。
+- Reactの初期画面をProject管理画面へ変更し、新規作成、既存登録、open、
+  デフォルト起動、ごみ箱、復元、完全削除、再関連付け、および登録解除を接続した。
+- Project一覧へ戻る際は保存、破棄、キャンセルを明示的に選ぶ確認画面を追加した。
+- ファイル選択の用途・セッション・期限・単一使用と、Project作成からopen／close、
+  ごみ箱、復元、完全削除までを一時ディレクトリで確認する回帰テストを追加した。
 
 ## 次に行うこと
 
-`docs/implementation-plan.md`のPhase 5を開始する。
+`docs/implementation-plan.md`のPhase 6を開始する。
 
-1. Catalog一覧、Project作成・open・close・デフォルト・再関連付けを実装する。
-2. ごみ箱移動、復元、および完全削除を実装する。
-3. Swing `JFileChooser`による用途別・期限付きのファイル選択サービスを実装する。
-4. Project管理画面と未保存切り替え確認をReactへ接続する。
+1. Projectスナップショット、CommandType別DTO、および確定差分を実装する。
+2. エリア、墓所、人物、および添付のコマンドをAPIへ接続する。
+3. 警告確認トークン、採番プレビュー、Undo／Redo、および履歴を実装する。
+4. expectedRevision、人物ページング、アセット配信、およびProblem Detailsを結合テストする。
 
-Phase 5の実装・検査・文書更新を完了後、1つのローカルコミットにまとめる。次の定例レビュー
-節目はPhase 6完了時のため、利用者から明示指示がない限りPhase 5単独ではプッシュしない。
+Phase 6の実装・検査・文書更新を完了後、1つのローカルコミットにまとめる。Phase 6完了は
+定例レビュー節目のため、コミット後にPhase 4～6を`origin/main`へプッシュして、
+レビュー対象コミットIDを利用者へ伝える。
 
 ## 変更したファイル
 
 - `backend/config/checkstyle/checkstyle.xml`
 - `backend/pom.xml`
 - `backend/src/main/java/jp/hakamap/infrastructure/persistence/schema/`
+- `backend/src/main/java/jp/hakamap/infrastructure/fileselection/`
 - `backend/src/main/java/jp/hakamap/persistence/json/`
 - `backend/src/main/java/jp/hakamap/project/application/`
 - `backend/src/main/java/jp/hakamap/project/domain/`
 - `backend/src/main/java/jp/hakamap/project/infrastructure/`
 - `backend/src/test/java/jp/hakamap/HakamapApplicationTests.java`
 - `backend/src/test/java/jp/hakamap/infrastructure/persistence/schema/`
+- `backend/src/test/java/jp/hakamap/infrastructure/fileselection/`
 - `backend/src/test/java/jp/hakamap/persistence/json/`
 - `backend/src/test/java/jp/hakamap/project/application/`
 - `backend/src/test/java/jp/hakamap/project/domain/`
@@ -595,7 +616,7 @@ Phase 5の実装・検査・文書更新を完了後、1つのローカルコミ
 
 ## 検査結果
 
-- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、61件のJavaテスト、
+- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、66件のJavaテスト、
   Checkstyle、Spotless、および実行可能JAR生成を含む。
 - `cd frontend && pnpm lint`: 成功。
 - `cd frontend && pnpm format:check`: 成功。

@@ -12,6 +12,17 @@
   transition: grid-template-columns 160ms ease;
 }
 
+.project-catalog {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 24px;
+  margin: 0 auto;
+  max-width: 960px;
+  padding: 32px 24px;
+  width: 100%;
+}
+
 .side-panel {
   display: flex;
   flex-direction: column;
