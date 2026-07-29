@@ -39,6 +39,11 @@ import jp.hakamap.project.domain.value.PersonName;
 import jp.hakamap.project.domain.value.ProjectId;
 import jp.hakamap.project.domain.value.ProjectName;
 import jp.hakamap.project.domain.value.RotationDegrees;
+import jp.hakamap.project.infrastructure.storage.CommitStatus;
+import jp.hakamap.project.infrastructure.storage.NioStorageFileOperations;
+import jp.hakamap.project.infrastructure.storage.ProjectStorageTransactionCoordinator;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -130,8 +135,14 @@ class ProjectEditingApiServiceTest {
     assertThat(
             service.confirm(
                 PROJECT_ID, "session-a", confirmation.confirmationToken(), confirmation.revision()))
-        .extracting(EditingApiModels.CommandResponse::revision)
-        .isEqualTo(1L);
+        .satisfies(
+            confirmed -> {
+              assertThat(confirmed.revision()).isEqualTo(1L);
+              assertThat(confirmed.result().createdEntities())
+                  .singleElement()
+                  .extracting(EditingApiModels.ClientReferenceResponse::clientRef)
+                  .isEqualTo("grave-1");
+            });
     assertThatThrownBy(
             () ->
                 service.execute(
@@ -142,6 +153,77 @@ class ProjectEditingApiServiceTest {
                     new CommandPayloads.RenameProject("変更後")))
         .isInstanceOf(EditingSessionException.class)
         .hasMessage("project-revision-conflict");
+  }
+
+  @Test
+  void keepsClientReferencesForConfirmedGridAndRangeCreation() throws Exception {
+    TestContext gridContext = context(emptyProject());
+    Object grid =
+        gridContext
+            .service()
+            .execute(
+                PROJECT_ID,
+                "session-a",
+                0,
+                CommandType.CREATE_GRAVE_GRID,
+                new CommandPayloads.CreateGraveGrid(
+                    "grid",
+                    java.math.BigDecimal.ZERO,
+                    java.math.BigDecimal.ZERO,
+                    1,
+                    2,
+                    java.math.BigDecimal.TEN,
+                    java.math.BigDecimal.TEN,
+                    java.math.BigDecimal.ONE,
+                    java.math.BigDecimal.ZERO));
+    var gridConfirmation = (EditingApiModels.ConfirmationRequiredResponse) grid;
+    assertThat(
+            gridContext
+                .service()
+                .confirm(
+                    PROJECT_ID,
+                    "session-a",
+                    gridConfirmation.confirmationToken(),
+                    gridConfirmation.revision())
+                .result()
+                .createdEntities())
+        .extracting(EditingApiModels.ClientReferenceResponse::clientRef)
+        .containsExactly("grid-0", "grid-1");
+    gridContext.close();
+
+    TestContext rangeContext = context(emptyProject());
+    Object range =
+        rangeContext
+            .service()
+            .execute(
+                PROJECT_ID,
+                "session-a",
+                0,
+                CommandType.FILL_GRAVE_RANGE,
+                new CommandPayloads.FillGraveRange(
+                    "range",
+                    java.math.BigDecimal.ZERO,
+                    java.math.BigDecimal.ZERO,
+                    java.math.BigDecimal.valueOf(21),
+                    java.math.BigDecimal.TEN,
+                    java.math.BigDecimal.TEN,
+                    java.math.BigDecimal.TEN,
+                    java.math.BigDecimal.ONE,
+                    java.math.BigDecimal.ZERO));
+    var rangeConfirmation = (EditingApiModels.ConfirmationRequiredResponse) range;
+    assertThat(
+            rangeContext
+                .service()
+                .confirm(
+                    PROJECT_ID,
+                    "session-a",
+                    rangeConfirmation.confirmationToken(),
+                    rangeConfirmation.revision())
+                .result()
+                .createdEntities())
+        .extracting(EditingApiModels.ClientReferenceResponse::clientRef)
+        .containsExactly("range-0", "range-1");
+    rangeContext.close();
   }
 
   @Test
@@ -266,11 +348,140 @@ class ProjectEditingApiServiceTest {
     EditingApiModels.CommandResponse response = (EditingApiModels.CommandResponse) result;
     assertThat(response.upsertedAssets()).hasSize(1);
     UUID assetId = response.upsertedAssets().getFirst().assetId();
+    assertThat(context.assetStaging().list(PROJECT_ID)).hasSize(1);
+    assertThat(context.projectRoot().resolve("assets/attachments")).doesNotExist();
+    ProjectAssetStaging restartedStaging =
+        new ProjectAssetStaging(temporaryDirectory.resolve("temporary-assets"));
+    restartedStaging.restore(
+        PROJECT_ID,
+        context.openProjects().current(PROJECT_ID),
+        context.assetStaging().recoveryEntries(PROJECT_ID));
+    assertThat(
+            restartedStaging.find(PROJECT_ID, new jp.hakamap.project.domain.value.AssetId(assetId)))
+        .isPresent();
     assertThat(context.service().assetContent(PROJECT_ID, assetId).mediaType())
         .isEqualTo("image/png");
+    context.service().undo(PROJECT_ID, 1);
+    assertThat(context.assetStaging().list(PROJECT_ID)).hasSize(1);
+    assertThat(context.projectRoot().resolve("assets/attachments")).doesNotExist();
+    context.service().redo(PROJECT_ID, 2);
+    assertThat(context.service().snapshot(PROJECT_ID).assets())
+        .extracting(EditingApiModels.AssetResponse::assetId)
+        .containsExactly(assetId);
+    assertThat(
+            context
+                .openProjects()
+                .save(PROJECT_ID, context.storage(), context.assetStaging().list(PROJECT_ID))
+                .status())
+        .isEqualTo(CommitStatus.COMMITTED);
+    context.assetStaging().forget(PROJECT_ID);
+    assertThat(context.projectRoot().resolve("assets/attachments"))
+        .isDirectoryContaining(
+            path -> path.getFileName().toString().startsWith(assetId.toString()));
+    assertThat(context.assetStaging().list(PROJECT_ID)).isEmpty();
     assertThatThrownBy(() -> context.service().assetContent(PROJECT_ID, UUID.randomUUID()))
         .isInstanceOf(EditingApiException.class)
         .hasMessage("asset-not-found");
+  }
+
+  @Test
+  void cleansConvertedFilesWhenLaterPdfPreparationFails() throws Exception {
+    GraveId graveId = new GraveId(UUID.randomUUID());
+    Grave grave =
+        new Grave(
+            graveId,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new MapRectangle(
+                java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.TEN,
+                java.math.BigDecimal.TEN),
+            RotationDegrees.ZERO,
+            NOW);
+    Path valid = temporaryDirectory.resolve("valid.pdf");
+    try (PDDocument document = new PDDocument()) {
+      document.addPage(new PDPage());
+      document.save(valid.toFile());
+    }
+    Path invalid = temporaryDirectory.resolve("invalid.pdf");
+    try (PDDocument document = new PDDocument()) {
+      document.addPage(new PDPage());
+      document.addPage(new PDPage());
+      document.save(invalid.toFile());
+    }
+    TestContext context =
+        context(
+            new ProjectAggregate(
+                metadata(), Optional.empty(), List.of(), List.of(grave), List.of(), List.of()),
+            List.of(valid, invalid));
+    var selected =
+        context
+            .fileSelections()
+            .start(
+                "session-a",
+                FileSelectionMode.MULTIPLE_FILES,
+                FileSelectionPurpose.ATTACHMENT_IMPORT);
+
+    assertThatThrownBy(
+            () ->
+                context
+                    .service()
+                    .execute(
+                        PROJECT_ID,
+                        "session-a",
+                        0,
+                        CommandType.ADD_ATTACHMENTS,
+                        new CommandPayloads.AddAttachments(
+                            graveId.value(), selected.fileSelectionIds())))
+        .isInstanceOf(EditingApiException.class)
+        .hasMessage("asset-format-unsupported");
+    assertThat(context.assetStaging().list(PROJECT_ID)).isEmpty();
+    Path projectTemporaryRoot =
+        temporaryDirectory.resolve("temporary-assets").resolve(PROJECT_ID.toString());
+    assertThat(projectTemporaryRoot).doesNotExist();
+  }
+
+  @Test
+  void keepsBackgroundInStagingAcrossUndoAndDeletesItOnDiscard() throws Exception {
+    Path image = temporaryDirectory.resolve("背景.png");
+    ImageIO.write(new BufferedImage(4, 3, BufferedImage.TYPE_INT_RGB), "png", image.toFile());
+    TestContext context = context(emptyProject(), List.of(image));
+    UUID selectionId =
+        context
+            .fileSelections()
+            .start(
+                "session-a", FileSelectionMode.SINGLE_FILE, FileSelectionPurpose.BACKGROUND_IMPORT)
+            .fileSelectionIds()
+            .getFirst();
+
+    Object result =
+        context
+            .service()
+            .execute(
+                PROJECT_ID,
+                "session-a",
+                0,
+                CommandType.SET_BACKGROUND,
+                new CommandPayloads.SetBackground(
+                    selectionId,
+                    java.math.BigDecimal.ZERO,
+                    java.math.BigDecimal.ZERO,
+                    java.math.BigDecimal.ZERO,
+                    java.math.BigDecimal.ONE,
+                    java.math.BigDecimal.ONE));
+
+    assertThat(result).isInstanceOf(EditingApiModels.CommandResponse.class);
+    assertThat(context.assetStaging().list(PROJECT_ID)).hasSize(1);
+    assertThat(context.projectRoot().resolve("assets/backgrounds")).doesNotExist();
+    context.service().undo(PROJECT_ID, 1);
+    assertThat(context.assetStaging().list(PROJECT_ID)).hasSize(1);
+
+    Path staged = context.assetStaging().list(PROJECT_ID).getFirst().source();
+    context.assetStaging().discard(PROJECT_ID);
+    assertThat(staged).doesNotExist();
+    assertThat(context.assetStaging().list(PROJECT_ID)).isEmpty();
   }
 
   private TestContext context(ProjectAggregate project) throws Exception {
@@ -283,7 +494,7 @@ class ProjectEditingApiServiceTest {
     ProjectFileV1Mapper mapper = new ProjectFileV1Mapper();
     ProjectRepository projects =
         new FileProjectRepository(codec, mapper, new ProjectAssetFileValidator());
-    Path root = temporaryDirectory.resolve("project");
+    Path root = temporaryDirectory.resolve("project-" + UUID.randomUUID());
     Files.createDirectories(root);
     projects.write(root, project);
     OpenProjectManager openProjects = new OpenProjectManager();
@@ -294,14 +505,27 @@ class ProjectEditingApiServiceTest {
     }
     FileSelectionService fileSelections =
         new FileSelectionService(ignored -> selectedFiles, Clock.fixed(NOW, ZoneOffset.UTC));
+    ProjectAssetStaging assetStaging =
+        new ProjectAssetStaging(temporaryDirectory.resolve("temporary-assets"));
+    ProjectFingerprintCalculator fingerprints = new ProjectFingerprintCalculator(codec, mapper);
+    ProjectStorageTransactionCoordinator storage =
+        new ProjectStorageTransactionCoordinator(
+            new NioStorageFileOperations(),
+            codec,
+            mapper,
+            new ProjectAssetFileValidator(),
+            fingerprints,
+            Clock.fixed(NOW.plusSeconds(60), ZoneOffset.UTC),
+            ids::removeFirst);
     ProjectEditingApiService service =
         new ProjectEditingApiService(
             openProjects,
-            new ProjectFingerprintCalculator(codec, mapper),
+            fingerprints,
             Clock.fixed(NOW, ZoneOffset.UTC),
             ids::removeFirst,
-            fileSelections);
-    return new TestContext(service, openProjects, fileSelections);
+            fileSelections,
+            assetStaging);
+    return new TestContext(service, openProjects, fileSelections, assetStaging, storage, root);
   }
 
   private ProjectAggregate emptyProject() {
@@ -316,7 +540,10 @@ class ProjectEditingApiServiceTest {
   private record TestContext(
       ProjectEditingApiService service,
       OpenProjectManager openProjects,
-      FileSelectionService fileSelections)
+      FileSelectionService fileSelections,
+      ProjectAssetStaging assetStaging,
+      ProjectStorageTransactionCoordinator storage,
+      Path projectRoot)
       implements AutoCloseable {
     @Override
     public void close() {

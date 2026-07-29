@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import jp.hakamap.persistence.json.repository.ProjectRepository;
@@ -11,6 +12,9 @@ import jp.hakamap.project.application.history.ProjectEditingSession;
 import jp.hakamap.project.application.history.ProjectFingerprintCalculator;
 import jp.hakamap.project.domain.model.ProjectAggregate;
 import jp.hakamap.project.infrastructure.storage.ProjectFileLock;
+import jp.hakamap.project.infrastructure.storage.ProjectStorageTransactionCoordinator;
+import jp.hakamap.project.infrastructure.storage.SaveResult;
+import jp.hakamap.project.infrastructure.storage.StagedAsset;
 
 public final class OpenProjectManager implements AutoCloseable {
   private OpenProject openProject;
@@ -57,6 +61,27 @@ public final class OpenProjectManager implements AutoCloseable {
 
   public synchronized Path projectRoot(UUID projectId) {
     return requireOpen(projectId).root();
+  }
+
+  public synchronized ProjectAggregate current(UUID projectId) {
+    return requireOpen(projectId).aggregate();
+  }
+
+  public synchronized SaveResult save(
+      UUID projectId,
+      ProjectStorageTransactionCoordinator coordinator,
+      List<StagedAsset> stagedAssets) {
+    OpenProject project = requireOpen(projectId);
+    if (project.editingSession() == null) {
+      return SaveResult.noChanges();
+    }
+    return coordinator.save(
+        project.root(),
+        project.editingSession(),
+        project.editingSession().revision(),
+        project.lock(),
+        stagedAssets,
+        null);
   }
 
   public synchronized void close(UUID projectId) {

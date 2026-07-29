@@ -6,10 +6,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import jp.hakamap.infrastructure.fileselection.FileSelectionPurpose;
 import jp.hakamap.infrastructure.fileselection.FileSelectionService;
@@ -21,6 +24,15 @@ import jp.hakamap.persistence.json.repository.CatalogRepository;
 import jp.hakamap.persistence.json.repository.FileProjectRepository;
 import jp.hakamap.persistence.json.repository.ProjectRepository;
 import jp.hakamap.persistence.json.validation.ProjectAssetFileValidator;
+import jp.hakamap.project.application.editing.ProjectAssetStaging;
+import jp.hakamap.project.application.history.CommandId;
+import jp.hakamap.project.application.history.CommandType;
+import jp.hakamap.project.application.history.ProjectChangeSet;
+import jp.hakamap.project.application.history.ProjectFingerprintCalculator;
+import jp.hakamap.project.application.history.ValueDelta;
+import jp.hakamap.project.domain.value.ProjectName;
+import jp.hakamap.project.infrastructure.storage.NioStorageFileOperations;
+import jp.hakamap.project.infrastructure.storage.ProjectStorageTransactionCoordinator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -97,6 +109,97 @@ class ProjectCatalogServiceTest {
         .hasMessage("project-busy");
   }
 
+  @Test
+  void savesDirtyEditingSessionBeforeClosingAndKeepsChangeAfterReopen() throws IOException {
+    Path parent = Files.createDirectory(temporaryDirectory.resolve("save-projects"));
+    FileSelectionService selections =
+        new FileSelectionService(ignored -> List.of(parent), Clock.fixed(NOW, ZoneOffset.UTC));
+    UUID projectId = UUID.randomUUID();
+    java.util.ArrayDeque<UUID> ids = new java.util.ArrayDeque<>();
+    ids.add(projectId);
+    for (int index = 0; index < 10; index++) {
+      ids.add(UUID.randomUUID());
+    }
+    MemoryCatalogRepository catalogs =
+        new MemoryCatalogRepository(temporaryDirectory.resolve("save-catalog.json"));
+    DefensiveJsonCodec codec = new DefensiveJsonCodec(new ClasspathJsonSchemaValidator());
+    ProjectFileV1Mapper mapper = new ProjectFileV1Mapper();
+    ProjectRepository projects =
+        new FileProjectRepository(codec, mapper, new ProjectAssetFileValidator());
+    ProjectFingerprintCalculator fingerprints = new ProjectFingerprintCalculator(codec, mapper);
+    OpenProjectManager openProjects = new OpenProjectManager();
+    ProjectAssetStaging staging =
+        new ProjectAssetStaging(temporaryDirectory.resolve("temporary-assets"));
+    ProjectStorageTransactionCoordinator storage =
+        new ProjectStorageTransactionCoordinator(
+            new NioStorageFileOperations(),
+            codec,
+            mapper,
+            new ProjectAssetFileValidator(),
+            fingerprints,
+            Clock.fixed(NOW.plusSeconds(60), ZoneOffset.UTC),
+            ids::removeFirst);
+    ProjectCatalogService service =
+        new ProjectCatalogService(
+            new CatalogPaths(catalogs.file),
+            catalogs,
+            catalogs::write,
+            projects,
+            selections,
+            openProjects,
+            storage,
+            staging,
+            Clock.fixed(NOW, ZoneOffset.UTC),
+            ids::removeFirst);
+
+    UUID directorySelection = selection(selections);
+    service.create("session", directorySelection, "変更前");
+    service.open(projectId);
+    var editing = openProjects.editingSession(projectId, fingerprints);
+    ProjectName before = editing.current().metadata().name();
+    ProjectName after = new ProjectName("保存後");
+    editing.apply(
+        0,
+        new ProjectChangeSet(
+            new CommandId(UUID.randomUUID()),
+            CommandType.RENAME_PROJECT,
+            NOW,
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            Optional.of(ValueDelta.changed(before, after)),
+            Optional.empty(),
+            Set.of()));
+
+    assertThat(service.close(projectId, "save", "session").status()).isEqualTo("closed");
+    assertThat(service.open(projectId).name()).isEqualTo("保存後");
+    var reopened = openProjects.editingSession(projectId, fingerprints);
+    reopened.apply(
+        0,
+        new ProjectChangeSet(
+            new CommandId(UUID.randomUUID()),
+            CommandType.RENAME_PROJECT,
+            NOW,
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            Optional.of(
+                ValueDelta.changed(reopened.current().metadata().name(), new ProjectName("再変更"))),
+            Optional.empty(),
+            Set.of()));
+    Path projectRoot = parent.resolve("hakamap-project-" + projectId);
+    Files.writeString(
+        projectRoot.resolve("project.json"), System.lineSeparator(), StandardOpenOption.APPEND);
+
+    assertThatThrownBy(() -> service.close(projectId, "save", "session"))
+        .isInstanceOf(ProjectCatalogException.class)
+        .hasMessage("storage-external-change");
+    assertThat(openProjects.isOpen(projectId)).isTrue();
+    service.close(projectId, "discard", "session");
+  }
+
   private UUID selection(FileSelectionService selections) {
     return selections
         .start(
@@ -115,6 +218,17 @@ class ProjectCatalogServiceTest {
     ProjectRepository projects =
         new FileProjectRepository(
             codec, new ProjectFileV1Mapper(), new ProjectAssetFileValidator());
+    ProjectFingerprintCalculator fingerprints =
+        new ProjectFingerprintCalculator(codec, new ProjectFileV1Mapper());
+    ProjectStorageTransactionCoordinator storage =
+        new ProjectStorageTransactionCoordinator(
+            new NioStorageFileOperations(),
+            codec,
+            new ProjectFileV1Mapper(),
+            new ProjectAssetFileValidator(),
+            fingerprints,
+            Clock.fixed(NOW, ZoneOffset.UTC),
+            uuids);
     return new ProjectCatalogService(
         new CatalogPaths(catalogs.file),
         catalogs,
@@ -122,6 +236,8 @@ class ProjectCatalogServiceTest {
         projects,
         selections,
         new OpenProjectManager(),
+        storage,
+        new ProjectAssetStaging(temporaryDirectory.resolve("temporary-assets")),
         Clock.fixed(NOW, ZoneOffset.UTC),
         uuids);
   }

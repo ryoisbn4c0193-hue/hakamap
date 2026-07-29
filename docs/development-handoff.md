@@ -556,6 +556,24 @@
   並行実行しないようにした。
 - 全CommandTypeの未知項目拒否を含むDTO変換、正常差分、no-op、警告確認、
   revision競合、人物ページング、添付取り込み、およびPDF変換の回帰テストを追加した。
+- Phase 6レビューのP1指摘を受け、Projectの「保存して閉じる」をPhase 3の
+  `ProjectStorageTransactionCoordinator`へ接続し、保存成功後だけロックと編集セッションを
+  解放するようにした。保存失敗・結果不明時はProjectを開いたまま維持する。
+- 警告確認候補へ確定差分とCommand固有結果を一緒に保持し、確認後も単体・行列・範囲生成の
+  `clientRef`と作成UUIDの対応を返すようにした。
+- 背景・添付の新規ファイルをProjectの正式`assets`配下へ直接置かず、端末内の
+  `temporary-assets/<project UUID>`へ置くProject単位ステージング管理を実装した。
+- ステージングアセットはUndo／Redo履歴中も維持し、保存時にPhase 3の保存トランザクションで
+  正式配置してからJSONを確定する。変更破棄時は一時実体を削除する。
+- Recovery JSON用にステージングアセットの相対パス・容量・SHA-256を出力し、異常終了後に
+  検証済みRecoveryスナップショットからProject単位のステージング参照を再構築できるようにした。
+- 未保存アセットのプレビュー配信はステージング管理からUUIDで解決し、保存後は正式アセットを
+  同じAPIから解決するようにした。
+- 複数PDF添付の準備ループ全体を清掃対象とし、後続ファイルの検証失敗時も、それ以前に生成した
+  変換PNGと空の変換ディレクトリを削除するようにした。
+- 保存して閉じた後の再open、保存失敗時のopen維持、警告付き単体・行列・範囲生成の
+  `clientRef`、添付・背景のステージング、Undo／Redo、正式保存、破棄、および
+  異常終了後のステージング再構築、複数PDF途中失敗の回帰テストを追加した。
 
 ## 次に行うこと
 
@@ -635,7 +653,7 @@ Phase 7の実装・検査・文書更新を1つのローカルコミットへま
 
 ## 検査結果
 
-- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、98件のJavaテスト、
+- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、102件のJavaテスト、
   Checkstyle、Spotless、および実行可能JAR生成を含む。
 - `cd frontend && pnpm lint`: 成功。
 - `cd frontend && pnpm format:check`: 成功。

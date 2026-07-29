@@ -26,16 +26,21 @@ final class EditingTokenStore {
   }
 
   synchronized StoredConfirmation storeConfirmation(
-      String sessionId, UUID projectId, long revision, ProjectChangeSet changeSet) {
+      String sessionId,
+      UUID projectId,
+      long revision,
+      ProjectChangeSet changeSet,
+      EditingApiModels.CommandResultResponse result) {
     discardExpired();
     String token = UUID.randomUUID().toString();
     Instant expiresAt = clock.instant().plus(LIFETIME);
     confirmations.put(
-        token, new ConfirmationCandidate(sessionId, projectId, revision, changeSet, expiresAt));
+        token,
+        new ConfirmationCandidate(sessionId, projectId, revision, changeSet, result, expiresAt));
     return new StoredConfirmation(token, expiresAt);
   }
 
-  synchronized ProjectChangeSet consumeConfirmation(
+  synchronized ConfirmedCommand consumeConfirmation(
       String token, String sessionId, UUID projectId, long revision) {
     discardExpired();
     ConfirmationCandidate candidate = confirmations.remove(token);
@@ -45,7 +50,7 @@ final class EditingTokenStore {
         || candidate.revision() != revision) {
       throw new EditingApiException("command-confirmation-invalid");
     }
-    return candidate.changeSet();
+    return new ConfirmedCommand(candidate.changeSet(), candidate.result());
   }
 
   synchronized void discardConfirmation(String token, String sessionId) {
@@ -124,6 +129,9 @@ final class EditingTokenStore {
 
   record StoredConfirmation(String token, Instant expiresAt) {}
 
+  record ConfirmedCommand(
+      ProjectChangeSet changeSet, EditingApiModels.CommandResultResponse result) {}
+
   record StoredNumbering(String token, Instant expiresAt, List<NumberingAssignment> assignments) {}
 
   private record ConfirmationCandidate(
@@ -131,6 +139,7 @@ final class EditingTokenStore {
       UUID projectId,
       long revision,
       ProjectChangeSet changeSet,
+      EditingApiModels.CommandResultResponse result,
       Instant expiresAt) {}
 
   private record NumberingCandidate(

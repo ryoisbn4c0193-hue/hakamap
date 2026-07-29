@@ -23,12 +23,15 @@ import jp.hakamap.persistence.json.model.catalog.CatalogProjectV1;
 import jp.hakamap.persistence.json.model.catalog.TrashedCatalogProjectV1;
 import jp.hakamap.persistence.json.repository.CatalogRepository;
 import jp.hakamap.persistence.json.repository.ProjectRepository;
+import jp.hakamap.project.application.editing.ProjectAssetStaging;
 import jp.hakamap.project.domain.model.ProjectAggregate;
 import jp.hakamap.project.domain.model.ProjectMetadata;
 import jp.hakamap.project.domain.service.UuidSource;
 import jp.hakamap.project.domain.value.ProjectId;
 import jp.hakamap.project.domain.value.ProjectName;
+import jp.hakamap.project.infrastructure.storage.CommitStatus;
 import jp.hakamap.project.infrastructure.storage.ProjectFileLock;
+import jp.hakamap.project.infrastructure.storage.ProjectStorageTransactionCoordinator;
 
 public final class ProjectCatalogService {
   private static final String ACTIVE = "active";
@@ -47,6 +50,10 @@ public final class ProjectCatalogService {
 
   private final OpenProjectManager openProjects;
 
+  private final ProjectStorageTransactionCoordinator storage;
+
+  private final ProjectAssetStaging assetStaging;
+
   private final Clock clock;
 
   private final UuidSource uuids;
@@ -58,6 +65,8 @@ public final class ProjectCatalogService {
       ProjectRepository projects,
       FileSelectionService selections,
       OpenProjectManager openProjects,
+      ProjectStorageTransactionCoordinator storage,
+      ProjectAssetStaging assetStaging,
       Clock clock,
       UuidSource uuids) {
     this.paths = paths;
@@ -66,6 +75,8 @@ public final class ProjectCatalogService {
     this.projects = projects;
     this.selections = selections;
     this.openProjects = openProjects;
+    this.storage = storage;
+    this.assetStaging = assetStaging;
     this.clock = clock;
     this.uuids = uuids;
   }
@@ -152,9 +163,34 @@ public final class ProjectCatalogService {
     if (!"save".equals(action) && !"discard".equals(action)) {
       throw new ProjectCatalogException("project-close-action-invalid");
     }
+    if ("save".equals(action)) {
+      var result = openProjects.save(projectId, storage, assetStaging.list(projectId));
+      if (result.status() == CommitStatus.COMMIT_OUTCOME_UNKNOWN) {
+        throw new ProjectCatalogException("storage-commit-outcome-unknown");
+      }
+      if (result.status() == CommitStatus.NOT_COMMITTED) {
+        throw new ProjectCatalogException(saveErrorCode(result.code()));
+      }
+      if (result.status() == CommitStatus.NO_CHANGES) {
+        assetStaging.discard(projectId);
+      } else {
+        assetStaging.forget(projectId);
+      }
+    } else {
+      assetStaging.discard(projectId);
+    }
     openProjects.close(projectId);
     selections.invalidateSession(sessionId);
     return new CloseProjectView("closed");
+  }
+
+  private String saveErrorCode(String code) {
+    return switch (code) {
+      case "project-externally-modified" -> "storage-external-change";
+      case "project-lock-lost" -> "storage-project-locked";
+      case "storage-space-insufficient" -> "storage-insufficient-space";
+      default -> code;
+    };
   }
 
   public synchronized ProjectView relink(

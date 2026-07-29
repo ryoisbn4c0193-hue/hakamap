@@ -12,4 +12,8 @@ public record CatalogPaths(Path catalogFile) {
             : Path.of(localAppData);
     return new CatalogPaths(base.resolve("Hakamap").resolve("catalog.json"));
   }
+
+  public Path temporaryAssetRoot() {
+    return catalogFile.toAbsolutePath().normalize().getParent().resolve("temporary-assets");
+  }
 }

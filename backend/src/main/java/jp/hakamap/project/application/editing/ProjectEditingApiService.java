@@ -95,6 +95,8 @@ public final class ProjectEditingApiService {
 
   private final FileSelectionService fileSelections;
 
+  private final ProjectAssetStaging assetStaging;
+
   private final ProjectDeltaFactory deltas = new ProjectDeltaFactory();
 
   private final GraveGenerationService graveGeneration = new GraveGenerationService();
@@ -108,12 +110,14 @@ public final class ProjectEditingApiService {
       ProjectFingerprintCalculator fingerprints,
       Clock clock,
       UuidSource uuids,
-      FileSelectionService fileSelections) {
+      FileSelectionService fileSelections,
+      ProjectAssetStaging assetStaging) {
     this.openProjects = openProjects;
     this.fingerprints = fingerprints;
     this.clock = clock;
     this.uuids = uuids;
     this.fileSelections = fileSelections;
+    this.assetStaging = assetStaging;
     this.tokens = new EditingTokenStore(clock);
   }
 
@@ -162,7 +166,8 @@ public final class ProjectEditingApiService {
     List<WarningResponse> newWarnings = newPlacementWarnings(before, mutation.candidate());
     if (!newWarnings.isEmpty()) {
       EditingTokenStore.StoredConfirmation stored =
-          tokens.storeConfirmation(sessionId, projectId, expectedRevision, changeSet);
+          tokens.storeConfirmation(
+              sessionId, projectId, expectedRevision, changeSet, mutation.result());
       return new EditingApiModels.ConfirmationRequiredResponse(
           "confirmationRequired",
           expectedRevision,
@@ -178,10 +183,10 @@ public final class ProjectEditingApiService {
       UUID projectId, String sessionId, String token, long expectedRevision) {
     ProjectEditingSession session = session(projectId);
     session.requireRevision(expectedRevision);
-    ProjectChangeSet changeSet =
+    EditingTokenStore.ConfirmedCommand confirmed =
         tokens.consumeConfirmation(token, sessionId, projectId, expectedRevision);
-    session.apply(expectedRevision, changeSet);
-    return response(session, changeSet, emptyResult());
+    session.apply(expectedRevision, confirmed.changeSet());
+    return response(session, confirmed.changeSet(), confirmed.result());
   }
 
   public synchronized void cancelConfirmation(String sessionId, String token) {
@@ -287,6 +292,15 @@ public final class ProjectEditingApiService {
     if (asset == null) {
       throw new EditingApiException("asset-not-found");
     }
+    Optional<jp.hakamap.project.infrastructure.storage.StagedAsset> staged =
+        assetStaging.find(projectId, asset.id());
+    if (staged.isPresent()) {
+      Path content = staged.orElseThrow().source();
+      if (!Files.isSymbolicLink(content) && Files.isRegularFile(content)) {
+        return new AssetContent(content, asset.storedMediaType(), asset.sizeBytes());
+      }
+      throw new EditingApiException("asset-not-found");
+    }
     Path root = openProjects.projectRoot(projectId).toAbsolutePath().normalize();
     Path content = root.resolve(asset.relativePath()).normalize();
     if (!content.startsWith(root)
@@ -379,15 +393,12 @@ public final class ProjectEditingApiService {
     Path source =
         fileSelections.consume(
             payload.fileSelectionId(), sessionId, FileSelectionPurpose.BACKGROUND_IMPORT);
-    Path root = openProjects.projectRoot(projectId);
     AssetIngestor ingestor = new AssetIngestor();
     AssetIngestor.PreparedAsset prepared =
-        ingestor.prepare(source, true, root.resolve(".hakamap-staging"));
+        ingestor.prepare(source, true, assetStaging.conversionDirectory(projectId));
     AssetId id = new AssetId(uuids.next());
     String relative = "assets/backgrounds/" + id.value() + "." + prepared.storedExtension();
-    Path target = root.resolve(relative);
     try {
-      ingestor.place(prepared, target);
       AssetMetadata asset =
           new AssetMetadata(
               id,
@@ -404,6 +415,7 @@ public final class ProjectEditingApiService {
               Optional.empty(),
               Optional.empty(),
               Optional.empty());
+      assetStaging.stage(projectId, asset, prepared, ingestor);
       Map<AssetId, AssetMetadata> assets = new LinkedHashMap<>(before.assets());
       before.background().ifPresent(background -> assets.remove(background.assetId()));
       assets.put(id, asset);
@@ -424,12 +436,13 @@ public final class ProjectEditingApiService {
               before.people(),
               assets));
     } catch (RuntimeException exception) {
-      deleteQuietly(target);
+      assetStaging.remove(projectId, id);
       throw exception;
     } finally {
       if (prepared.temporary()) {
         deleteQuietly(prepared.preparedPath());
       }
+      assetStaging.cleanConversionDirectory(projectId);
     }
   }
 
@@ -812,26 +825,21 @@ public final class ProjectEditingApiService {
     if (existing + payload.fileSelectionIds().size() > 20) {
       throw new EditingApiException("asset-count-exceeded");
     }
-    Path root = openProjects.projectRoot(projectId);
     AssetIngestor ingestor = new AssetIngestor();
     List<AssetIngestor.PreparedAsset> prepared = new ArrayList<>();
-    for (UUID selectionId : payload.fileSelectionIds()) {
-      Path source =
-          fileSelections.consume(selectionId, sessionId, FileSelectionPurpose.ATTACHMENT_IMPORT);
-      prepared.add(ingestor.prepare(source, false, root.resolve(".hakamap-staging")));
-    }
     Map<AssetId, AssetMetadata> assets = new LinkedHashMap<>(before.assets());
-    List<Path> placed = new ArrayList<>();
+    List<AssetId> stagedIds = new ArrayList<>();
     try {
+      for (UUID selectionId : payload.fileSelectionIds()) {
+        Path source =
+            fileSelections.consume(selectionId, sessionId, FileSelectionPurpose.ATTACHMENT_IMPORT);
+        prepared.add(ingestor.prepare(source, false, assetStaging.conversionDirectory(projectId)));
+      }
       for (int index = 0; index < prepared.size(); index++) {
         AssetIngestor.PreparedAsset item = prepared.get(index);
         AssetId id = new AssetId(uuids.next());
         String relative = "assets/attachments/" + id.value() + "." + item.storedExtension();
-        Path target = root.resolve(relative);
-        ingestor.place(item, target);
-        placed.add(target);
-        assets.put(
-            id,
+        AssetMetadata metadata =
             new AssetMetadata(
                 id,
                 AssetType.ATTACHMENT,
@@ -846,7 +854,10 @@ public final class ProjectEditingApiService {
                 Optional.of(new AssetDisplayName(item.originalFileName())),
                 Optional.empty(),
                 Optional.of(timestamp),
-                Optional.of(new DisplayOrder(Math.toIntExact(existing) + index))));
+                Optional.of(new DisplayOrder(Math.toIntExact(existing) + index)));
+        assetStaging.stage(projectId, metadata, item, ingestor);
+        stagedIds.add(id);
+        assets.put(id, metadata);
       }
       Map<GraveId, Grave> graves = new LinkedHashMap<>(before.graves());
       graves.put(graveId, grave.move(grave.rectangle(), timestamp));
@@ -860,13 +871,14 @@ public final class ProjectEditingApiService {
               before.people(),
               assets));
     } catch (RuntimeException exception) {
-      placed.forEach(this::deleteQuietly);
+      stagedIds.forEach(id -> assetStaging.remove(projectId, id));
       throw exception;
     } finally {
       prepared.stream()
           .filter(AssetIngestor.PreparedAsset::temporary)
           .map(AssetIngestor.PreparedAsset::preparedPath)
           .forEach(this::deleteQuietly);
+      assetStaging.cleanConversionDirectory(projectId);
     }
   }
 

@@ -17,6 +17,7 @@ import jp.hakamap.project.domain.service.UuidSource;
 import jp.hakamap.project.infrastructure.storage.CatalogStorageTransaction;
 import jp.hakamap.project.infrastructure.storage.CommitStatus;
 import jp.hakamap.project.infrastructure.storage.NioStorageFileOperations;
+import jp.hakamap.project.infrastructure.storage.ProjectStorageTransactionCoordinator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -44,6 +45,22 @@ public class ProjectCatalogConfiguration {
   ProjectFingerprintCalculator projectFingerprintCalculator(ClasspathJsonSchemaValidator schemas) {
     return new ProjectFingerprintCalculator(
         new DefensiveJsonCodec(schemas), new ProjectFileV1Mapper());
+  }
+
+  @Bean
+  ProjectStorageTransactionCoordinator projectStorageTransactionCoordinator(
+      ClasspathJsonSchemaValidator schemas,
+      ProjectFingerprintCalculator fingerprints,
+      Clock clock,
+      UuidSource uuids) {
+    return new ProjectStorageTransactionCoordinator(
+        new NioStorageFileOperations(),
+        new DefensiveJsonCodec(schemas),
+        new ProjectFileV1Mapper(),
+        new ProjectAssetFileValidator(),
+        fingerprints,
+        clock,
+        uuids);
   }
 
   @Bean
@@ -79,9 +96,20 @@ public class ProjectCatalogConfiguration {
       ProjectRepository projects,
       FileSelectionService selections,
       OpenProjectManager openProjects,
+      ProjectStorageTransactionCoordinator storage,
+      jp.hakamap.project.application.editing.ProjectAssetStaging assetStaging,
       Clock clock,
       UuidSource uuids) {
     return new ProjectCatalogService(
-        paths, catalogs, catalogWriter, projects, selections, openProjects, clock, uuids);
+        paths,
+        catalogs,
+        catalogWriter,
+        projects,
+        selections,
+        openProjects,
+        storage,
+        assetStaging,
+        clock,
+        uuids);
   }
 }

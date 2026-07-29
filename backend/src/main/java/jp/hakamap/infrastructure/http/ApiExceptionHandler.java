@@ -41,8 +41,12 @@ public class ApiExceptionHandler {
               "catalog-project-duplicate",
               "project-destination-exists",
               "project-trash-destination-exists",
-              "project-restore-destination-exists" ->
+              "project-restore-destination-exists",
+              "storage-external-change" ->
               HttpStatus.CONFLICT;
+          case "storage-project-locked" -> HttpStatus.LOCKED;
+          case "storage-commit-outcome-unknown" -> HttpStatus.SERVICE_UNAVAILABLE;
+          case "storage-insufficient-space" -> HttpStatus.INSUFFICIENT_STORAGE;
           case "catalog-default-invalid",
               "project-mismatch",
               "project-close-action-invalid",
