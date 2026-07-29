@@ -33,6 +33,7 @@
 		<maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
 		<spotless-maven-plugin.version>3.6.0</spotless-maven-plugin.version>
 		<json-schema-validator.version>3.0.6</json-schema-validator.version>
+		<pdfbox.version>3.0.8</pdfbox.version>
 		<frontend-maven-plugin.version>2.0.0</frontend-maven-plugin.version>
 		<node.version>v24.18.0</node.version>
 		<pnpm.version>11.15.1</pnpm.version>
@@ -50,6 +51,11 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox</artifactId>
+			<version>${pdfbox.version}</version>
 		</dependency>
 
 		<dependency>

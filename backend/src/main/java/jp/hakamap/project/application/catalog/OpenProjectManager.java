@@ -1,9 +1,14 @@
 package jp.hakamap.project.application.catalog;
 
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 import jp.hakamap.persistence.json.repository.ProjectRepository;
+import jp.hakamap.project.application.history.ProjectEditingSession;
+import jp.hakamap.project.application.history.ProjectFingerprintCalculator;
 import jp.hakamap.project.domain.model.ProjectAggregate;
 import jp.hakamap.project.infrastructure.storage.ProjectFileLock;
 
@@ -40,12 +45,43 @@ public final class OpenProjectManager implements AutoCloseable {
     return openProject == null ? Optional.empty() : Optional.of(openProject.projectId());
   }
 
+  public synchronized ProjectEditingSession editingSession(
+      UUID projectId, ProjectFingerprintCalculator fingerprints) {
+    OpenProject project = requireOpen(projectId);
+    if (project.editingSession() == null) {
+      project.editingSession =
+          new ProjectEditingSession(project.aggregate(), sha256(project.root()), fingerprints);
+    }
+    return project.editingSession();
+  }
+
+  public synchronized Path projectRoot(UUID projectId) {
+    return requireOpen(projectId).root();
+  }
+
   public synchronized void close(UUID projectId) {
     if (!isOpen(projectId)) {
       throw new ProjectCatalogException("project-not-open");
     }
     openProject.lock().close();
     openProject = null;
+  }
+
+  private OpenProject requireOpen(UUID projectId) {
+    if (!isOpen(projectId)) {
+      throw new ProjectCatalogException(
+          openProject == null ? "project-not-open" : "project-mismatch");
+    }
+    return openProject;
+  }
+
+  private String sha256(Path root) {
+    try {
+      byte[] bytes = java.nio.file.Files.readAllBytes(root.resolve("project.json"));
+      return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    } catch (java.io.IOException | NoSuchAlgorithmException exception) {
+      throw new ProjectCatalogException("catalog-project-not-found", exception);
+    }
   }
 
   @Override
@@ -56,6 +92,43 @@ public final class OpenProjectManager implements AutoCloseable {
     }
   }
 
-  private record OpenProject(
-      UUID projectId, Path root, ProjectAggregate aggregate, ProjectFileLock lock) {}
+  private static final class OpenProject {
+    private final UUID projectId;
+
+    private final Path root;
+
+    private final ProjectAggregate aggregate;
+
+    private final ProjectFileLock lock;
+
+    private ProjectEditingSession editingSession;
+
+    private OpenProject(
+        UUID projectId, Path root, ProjectAggregate aggregate, ProjectFileLock lock) {
+      this.projectId = projectId;
+      this.root = root;
+      this.aggregate = aggregate;
+      this.lock = lock;
+    }
+
+    private UUID projectId() {
+      return projectId;
+    }
+
+    private Path root() {
+      return root;
+    }
+
+    private ProjectAggregate aggregate() {
+      return editingSession == null ? aggregate : editingSession.current();
+    }
+
+    private ProjectFileLock lock() {
+      return lock;
+    }
+
+    private ProjectEditingSession editingSession() {
+      return editingSession;
+    }
+  }
 }

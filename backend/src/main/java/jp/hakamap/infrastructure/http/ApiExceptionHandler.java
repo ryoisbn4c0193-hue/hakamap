@@ -2,6 +2,9 @@ package jp.hakamap.infrastructure.http;
 
 import jp.hakamap.infrastructure.fileselection.FileSelectionException;
 import jp.hakamap.project.application.catalog.ProjectCatalogException;
+import jp.hakamap.project.application.editing.EditingApiException;
+import jp.hakamap.project.application.history.EditingSessionException;
+import jp.hakamap.project.domain.result.ProjectInvariantException;
 import jp.hakamap.project.domain.value.DomainValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +50,46 @@ public class ApiExceptionHandler {
               HttpStatus.UNPROCESSABLE_ENTITY;
           default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
+    return problem(status, exception.code());
+  }
+
+  @ExceptionHandler(EditingApiException.class)
+  ResponseEntity<ProblemDetail> editingApi(EditingApiException exception) {
+    HttpStatus status =
+        switch (exception.code()) {
+          case "request-unknown-command", "request-field-invalid" -> HttpStatus.BAD_REQUEST;
+          case "asset-not-found" -> HttpStatus.NOT_FOUND;
+          case "command-confirmation-invalid", "numbering-preview-invalid" -> HttpStatus.CONFLICT;
+          case "asset-selection-invalid" -> HttpStatus.FORBIDDEN;
+          default -> HttpStatus.UNPROCESSABLE_ENTITY;
+        };
+    return problem(status, exception.code());
+  }
+
+  @ExceptionHandler(EditingSessionException.class)
+  ResponseEntity<ProblemDetail> editingSession(EditingSessionException exception) {
+    HttpStatus status =
+        switch (exception.code()) {
+          case "project-revision-conflict", "undo-empty", "redo-empty" -> HttpStatus.CONFLICT;
+          case "editing-stopped" -> HttpStatus.LOCKED;
+          default -> HttpStatus.UNPROCESSABLE_ENTITY;
+        };
+    String code =
+        switch (exception.code()) {
+          case "undo-empty" -> "history-undo-empty";
+          case "redo-empty" -> "history-redo-empty";
+          case "editing-stopped" -> "storage-project-locked";
+          default -> exception.code();
+        };
+    return problem(status, code);
+  }
+
+  @ExceptionHandler(ProjectInvariantException.class)
+  ResponseEntity<ProblemDetail> projectInvariant(ProjectInvariantException exception) {
+    HttpStatus status =
+        exception.code().endsWith("-not-found")
+            ? HttpStatus.NOT_FOUND
+            : HttpStatus.UNPROCESSABLE_ENTITY;
     return problem(status, exception.code());
   }
 

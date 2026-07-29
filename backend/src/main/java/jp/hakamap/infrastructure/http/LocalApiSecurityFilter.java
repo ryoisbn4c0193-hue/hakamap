@@ -61,6 +61,7 @@ public final class LocalApiSecurityFilter extends OncePerRequestFilter {
     }
     request.setAttribute(AUTHENTICATED_SESSION_ATTRIBUTE, session.orElseThrow().sessionId());
     filterChain.doFilter(request, response);
+    response.setHeader("Cache-Control", "no-store");
   }
 
   private String cookie(HttpServletRequest request, String name) {

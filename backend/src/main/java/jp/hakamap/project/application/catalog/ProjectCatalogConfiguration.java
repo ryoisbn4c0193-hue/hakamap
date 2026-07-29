@@ -12,6 +12,7 @@ import jp.hakamap.persistence.json.repository.FileProjectRepository;
 import jp.hakamap.persistence.json.repository.ProjectRepository;
 import jp.hakamap.persistence.json.validation.CatalogFileV1Validator;
 import jp.hakamap.persistence.json.validation.ProjectAssetFileValidator;
+import jp.hakamap.project.application.history.ProjectFingerprintCalculator;
 import jp.hakamap.project.domain.service.UuidSource;
 import jp.hakamap.project.infrastructure.storage.CatalogStorageTransaction;
 import jp.hakamap.project.infrastructure.storage.CommitStatus;
@@ -37,6 +38,12 @@ public class ProjectCatalogConfiguration {
         new DefensiveJsonCodec(schemas),
         new ProjectFileV1Mapper(),
         new ProjectAssetFileValidator());
+  }
+
+  @Bean
+  ProjectFingerprintCalculator projectFingerprintCalculator(ClasspathJsonSchemaValidator schemas) {
+    return new ProjectFingerprintCalculator(
+        new DefensiveJsonCodec(schemas), new ProjectFileV1Mapper());
   }
 
   @Bean

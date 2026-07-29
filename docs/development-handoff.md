@@ -5,8 +5,8 @@
 ## 現在の目的
 
 レビュー合格済みの要件・基本設計・詳細設計に従い、Hakamap MVPを
-`docs/implementation-plan.md`のPhase単位で実装する。Phase 5のProject管理と
-ファイル選択まで完了し、次はPhase 6の編集コマンドAPIを実装する。
+`docs/implementation-plan.md`のPhase単位で実装する。Phase 6の編集コマンドAPIまで
+完了し、次はPhase 7のReact編集画面基盤を実装する。
 - 当時のコミット`aa92223`に対する再レビューは合格となり、重要な矛盾が解消され、
   MVP、将来拡張、および未決事項の境界が明確であると確認された。
 - 基本アーキテクチャとして、React、TypeScript、PixiJS、Java 21、Spring Boot、および
@@ -539,19 +539,36 @@
 - Project一覧へ戻る際は保存、破棄、キャンセルを明示的に選ぶ確認画面を追加した。
 - ファイル選択の用途・セッション・期限・単一使用と、Project作成からopen／close、
   ごみ箱、復元、完全削除までを一時ディレクトリで確認する回帰テストを追加した。
+- Phase 6として、人物全件を含まないProjectスナップショットと、全23種類の
+  CommandTypeを専用sealed payloadへ変換する編集コマンドAPIを実装した。
+- エリア、墓所、人物、背景、および添付の作成・変更・削除を候補Projectから確定差分へ変換し、
+  `expectedRevision`確認後にUndo／Redo可能な1コマンドとして原子的に適用するようにした。
+- 実質的な変更がない操作はrevision・履歴を増やさず`noChange`を返し、未割当・
+  エリア範囲外の新規警告は5分有効・単一使用・セッション拘束の確認トークンで確定するようにした。
+- 一括採番を、Projectとrevisionに紐づく5分有効・単一使用のプレビュートークンへ接続した。
+- 人物一覧を墓所単位100件で返し、Project、墓所、revision、セッション、および5分期限へ
+  サーバー側で紐づく不透明カーソルを実装した。
+- PNG、JPEG、WebP、および1ページPDFを検証して管理アセットへ取り込み、PDFは
+  Apache PDFBox 3.0.8でPNGへ変換するようにした。複数ページPDFと上限超過を拒否する。
+- アセットUUIDから管理領域内の通常ファイルだけを解決し、固定ファイル名、
+  `nosniff`、CSP、および`no-store`を付けて配信するAPIを実装した。
+- 編集API処理を直列化し、同時要求が同じrevisionから候補評価・アセット配置を
+  並行実行しないようにした。
+- 全CommandTypeの未知項目拒否を含むDTO変換、正常差分、no-op、警告確認、
+  revision競合、人物ページング、添付取り込み、およびPDF変換の回帰テストを追加した。
 
 ## 次に行うこと
 
-`docs/implementation-plan.md`のPhase 6を開始する。
+`docs/implementation-plan.md`のPhase 7を開始する。
 
-1. Projectスナップショット、CommandType別DTO、および確定差分を実装する。
-2. エリア、墓所、人物、および添付のコマンドをAPIへ接続する。
-3. 警告確認トークン、採番プレビュー、Undo／Redo、および履歴を実装する。
-4. expectedRevision、人物ページング、アセット配信、およびProblem Detailsを結合テストする。
+1. 左サイドバー、中央地図領域、および右プロパティパネルの編集画面を実装する。
+2. TanStack Queryでスナップショットと確定差分を管理し、UI状態だけをZustandへ保持する。
+3. 墓所基本情報、人物、添付、および履歴のタブとフォームを編集APIへ接続する。
+4. 未確定フォームの破棄確認、revision競合、通知、キーボード、および低解像度を検証する。
 
-Phase 6の実装・検査・文書更新を完了後、1つのローカルコミットにまとめる。Phase 6完了は
-定例レビュー節目のため、コミット後にPhase 4～6を`origin/main`へプッシュして、
-レビュー対象コミットIDを利用者へ伝える。
+Phase 6完了は定例レビュー節目のため、Phaseコミット後にPhase 4～6を
+`origin/main`へプッシュし、レビュー対象コミットIDを利用者へ伝える。レビュー合格後に
+Phase 7の実装・検査・文書更新を1つのローカルコミットへまとめる。
 
 ## 変更したファイル
 
@@ -561,6 +578,7 @@ Phase 6の実装・検査・文書更新を完了後、1つのローカルコミ
 - `backend/src/main/java/jp/hakamap/infrastructure/fileselection/`
 - `backend/src/main/java/jp/hakamap/persistence/json/`
 - `backend/src/main/java/jp/hakamap/project/application/`
+- `backend/src/main/java/jp/hakamap/project/application/editing/`
 - `backend/src/main/java/jp/hakamap/project/domain/`
 - `backend/src/main/java/jp/hakamap/project/infrastructure/`
 - `backend/src/test/java/jp/hakamap/HakamapApplicationTests.java`
@@ -568,6 +586,7 @@ Phase 6の実装・検査・文書更新を完了後、1つのローカルコミ
 - `backend/src/test/java/jp/hakamap/infrastructure/fileselection/`
 - `backend/src/test/java/jp/hakamap/persistence/json/`
 - `backend/src/test/java/jp/hakamap/project/application/`
+- `backend/src/test/java/jp/hakamap/project/application/editing/`
 - `backend/src/test/java/jp/hakamap/project/domain/`
 - `backend/src/test/java/jp/hakamap/project/infrastructure/`
 - `frontend/package.json`
@@ -616,7 +635,7 @@ Phase 6の実装・検査・文書更新を完了後、1つのローカルコミ
 
 ## 検査結果
 
-- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、66件のJavaテスト、
+- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、98件のJavaテスト、
   Checkstyle、Spotless、および実行可能JAR生成を含む。
 - `cd frontend && pnpm lint`: 成功。
 - `cd frontend && pnpm format:check`: 成功。
