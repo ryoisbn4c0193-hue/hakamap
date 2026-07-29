@@ -723,8 +723,9 @@ Phase 7～8の実装コミットを`origin/main`へプッシュし、外部ChatG
 - 現在のプッシュ済みレビュー基準は
   `dbb616f8097a8e5c6296f8b0c6cc131f3a1060b0`である。Phase 0～6は
   外部ChatGPTレビュー合格済みで、`origin/main`へ反映済みである。
-- Phase 7コミット`27836783a50e17d181b37e16e4172067b89e9389`と、このメモを含む
-  Phase 8コミットはローカルにあり、次の外部レビュー時にまとめてプッシュする。
+- Phase 7コミット`27836783a50e17d181b37e16e4172067b89e9389`とPhase 8コミットを
+  `origin/main`へ反映済みである。Phase 7～8の外部レビュー基準コミットは
+  `15d7b63221ca23b9e221abc9a3697ef347dba4df`である。
 - Phase 2ではProject、Catalog、Recovery v1の保存record、Project Mapper、防御的JSON Codec、
   Schema後のJava整合性検証、およびファイルRepositoryを実装した。
 - ProjectとRecoveryのアセットは相対パス、通常ファイル、シンボリックリンク拒否、
