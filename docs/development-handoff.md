@@ -5,7 +5,8 @@
 ## 現在の目的
 
 レビュー合格済みの要件・基本設計・詳細設計に従い、Hakamap MVPを
-`docs/implementation-plan.md`のPhase単位で実装する。Phase 6の編集コマンドAPIまで
+`docs/implementation-plan.md`のPhase単位で実装する。Phase 6の編集コマンドAPIと
+自動復旧の実行時接続まで
 完了し、次はPhase 7のReact編集画面基盤を実装する。
 - 当時のコミット`aa92223`に対する再レビューは合格となり、重要な矛盾が解消され、
   MVP、将来拡張、および未決事項の境界が明確であると確認された。
@@ -574,9 +575,20 @@
 - 保存して閉じた後の再open、保存失敗時のopen維持、警告付き単体・行列・範囲生成の
   `clientRef`、添付・背景のステージング、Undo／Redo、正式保存、破棄、および
   異常終了後のステージング再構築、複数PDF途中失敗の回帰テストを追加した。
+- Phase 6再レビューのP1指摘を受け、`RecoverySnapshotService`を本番Beanと30秒周期の
+  スケジューラーへ接続し、開いているdirtyな編集セッションとステージングアセットを
+  Project単位のRecovery JSONへ保存するようにした。
+- 起動時のCatalog取得で有効な復旧候補を検出し、Projectを開く応答で復旧日時などを返す。
+  Reactでは候補を表示し、利用者が復旧または破棄を選ぶまで編集画面へ移動しないようにした。
+- 復旧時はrevision 0・空履歴・dirtyの編集セッションに加え、検証済みRecovery JSONの
+  ステージング参照を`ProjectAssetStaging`へ復元する。保存・破棄後はRecovery JSONと
+  不要なステージングを清掃するようにした。
+- 「添付追加、未保存Recovery作成、実行時コンポーネント再生成、候補検証、復旧、
+  添付表示、正式保存」を一続きで確認する結合テストを追加した。
 
 ## 次に行うこと
 
+Phase 0～6の再レビューを行い、自動復旧の実行時接続が合格した後に
 `docs/implementation-plan.md`のPhase 7を開始する。
 
 1. 左サイドバー、中央地図領域、および右プロパティパネルの編集画面を実装する。
@@ -653,7 +665,7 @@ Phase 7の実装・検査・文書更新を1つのローカルコミットへま
 
 ## 検査結果
 
-- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、102件のJavaテスト、
+- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、103件のJavaテスト、
   Checkstyle、Spotless、および実行可能JAR生成を含む。
 - `cd frontend && pnpm lint`: 成功。
 - `cd frontend && pnpm format:check`: 成功。
@@ -668,8 +680,8 @@ Phase 7の実装・検査・文書更新を1つのローカルコミットへま
 ## 注意事項
 
 - 要件への回答を受け取るたびに文書を更新する運用としている。
-- Phase 6レビュー指摘の補正までを含むレビュー基準コミットは
-  `4b2cffc306c0805d4240feda59db63a7b5c154ce`であり、`origin/main`への反映対象である。
+- Phase 6の自動復旧実行時接続までを含むレビュー基準コミットは
+  `af786042036c7f0a1cb38a0a85daaba49a7401a0`であり、`origin/main`への反映対象である。
 - 詳細設計8工程、JSON Schema、および追加レビュー指摘反映までのレビュー基準コミットは
   `ca5f8b1`であり、
   `origin/main`へ反映済みである。
