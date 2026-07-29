@@ -1,13 +1,12 @@
 # 開発引き継ぎメモ
 
-最終更新日: 2026-07-23
+最終更新日: 2026-07-29
 
 ## 現在の目的
 
 レビュー合格済みの要件・基本設計・詳細設計に従い、Hakamap MVPを
-`docs/implementation-plan.md`のPhase単位で実装する。Phase 0のビルド・依存・品質基盤と
-Phase 3の保存トランザクションと履歴まで完了し、次はPhase 4のアプリライフサイクルと
-HTTP保護を実装する。
+`docs/implementation-plan.md`のPhase単位で実装する。Phase 4のアプリライフサイクルと
+HTTP保護まで完了し、次はPhase 5のProject管理とファイル選択を実装する。
 - 当時のコミット`aa92223`に対する再レビューは合格となり、重要な矛盾が解消され、
   MVP、将来拡張、および未決事項の境界が明確であると確認された。
 - 基本アーキテクチャとして、React、TypeScript、PixiJS、Java 21、Spring Boot、および
@@ -506,19 +505,34 @@ HTTP保護を実装する。
 - JSON置換直後の読戻し障害でも参照アセットを維持するテスト、古いリビジョンでは
   コマンドを評価しないテスト、および評価用集約の変更が本体へ漏れないテストを追加した。
 - Phase 3レビュー指摘修正版コミット`4ce711886294770bf21bd12d0931ffe4dec597c8`は
-  外部ChatGPTの再レビューで合格となった。次回は予定どおりPhase 4から再開する。
+  外部ChatGPTの再レビューで合格となった。
+- Phase 4として、Spring Bootを`127.0.0.1`のOS選択ランダムポートへ限定し、
+  `%LOCALAPPDATA%\Hakamap\runtime`のapplication lock、instance情報、異常終了マーカー、
+  5秒間隔の生存更新、および正常終了時清掃を実装した。
+- 二重起動時はPID、インスタンスUUID、256ビット相当の制御トークン、および既存プロセスの
+  固有応答を確認し、最大10秒再試行して既存バックエンド側でブラウザを再表示するようにした。
+- 起動用認証情報をURLフラグメントでReactへ渡し、URLから除去してから専用ヘッダーで
+  一度だけ交換し、HttpOnly・SameSite StrictのセッションCookieを確立するようにした。
+- `GET /api/v1/session`からCSRFトークンをno-storeで取得し、Reactのメモリだけに保持して
+  状態変更要求へ付与し、認証・CSRF失効時は自動再送せず破棄するようにした。
+- API境界でloopback、Host、Origin、Sec-Fetch-Site、Referer、セッション、およびCSRFを検証し、
+  外部Origin、LAN、未認証、旧セッション、旧CSRF、偽装再表示要求を拒否するようにした。
+- Problem Detailsの安全な固定コード、アクセスログ無効化、Webログ抑制、および
+  例外値・認証情報・ポートを通常ログへ含めない設定を実装した。
+- 保護された終了APIとReactの「Hakamapを終了」操作を追加し、受付後にSpringコンテキスト、
+  セッション、ランタイム情報、およびapplication lockを正常に閉じるようにした。
 
 ## 次に行うこと
 
-`docs/implementation-plan.md`のPhase 4を開始する。
+`docs/implementation-plan.md`のPhase 5を開始する。
 
-1. `127.0.0.1`限定・ランダムポート、application lock、およびinstance情報を実装する。
-2. 起動用認証、HttpOnly Cookie、CSRF取得・更新、および終了制御を実装する。
-3. Host、Origin、Fetch Metadata、Referer、および外部アクセス拒否を実装する。
-4. Problem Details、ログ秘匿化、二重起動時の再表示、および結合テストを追加する。
+1. Catalog一覧、Project作成・open・close・デフォルト・再関連付けを実装する。
+2. ごみ箱移動、復元、および完全削除を実装する。
+3. Swing `JFileChooser`による用途別・期限付きのファイル選択サービスを実装する。
+4. Project管理画面と未保存切り替え確認をReactへ接続する。
 
-Phase 4の実装・検査・文書更新を完了後、1つのローカルコミットにまとめる。次の定例レビュー
-節目はPhase 6完了時のため、利用者から明示指示がない限りPhase 4単独ではプッシュしない。
+Phase 5の実装・検査・文書更新を完了後、1つのローカルコミットにまとめる。次の定例レビュー
+節目はPhase 6完了時のため、利用者から明示指示がない限りPhase 5単独ではプッシュしない。
 
 ## 変更したファイル
 
@@ -581,11 +595,11 @@ Phase 4の実装・検査・文書更新を完了後、1つのローカルコミ
 
 ## 検査結果
 
-- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、52件のJavaテスト、
+- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、61件のJavaテスト、
   Checkstyle、Spotless、および実行可能JAR生成を含む。
 - `cd frontend && pnpm lint`: 成功。
 - `cd frontend && pnpm format:check`: 成功。
-- `cd frontend && pnpm test`: 成功（1テスト）。
+- `cd frontend && pnpm test`: 成功（4テスト）。
 - `cd frontend && pnpm build`: 成功。
 - 生成JARの`/`はHTTP 200、`/api/v1/not-defined`はHTTP 404となることを確認した。
 - JAR内の`BOOT-INF/classes/static`にReactのHTML、JavaScript、CSSがあることを確認した。
@@ -599,8 +613,8 @@ Phase 4の実装・検査・文書更新を完了後、1つのローカルコミ
 - 詳細設計8工程、JSON Schema、および追加レビュー指摘反映までのレビュー基準コミットは
   `ca5f8b1`であり、
   `origin/main`へ反映済みである。
-- 現在のプッシュ済み作業再開基準は`origin/main`の
-  `0c792dc106c6f6ff852e3274f4022cd6d61cc268`である。Phase 3レビュー指摘修正版は
+- 現在のプッシュ済みレビュー基準は
+  `4ce711886294770bf21bd12d0931ffe4dec597c8`である。Phase 3レビュー指摘修正版は
   外部ChatGPTレビュー合格済みで、Phase 0～3の実装を`origin/main`へ反映済みである。
 - Phase 2ではProject、Catalog、Recovery v1の保存record、Project Mapper、防御的JSON Codec、
   Schema後のJava整合性検証、およびファイルRepositoryを実装した。

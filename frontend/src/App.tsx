@@ -1,5 +1,7 @@
 import { AppBar, Box, Button, Divider, Paper, Stack, Toolbar, Typography } from '@mui/material';
+import { useState } from 'react';
 
+import { requestApplicationExit } from './api/hakamapClient';
 import { useUiStore } from './state/uiStore';
 import './App.css';
 
@@ -8,6 +10,16 @@ function App() {
   const rightPanelCollapsed = useUiStore((state) => state.rightPanelCollapsed);
   const toggleLeftPanel = useUiStore((state) => state.toggleLeftPanel);
   const toggleRightPanel = useUiStore((state) => state.toggleRightPanel);
+  const [exitRequested, setExitRequested] = useState(false);
+
+  const exitApplication = async () => {
+    setExitRequested(true);
+    try {
+      await requestApplicationExit();
+    } catch {
+      setExitRequested(false);
+    }
+  };
 
   return (
     <Box className="app-shell">
@@ -22,6 +34,16 @@ function App() {
             </Button>
             <Button color="inherit" onClick={toggleRightPanel} size="small">
               プロパティ
+            </Button>
+            <Button
+              color="inherit"
+              disabled={exitRequested}
+              onClick={() => {
+                void exitApplication();
+              }}
+              size="small"
+            >
+              Hakamapを終了
             </Button>
           </Stack>
         </Toolbar>

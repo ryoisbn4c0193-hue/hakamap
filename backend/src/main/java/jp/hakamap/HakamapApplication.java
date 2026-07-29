@@ -1,12 +1,12 @@
 package jp.hakamap;
 
-import org.springframework.boot.SpringApplication;
+import jp.hakamap.infrastructure.lifecycle.ApplicationLauncher;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 public class HakamapApplication {
 
   public static void main(String[] args) {
-    SpringApplication.run(HakamapApplication.class, args);
+    ApplicationLauncher.launch(args);
   }
 }
