@@ -57,18 +57,8 @@ public final class ProjectRecoveryCoordinator {
   }
 
   public synchronized RecoveryResult discard(UUID projectId) {
-    Path projectRoot = openProjects.projectRoot(projectId);
-    ProjectAggregate formalProject = openProjects.current(projectId);
-    RecoveryApplyResult result =
-        snapshots.apply(
-            snapshots.recoveryFile(projectId), projectRoot.resolve("project.json"), formalProject);
-    if (result.status() != RecoveryApplyStatus.APPLIED) {
-      return new RecoveryResult(result.status().name().toLowerCase(), result.code());
-    }
-    var recoveredSession = result.session().orElseThrow();
-    assetStaging.restore(projectId, recoveredSession.current(), result.stagedAssets());
-    assetStaging.discardStrict(projectId);
-    snapshots.delete(projectId);
+    snapshots.discard(projectId);
+    assetStaging.forget(projectId);
     return new RecoveryResult("discarded", "recovery-discarded");
   }
 

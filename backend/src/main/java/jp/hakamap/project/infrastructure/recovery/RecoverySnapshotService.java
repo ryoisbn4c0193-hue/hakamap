@@ -180,6 +180,65 @@ public final class RecoverySnapshotService {
     }
   }
 
+  public void discard(UUID projectId) {
+    Path recoveryFile = recoveryFile(projectId);
+    RecoveryFileV1 recovery =
+        codec.read(files.read(recoveryFile), JsonDocumentType.RECOVERY, RecoveryFileV1.class);
+    if (!projectId.equals(recovery.projectId()) || recovery.stagedAssets() == null) {
+      throw new IllegalStateException("recovery-discard-invalid");
+    }
+    List<Path> targets =
+        recovery.stagedAssets().stream()
+            .map(asset -> safeDiscardTarget(projectId, asset))
+            .distinct()
+            .toList();
+    for (Path target : targets) {
+      try {
+        files.deleteIfExists(target);
+      } catch (StorageException ignored) {
+        // 他の対象も削除し、残存確認後に失敗として扱う。
+      }
+    }
+    if (targets.stream().anyMatch(files::exists)) {
+      throw new IllegalStateException("recovery-asset-cleanup-failed");
+    }
+    Path projectTemporaryRoot = temporaryAssetRoot.resolve(projectId.toString()).normalize();
+    files.deleteIfExists(projectTemporaryRoot.resolve("conversion"));
+    files.deleteIfExists(projectTemporaryRoot);
+    delete(projectId);
+  }
+
+  private Path safeDiscardTarget(UUID projectId, StagedAssetV1 stagedAsset) {
+    Path relative;
+    try {
+      relative = Path.of(stagedAsset.tempRelativePath());
+    } catch (RuntimeException exception) {
+      throw new IllegalStateException("recovery-discard-invalid", exception);
+    }
+    String expectedPrefix = stagedAsset.assetId() + ".";
+    String fileName = relative.getFileName() == null ? "" : relative.getFileName().toString();
+    if (relative.isAbsolute()
+        || relative.getNameCount() != 2
+        || !relative.getName(0).toString().equals(projectId.toString())
+        || !fileName.startsWith(expectedPrefix)
+        || !allowedStagedExtension(fileName.substring(expectedPrefix.length()))) {
+      throw new IllegalStateException("recovery-discard-invalid");
+    }
+    Path root = temporaryAssetRoot.toAbsolutePath().normalize();
+    Path target = root.resolve(relative).normalize();
+    if (!target.startsWith(root)) {
+      throw new IllegalStateException("recovery-discard-invalid");
+    }
+    return target;
+  }
+
+  private boolean allowedStagedExtension(String extension) {
+    return extension.equals("png")
+        || extension.equals("jpg")
+        || extension.equals("jpeg")
+        || extension.equals("webp");
+  }
+
   public Path recoveryFile(UUID projectId) {
     return recoveryDirectory.resolve(projectId + ".recovery.json");
   }
