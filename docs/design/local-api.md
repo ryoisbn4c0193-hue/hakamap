@@ -361,6 +361,7 @@ PUT    /api/v1/catalog/default-project
 DELETE /api/v1/catalog/default-project
 POST   /api/v1/projects
 POST   /api/v1/projects/{projectId}/close
+POST   /api/v1/projects/{projectId}/recovery
 ```
 
 - 絶対パスは、Java側のファイル・フォルダ選択で発行した一時選択IDによって受け渡す。
@@ -369,6 +370,13 @@ POST   /api/v1/projects/{projectId}/close
 - 完全削除はCatalog上で`trashed`のProjectだけに許可する。
 - Project切り替え時の未保存確認は、保存、破棄、キャンセルの結果に応じて画面が
   明示的にAPIを呼び分ける。
+- Catalog一覧の各Projectには、起動時に検証した有効な自動復旧候補の有無を返す。
+- Projectを開く応答は、有効な候補がある場合だけ、復旧作成日時、正式保存更新日時、
+  およびステージングアセット件数を`recoveryCandidate`として返す。内部パスは返さない。
+- 復旧APIの`action`は`apply | discard`だけを許可する。`apply`は正式JSONを直ちに
+  上書きせず、revision 0・空履歴・dirtyの編集セッションとステージング参照を復元する。
+  `discard`は対応する復旧JSONとステージングアセットを削除する。
+- 手動保存または変更破棄が成功した場合は、対応する復旧JSONを削除する。
 
 ## ファイル・フォルダ選択
 

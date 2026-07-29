@@ -16,4 +16,8 @@ public record CatalogPaths(Path catalogFile) {
   public Path temporaryAssetRoot() {
     return catalogFile.toAbsolutePath().normalize().getParent().resolve("temporary-assets");
   }
+
+  public Path recoveryDirectory() {
+    return catalogFile.toAbsolutePath().normalize().getParent().resolve("recovery");
+  }
 }

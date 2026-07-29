@@ -24,6 +24,7 @@ import jp.hakamap.persistence.json.model.catalog.TrashedCatalogProjectV1;
 import jp.hakamap.persistence.json.repository.CatalogRepository;
 import jp.hakamap.persistence.json.repository.ProjectRepository;
 import jp.hakamap.project.application.editing.ProjectAssetStaging;
+import jp.hakamap.project.application.recovery.ProjectRecoveryCoordinator;
 import jp.hakamap.project.domain.model.ProjectAggregate;
 import jp.hakamap.project.domain.model.ProjectMetadata;
 import jp.hakamap.project.domain.service.UuidSource;
@@ -54,6 +55,8 @@ public final class ProjectCatalogService {
 
   private final ProjectAssetStaging assetStaging;
 
+  private final ProjectRecoveryCoordinator recovery;
+
   private final Clock clock;
 
   private final UuidSource uuids;
@@ -67,6 +70,7 @@ public final class ProjectCatalogService {
       OpenProjectManager openProjects,
       ProjectStorageTransactionCoordinator storage,
       ProjectAssetStaging assetStaging,
+      ProjectRecoveryCoordinator recovery,
       Clock clock,
       UuidSource uuids) {
     this.paths = paths;
@@ -77,6 +81,7 @@ public final class ProjectCatalogService {
     this.openProjects = openProjects;
     this.storage = storage;
     this.assetStaging = assetStaging;
+    this.recovery = recovery;
     this.clock = clock;
     this.uuids = uuids;
   }
@@ -149,11 +154,22 @@ public final class ProjectCatalogService {
     ActiveCatalogProjectV1 entry = requireActive(readCatalog(), projectId);
     ProjectAggregate aggregate = openProjects.open(projectId, Path.of(entry.path()), projects);
     refreshKnownMetadata(entry, aggregate);
+    RecoveryCandidateView candidate =
+        recovery
+            .inspect(projectId, Path.of(entry.path()), aggregate)
+            .map(
+                value ->
+                    new RecoveryCandidateView(
+                        value.recoveryCreatedAt(),
+                        value.formalUpdatedAt(),
+                        value.stagedAssetCount()))
+            .orElse(null);
     return new OpenProjectView(
         projectId,
         aggregate.metadata().name().value(),
         aggregate.metadata().createdAt(),
-        aggregate.metadata().updatedAt());
+        aggregate.metadata().updatedAt(),
+        candidate);
   }
 
   public synchronized CloseProjectView close(UUID projectId, String action, String sessionId) {
@@ -176,8 +192,9 @@ public final class ProjectCatalogService {
       } else {
         assetStaging.forget(projectId);
       }
+      recovery.cleanup(projectId, false);
     } else {
-      assetStaging.discard(projectId);
+      recovery.discard(projectId);
     }
     openProjects.close(projectId);
     selections.invalidateSession(sessionId);
@@ -378,7 +395,21 @@ public final class ProjectCatalogService {
         project.state(),
         project.projectId().equals(defaultProjectId),
         Files.isDirectory(path) && Files.isRegularFile(path.resolve("project.json")),
-        safeLocationLabel(project.path()));
+        safeLocationLabel(project.path()),
+        hasRecoveryCandidate(project, path));
+  }
+
+  private boolean hasRecoveryCandidate(CatalogProjectV1 project, Path root) {
+    if (!(project instanceof ActiveCatalogProjectV1)
+        || !Files.isRegularFile(root.resolve("project.json"))) {
+      return false;
+    }
+    try {
+      ProjectAggregate formalProject = projects.read(root);
+      return recovery.inspect(project.projectId(), root, formalProject).isPresent();
+    } catch (RuntimeException exception) {
+      return false;
+    }
   }
 
   private String safeLocationLabel(String storedPath) {
@@ -544,10 +575,18 @@ public final class ProjectCatalogService {
       String state,
       boolean defaultProject,
       boolean available,
-      String locationLabel) {}
+      String locationLabel,
+      boolean recoveryCandidate) {}
 
   public record OpenProjectView(
-      UUID projectId, String name, Instant createdAt, Instant updatedAt) {}
+      UUID projectId,
+      String name,
+      Instant createdAt,
+      Instant updatedAt,
+      RecoveryCandidateView recoveryCandidate) {}
+
+  public record RecoveryCandidateView(
+      Instant recoveryCreatedAt, Instant formalUpdatedAt, int stagedAssetCount) {}
 
   public record CloseProjectView(String status) {}
 }

@@ -3,6 +3,7 @@ package jp.hakamap.project.application.catalog;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import jp.hakamap.infrastructure.http.LocalApiSecurityFilter;
+import jp.hakamap.project.application.recovery.ProjectRecoveryCoordinator;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,8 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProjectCatalogController {
   private final ProjectCatalogService catalog;
 
-  public ProjectCatalogController(ProjectCatalogService catalog) {
+  private final ProjectRecoveryCoordinator recovery;
+
+  public ProjectCatalogController(
+      ProjectCatalogService catalog, ProjectRecoveryCoordinator recovery) {
     this.catalog = catalog;
+    this.recovery = recovery;
   }
 
   @GetMapping("/catalog/projects")
@@ -50,6 +55,19 @@ public class ProjectCatalogController {
       @RequestBody CloseProjectRequest body,
       HttpServletRequest request) {
     return catalog.close(projectId, body.action(), sessionId(request));
+  }
+
+  @PostMapping("/projects/{projectId}/recovery")
+  ProjectRecoveryCoordinator.RecoveryResult recover(
+      @PathVariable UUID projectId, @RequestBody RecoveryRequest body) {
+    return switch (body.action()) {
+      case "apply" -> recovery.apply(projectId);
+      case "discard" -> {
+        recovery.discard(projectId);
+        yield new ProjectRecoveryCoordinator.RecoveryResult("discarded", "recovery-discarded");
+      }
+      default -> throw new ProjectCatalogException("recovery-action-invalid");
+    };
   }
 
   @PostMapping("/catalog/projects/{projectId}/relink")
@@ -109,4 +127,6 @@ public class ProjectCatalogController {
   public record DefaultProjectRequest(UUID projectId) {}
 
   public record RestoreProjectRequest(UUID directorySelectionId) {}
+
+  public record RecoveryRequest(String action) {}
 }

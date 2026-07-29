@@ -19,11 +19,26 @@ const projectSchema = z.object({
   defaultProject: z.boolean(),
   available: z.boolean(),
   locationLabel: z.string(),
+  recoveryCandidate: z.boolean(),
 });
 
 const catalogSchema = z.object({
   projects: z.array(projectSchema),
   openProjectId: z.uuid().nullable(),
+});
+
+const openedProjectSchema = z.object({
+  projectId: z.uuid(),
+  name: z.string(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+  recoveryCandidate: z
+    .object({
+      recoveryCreatedAt: z.iso.datetime(),
+      formalUpdatedAt: z.iso.datetime(),
+      stagedAssetCount: z.number().int().nonnegative(),
+    })
+    .nullable(),
 });
 
 export type CatalogProject = z.infer<typeof projectSchema>;
@@ -156,8 +171,20 @@ export async function registerProject(directorySelectionId: string): Promise<voi
   await changeProject('/api/v1/catalog/projects', 'POST', { directorySelectionId });
 }
 
-export async function openProject(projectId: string): Promise<void> {
-  await changeProject(`/api/v1/catalog/projects/${projectId}/open`, 'POST');
+export type OpenedProject = z.infer<typeof openedProjectSchema>;
+
+export async function openProject(projectId: string): Promise<OpenedProject> {
+  return requireJson(
+    await hakamapFetch(`/api/v1/catalog/projects/${projectId}/open`, { method: 'POST' }),
+    openedProjectSchema,
+  );
+}
+
+export async function resolveRecovery(
+  projectId: string,
+  action: 'apply' | 'discard',
+): Promise<void> {
+  await changeProject(`/api/v1/projects/${projectId}/recovery`, 'POST', { action });
 }
 
 export async function closeProject(projectId: string, action: 'save' | 'discard'): Promise<void> {

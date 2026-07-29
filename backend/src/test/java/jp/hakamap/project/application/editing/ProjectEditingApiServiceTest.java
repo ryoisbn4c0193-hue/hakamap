@@ -23,10 +23,12 @@ import jp.hakamap.persistence.json.mapper.ProjectFileV1Mapper;
 import jp.hakamap.persistence.json.repository.FileProjectRepository;
 import jp.hakamap.persistence.json.repository.ProjectRepository;
 import jp.hakamap.persistence.json.validation.ProjectAssetFileValidator;
+import jp.hakamap.persistence.json.validation.RecoveryFileV1Validator;
 import jp.hakamap.project.application.catalog.OpenProjectManager;
 import jp.hakamap.project.application.history.CommandType;
 import jp.hakamap.project.application.history.EditingSessionException;
 import jp.hakamap.project.application.history.ProjectFingerprintCalculator;
+import jp.hakamap.project.application.recovery.ProjectRecoveryCoordinator;
 import jp.hakamap.project.domain.model.Grave;
 import jp.hakamap.project.domain.model.Person;
 import jp.hakamap.project.domain.model.ProjectAggregate;
@@ -39,6 +41,7 @@ import jp.hakamap.project.domain.value.PersonName;
 import jp.hakamap.project.domain.value.ProjectId;
 import jp.hakamap.project.domain.value.ProjectName;
 import jp.hakamap.project.domain.value.RotationDegrees;
+import jp.hakamap.project.infrastructure.recovery.RecoverySnapshotService;
 import jp.hakamap.project.infrastructure.storage.CommitStatus;
 import jp.hakamap.project.infrastructure.storage.NioStorageFileOperations;
 import jp.hakamap.project.infrastructure.storage.ProjectStorageTransactionCoordinator;
@@ -482,6 +485,113 @@ class ProjectEditingApiServiceTest {
     context.assetStaging().discard(PROJECT_ID);
     assertThat(staged).doesNotExist();
     assertThat(context.assetStaging().list(PROJECT_ID)).isEmpty();
+  }
+
+  @Test
+  void restoresUnsavedAttachmentAfterRuntimeRestartAndCanDisplayAndSaveIt() throws Exception {
+    GraveId graveId = new GraveId(UUID.randomUUID());
+    Grave grave =
+        new Grave(
+            graveId,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new MapRectangle(
+                java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.TEN,
+                java.math.BigDecimal.TEN),
+            RotationDegrees.ZERO,
+            NOW);
+    Path image = temporaryDirectory.resolve("復旧対象.png");
+    ImageIO.write(new BufferedImage(4, 3, BufferedImage.TYPE_INT_RGB), "png", image.toFile());
+    TestContext beforeRestart =
+        context(
+            new ProjectAggregate(
+                metadata(), Optional.empty(), List.of(), List.of(grave), List.of(), List.of()),
+            List.of(image));
+    UUID selectionId =
+        beforeRestart
+            .fileSelections()
+            .start(
+                "session-a",
+                FileSelectionMode.MULTIPLE_FILES,
+                FileSelectionPurpose.ATTACHMENT_IMPORT)
+            .fileSelectionIds()
+            .getFirst();
+    var added =
+        (EditingApiModels.CommandResponse)
+            beforeRestart
+                .service()
+                .execute(
+                    PROJECT_ID,
+                    "session-a",
+                    0,
+                    CommandType.ADD_ATTACHMENTS,
+                    new CommandPayloads.AddAttachments(graveId.value(), List.of(selectionId)));
+    UUID assetId = added.upsertedAssets().getFirst().assetId();
+
+    ClasspathJsonSchemaValidator schemas = new ClasspathJsonSchemaValidator();
+    DefensiveJsonCodec codec = new DefensiveJsonCodec(schemas);
+    ProjectFileV1Mapper mapper = new ProjectFileV1Mapper();
+    ProjectFingerprintCalculator fingerprints = new ProjectFingerprintCalculator(codec, mapper);
+    Path recoveryRoot = temporaryDirectory.resolve("recovery");
+    Path stagingRoot = temporaryDirectory.resolve("temporary-assets");
+    RecoverySnapshotService snapshots =
+        new RecoverySnapshotService(
+            new NioStorageFileOperations(),
+            codec,
+            mapper,
+            new RecoveryFileV1Validator(),
+            fingerprints,
+            Clock.fixed(NOW.plusSeconds(30), ZoneOffset.UTC),
+            UUID::randomUUID,
+            recoveryRoot,
+            stagingRoot,
+            "test");
+    ProjectRecoveryCoordinator writer =
+        new ProjectRecoveryCoordinator(
+            beforeRestart.openProjects(), beforeRestart.assetStaging(), snapshots);
+    writer.writeOpenProjectIfDue();
+    assertThat(recoveryRoot.resolve(PROJECT_ID + ".recovery.json")).isRegularFile();
+    beforeRestart.openProjects().close();
+
+    ProjectRepository projects =
+        new FileProjectRepository(codec, mapper, new ProjectAssetFileValidator());
+    OpenProjectManager restartedProjects = new OpenProjectManager();
+    ProjectAggregate formal =
+        restartedProjects.open(PROJECT_ID, beforeRestart.projectRoot(), projects);
+    ProjectAssetStaging restartedStaging = new ProjectAssetStaging(stagingRoot);
+    ProjectRecoveryCoordinator restartedRecovery =
+        new ProjectRecoveryCoordinator(restartedProjects, restartedStaging, snapshots);
+    assertThat(restartedRecovery.inspect(PROJECT_ID, beforeRestart.projectRoot(), formal))
+        .isPresent();
+    assertThat(restartedRecovery.apply(PROJECT_ID).status()).isEqualTo("applied");
+
+    FileSelectionService noSelections =
+        new FileSelectionService(ignored -> List.of(), Clock.fixed(NOW, ZoneOffset.UTC));
+    ProjectEditingApiService restartedEditing =
+        new ProjectEditingApiService(
+            restartedProjects,
+            fingerprints,
+            Clock.fixed(NOW, ZoneOffset.UTC),
+            UUID::randomUUID,
+            noSelections,
+            restartedStaging);
+    assertThat(restartedEditing.assetContent(PROJECT_ID, assetId).mediaType())
+        .isEqualTo("image/png");
+    assertThat(
+            restartedProjects
+                .save(PROJECT_ID, beforeRestart.storage(), restartedStaging.list(PROJECT_ID))
+                .status())
+        .isEqualTo(CommitStatus.COMMITTED);
+    restartedStaging.forget(PROJECT_ID);
+    snapshots.delete(PROJECT_ID);
+    assertThat(beforeRestart.projectRoot().resolve("assets/attachments"))
+        .isDirectoryContaining(
+            path -> path.getFileName().toString().startsWith(assetId.toString()));
+    assertThat(recoveryRoot.resolve(PROJECT_ID + ".recovery.json")).doesNotExist();
+    restartedProjects.close();
   }
 
   private TestContext context(ProjectAggregate project) throws Exception {

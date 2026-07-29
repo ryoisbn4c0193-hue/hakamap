@@ -59,6 +59,20 @@ public final class OpenProjectManager implements AutoCloseable {
     return project.editingSession();
   }
 
+  public synchronized Optional<OpenEditingSession> currentEditingSession() {
+    if (openProject == null || openProject.editingSession() == null) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        new OpenEditingSession(
+            openProject.projectId(), openProject.root(), openProject.editingSession()));
+  }
+
+  public synchronized void replaceEditingSession(
+      UUID projectId, ProjectEditingSession editingSession) {
+    requireOpen(projectId).editingSession = editingSession;
+  }
+
   public synchronized Path projectRoot(UUID projectId) {
     return requireOpen(projectId).root();
   }
@@ -156,4 +170,7 @@ public final class OpenProjectManager implements AutoCloseable {
       return editingSession;
     }
   }
+
+  public record OpenEditingSession(
+      UUID projectId, Path projectRoot, ProjectEditingSession editingSession) {}
 }

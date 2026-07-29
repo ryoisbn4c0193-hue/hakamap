@@ -13,6 +13,7 @@ import jp.hakamap.persistence.json.repository.ProjectRepository;
 import jp.hakamap.persistence.json.validation.CatalogFileV1Validator;
 import jp.hakamap.persistence.json.validation.ProjectAssetFileValidator;
 import jp.hakamap.project.application.history.ProjectFingerprintCalculator;
+import jp.hakamap.project.application.recovery.ProjectRecoveryCoordinator;
 import jp.hakamap.project.domain.service.UuidSource;
 import jp.hakamap.project.infrastructure.storage.CatalogStorageTransaction;
 import jp.hakamap.project.infrastructure.storage.CommitStatus;
@@ -98,6 +99,7 @@ public class ProjectCatalogConfiguration {
       OpenProjectManager openProjects,
       ProjectStorageTransactionCoordinator storage,
       jp.hakamap.project.application.editing.ProjectAssetStaging assetStaging,
+      ProjectRecoveryCoordinator recovery,
       Clock clock,
       UuidSource uuids) {
     return new ProjectCatalogService(
@@ -109,6 +111,7 @@ public class ProjectCatalogConfiguration {
         openProjects,
         storage,
         assetStaging,
+        recovery,
         clock,
         uuids);
   }

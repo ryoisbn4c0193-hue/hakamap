@@ -128,17 +128,62 @@ public final class RecoverySnapshotService {
       if (!recovery.projectId().equals(formalProject.metadata().id().value())
           || !recovery.baseProjectSha256().equals(StorageHashes.sha256(formalBytes))) {
         return new RecoveryApplyResult(
-            RecoveryApplyStatus.BASE_MISMATCH, "recovery-base-mismatch", Optional.empty());
+            RecoveryApplyStatus.BASE_MISMATCH,
+            "recovery-base-mismatch",
+            Optional.empty(),
+            List.of());
       }
       ProjectAggregate recovered = mapper.toDomain(recovery.projectSnapshot());
       ProjectEditingSession session =
           new ProjectEditingSession(
               recovered, formalProject, recovery.baseProjectSha256(), fingerprints);
       return new RecoveryApplyResult(
-          RecoveryApplyStatus.APPLIED, "recovery-applied", Optional.of(session));
+          RecoveryApplyStatus.APPLIED,
+          "recovery-applied",
+          Optional.of(session),
+          recovery.stagedAssets());
     } catch (RuntimeException exception) {
       return new RecoveryApplyResult(
-          RecoveryApplyStatus.INVALID, "recovery-invalid", Optional.empty());
+          RecoveryApplyStatus.INVALID, "recovery-invalid", Optional.empty(), List.of());
     }
   }
+
+  public Optional<RecoveryCandidate> inspect(
+      Path recoveryFile, Path formalProjectJson, ProjectAggregate formalProject) {
+    try {
+      RecoveryFileV1 recovery =
+          codec.read(files.read(recoveryFile), JsonDocumentType.RECOVERY, RecoveryFileV1.class);
+      validator.validate(recovery, temporaryAssetRoot);
+      byte[] formalBytes = files.read(formalProjectJson);
+      if (!recovery.projectId().equals(formalProject.metadata().id().value())
+          || !recovery.baseProjectSha256().equals(StorageHashes.sha256(formalBytes))) {
+        return Optional.empty();
+      }
+      mapper.toDomain(recovery.projectSnapshot());
+      return Optional.of(
+          new RecoveryCandidate(
+              recovery.projectId(),
+              recovery.createdAt(),
+              formalProject.metadata().updatedAt(),
+              recovery.stagedAssets().size()));
+    } catch (RuntimeException exception) {
+      return Optional.empty();
+    }
+  }
+
+  public void delete(UUID projectId) {
+    try {
+      files.deleteIfExists(recoveryDirectory.resolve(projectId + ".recovery.json"));
+      lastSuccessfulWrites.remove(projectId);
+    } catch (StorageException exception) {
+      throw new IllegalStateException("recovery-cleanup-failed", exception);
+    }
+  }
+
+  public Path recoveryFile(UUID projectId) {
+    return recoveryDirectory.resolve(projectId + ".recovery.json");
+  }
+
+  public record RecoveryCandidate(
+      UUID projectId, Instant recoveryCreatedAt, Instant formalUpdatedAt, int stagedAssetCount) {}
 }

@@ -15,7 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   chooseProjectDirectory,
@@ -25,6 +25,7 @@ import {
   permanentlyDeleteProject,
   registerProject,
   relinkProject,
+  resolveRecovery,
   restoreProject,
   setDefaultProject,
   trashProject,
@@ -42,14 +43,27 @@ function ProjectCatalogView({ onOpened }: ProjectCatalogViewProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState('');
   const [error, setError] = useState<string>();
+  const [recoveryProjectId, setRecoveryProjectId] = useState<string>();
   const defaultOpenAttempted = useRef(false);
 
   const refresh = async () => queryClient.invalidateQueries({ queryKey: ['projectCatalog'] });
   const operation = useMutation({
-    mutationFn: async (action: () => Promise<void>) => action(),
+    mutationFn: async (action: () => Promise<unknown>) => action(),
     onError: () => setError('操作を完了できませんでした。保存場所と入力内容を確認してください。'),
     onSuccess: refresh,
   });
+
+  const openAndResolveRecovery = useCallback(
+    async (projectId: string) => {
+      const opened = await openProject(projectId);
+      if (opened.recoveryCandidate === null) {
+        onOpened();
+        return;
+      }
+      setRecoveryProjectId(projectId);
+    },
+    [onOpened],
+  );
 
   const selectAndCreate = async () => {
     const selected = await chooseProjectDirectory('projectCreateDirectory');
@@ -82,9 +96,9 @@ function ProjectCatalogView({ onOpened }: ProjectCatalogViewProps) {
       (project) => project.defaultProject && project.available && project.state === 'active',
     );
     if (defaultProject !== undefined && catalog.data.openProjectId === null) {
-      operation.mutate(async () => openProject(defaultProject.projectId), { onSuccess: onOpened });
+      operation.mutate(async () => openAndResolveRecovery(defaultProject.projectId));
     }
-  }, [catalog.data, onOpened, operation]);
+  }, [catalog.data, onOpened, openAndResolveRecovery, operation]);
 
   const selectAndRelink = async (projectId: string) => {
     const selected = await chooseProjectDirectory('projectRelinkDirectory');
@@ -145,12 +159,7 @@ function ProjectCatalogView({ onOpened }: ProjectCatalogViewProps) {
             key={project.projectId}
             busy={operation.isPending}
             onDefault={() => operation.mutateAsync(() => setDefaultProject(project.projectId))}
-            onOpen={() =>
-              operation.mutateAsync(async () => {
-                await openProject(project.projectId);
-                onOpened();
-              })
-            }
+            onOpen={() => operation.mutateAsync(() => openAndResolveRecovery(project.projectId))}
             onRelink={() => operation.mutateAsync(() => selectAndRelink(project.projectId))}
             onTrash={() => operation.mutateAsync(() => trashProject(project.projectId))}
             onUnregister={() => operation.mutateAsync(() => unregisterProject(project.projectId))}
@@ -206,6 +215,50 @@ function ProjectCatalogView({ onOpened }: ProjectCatalogViewProps) {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog open={recoveryProjectId !== undefined}>
+        <DialogTitle>未保存の編集を復旧しますか</DialogTitle>
+        <DialogContent>
+          <Typography>
+            前回の未保存編集が見つかりました。復旧すると、内容を確認してから手動保存できます。
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            disabled={operation.isPending}
+            onClick={() => {
+              if (recoveryProjectId === undefined) {
+                return;
+              }
+              void operation
+                .mutateAsync(() => resolveRecovery(recoveryProjectId, 'discard'))
+                .then(() => {
+                  setRecoveryProjectId(undefined);
+                  onOpened();
+                });
+            }}
+          >
+            破棄して開く
+          </Button>
+          <Button
+            disabled={operation.isPending}
+            onClick={() => {
+              if (recoveryProjectId === undefined) {
+                return;
+              }
+              void operation
+                .mutateAsync(() => resolveRecovery(recoveryProjectId, 'apply'))
+                .then(() => {
+                  setRecoveryProjectId(undefined);
+                  onOpened();
+                });
+            }}
+            variant="contained"
+          >
+            復旧する
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
@@ -243,6 +296,9 @@ function ProjectCard({
           {project.defaultProject ? '（デフォルト）' : ''}
         </Typography>
         <Typography color="text.secondary">保存場所: {project.locationLabel}</Typography>
+        {project.recoveryCandidate ? (
+          <Typography color="warning.main">未保存の復旧候補があります</Typography>
+        ) : null}
         <Typography color={project.available ? 'text.secondary' : 'error'}>
           {project.available
             ? `更新: ${new Date(project.updatedAt).toLocaleString()}`

@@ -24,13 +24,16 @@ import jp.hakamap.persistence.json.repository.CatalogRepository;
 import jp.hakamap.persistence.json.repository.FileProjectRepository;
 import jp.hakamap.persistence.json.repository.ProjectRepository;
 import jp.hakamap.persistence.json.validation.ProjectAssetFileValidator;
+import jp.hakamap.persistence.json.validation.RecoveryFileV1Validator;
 import jp.hakamap.project.application.editing.ProjectAssetStaging;
 import jp.hakamap.project.application.history.CommandId;
 import jp.hakamap.project.application.history.CommandType;
 import jp.hakamap.project.application.history.ProjectChangeSet;
 import jp.hakamap.project.application.history.ProjectFingerprintCalculator;
 import jp.hakamap.project.application.history.ValueDelta;
+import jp.hakamap.project.application.recovery.ProjectRecoveryCoordinator;
 import jp.hakamap.project.domain.value.ProjectName;
+import jp.hakamap.project.infrastructure.recovery.RecoverySnapshotService;
 import jp.hakamap.project.infrastructure.storage.NioStorageFileOperations;
 import jp.hakamap.project.infrastructure.storage.ProjectStorageTransactionCoordinator;
 import org.junit.jupiter.api.Test;
@@ -149,6 +152,7 @@ class ProjectCatalogServiceTest {
             openProjects,
             storage,
             staging,
+            recovery(openProjects, staging, fingerprints, codec, mapper),
             Clock.fixed(NOW, ZoneOffset.UTC),
             ids::removeFirst);
 
@@ -229,17 +233,42 @@ class ProjectCatalogServiceTest {
             fingerprints,
             Clock.fixed(NOW, ZoneOffset.UTC),
             uuids);
+    OpenProjectManager openProjects = new OpenProjectManager();
+    ProjectAssetStaging staging =
+        new ProjectAssetStaging(temporaryDirectory.resolve("temporary-assets"));
     return new ProjectCatalogService(
         new CatalogPaths(catalogs.file),
         catalogs,
         catalogs::write,
         projects,
         selections,
-        new OpenProjectManager(),
+        openProjects,
         storage,
-        new ProjectAssetStaging(temporaryDirectory.resolve("temporary-assets")),
+        staging,
+        recovery(openProjects, staging, fingerprints, codec, new ProjectFileV1Mapper()),
         Clock.fixed(NOW, ZoneOffset.UTC),
         uuids);
+  }
+
+  private ProjectRecoveryCoordinator recovery(
+      OpenProjectManager openProjects,
+      ProjectAssetStaging staging,
+      ProjectFingerprintCalculator fingerprints,
+      DefensiveJsonCodec codec,
+      ProjectFileV1Mapper mapper) {
+    RecoverySnapshotService snapshots =
+        new RecoverySnapshotService(
+            new NioStorageFileOperations(),
+            codec,
+            mapper,
+            new RecoveryFileV1Validator(),
+            fingerprints,
+            Clock.fixed(NOW, ZoneOffset.UTC),
+            UUID::randomUUID,
+            temporaryDirectory.resolve("recovery"),
+            temporaryDirectory.resolve("temporary-assets"),
+            "test");
+    return new ProjectRecoveryCoordinator(openProjects, staging, snapshots);
   }
 
   private static final class MemoryCatalogRepository implements CatalogRepository {
