@@ -624,11 +624,17 @@ Phase 8のPixiJS地図編集まで完了した。次はPhase 9の検索・人物
   viewport周辺だけをPixiJSへ読み込んで画面外テクスチャを解放するようにした。
 - 座標往復、負座標、ズーム境界、ポインター中心ズーム、当たり判定、矩形選択、
   接触と重なり、ズーム別8pxスナップ、および5,000墓所の途中性能テストを追加した。
+- Phase 8レビューのP1指摘に対し、WebP対応ImageIOデコーダーを追加してWebP実ファイルの
+  タイル生成を検証し、回転背景では画面四隅を背景ローカル座標へ逆変換するよう修正した。
+- 墓所ラベルを管理番号、墓所名、両方、非表示から切り替えてPixiJSへ描画し、
+  低ズーム時と画面外ではText生成を抑止するようにした。
+- 全体表示へ回転・X/Y拡縮後の背景外接矩形を含め、コマンド処理中はPixiJS操作、
+  矢印キー移動、および背景数値入力を開始できないようにした。
 
 ## 次に行うこと
 
-Phase 7～8の実装コミットを`origin/main`へプッシュし、外部ChatGPTレビューを実施する。
-レビュー合格後、`docs/implementation-plan.md`のPhase 9を開始する。
+Phase 8レビュー指摘修正版を`origin/main`へプッシュし、外部ChatGPTで再レビューする。
+再レビュー合格後、`docs/implementation-plan.md`のPhase 9を開始する。
 
 1. 検索カーソル、検索結果一覧、最初の結果へのズーム、および選択連携を実装する。
 2. 人物の100件ページング、直近5墓所キャッシュ、および仮想スクロールを実装する。
@@ -699,11 +705,11 @@ Phase 7～8の実装コミットを`origin/main`へプッシュし、外部ChatG
 
 ## 検査結果
 
-- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、106件のJavaテスト、
+- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、107件のJavaテスト、
   Checkstyle、Spotless、および実行可能JAR生成を含む。
 - `cd frontend && pnpm lint`: 成功。
 - `cd frontend && pnpm format:check`: 成功。
-- `cd frontend && pnpm test`: 成功（17テスト）。
+- `cd frontend && pnpm test`: 成功（21テスト）。
 - `cd frontend && pnpm build`: 成功。
 - 生成JARの`/`はHTTP 200、`/api/v1/not-defined`はHTTP 404となることを確認した。
 - JAR内の`BOOT-INF/classes/static`にReactのHTML、JavaScript、CSSがあることを確認した。

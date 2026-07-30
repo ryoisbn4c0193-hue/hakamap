@@ -63,8 +63,10 @@ function EditorView({ projectId }: EditorViewProps) {
   const queryClient = useQueryClient();
   const selectedGraveId = useUiStore((state) => state.selectedGraveId);
   const selectedMapIds = useUiStore((state) => state.selectedMapIds);
+  const labelMode = useUiStore((state) => state.labelMode);
   const selectGrave = useUiStore((state) => state.selectGrave);
   const selectMapIds = useUiStore((state) => state.selectMapIds);
+  const setLabelMode = useUiStore((state) => state.setLabelMode);
   const tab = useUiStore((state) => state.propertyTab);
   const setTab = useUiStore((state) => state.setPropertyTab);
   const leftCollapsed = useUiStore((state) => state.leftPanelCollapsed);
@@ -215,6 +217,7 @@ function EditorView({ projectId }: EditorViewProps) {
 
         <MapCanvas
           busy={command.isPending}
+          labelMode={labelMode}
           onBackgroundFieldChange={(field, value) => {
             const background = snapshot.data.background;
             if (background !== null && background[field] !== value) {
@@ -291,6 +294,7 @@ function EditorView({ projectId }: EditorViewProps) {
             if (graveIds.length <= 1) requestSelection(graveIds[0]);
             else if (!draftDirty) selectMapIds(graveIds);
           }}
+          onLabelModeChange={setLabelMode}
           selectedIds={selectedMapIds}
           snapshot={snapshot.data}
         />

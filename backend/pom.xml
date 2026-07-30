@@ -34,6 +34,7 @@
 		<spotless-maven-plugin.version>3.6.0</spotless-maven-plugin.version>
 		<json-schema-validator.version>3.0.6</json-schema-validator.version>
 		<pdfbox.version>3.0.8</pdfbox.version>
+		<webp-imageio.version>0.1.6</webp-imageio.version>
 		<frontend-maven-plugin.version>2.0.0</frontend-maven-plugin.version>
 		<node.version>v24.18.0</node.version>
 		<pnpm.version>11.15.1</pnpm.version>
@@ -56,6 +57,11 @@
 			<groupId>org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>
 			<version>${pdfbox.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.sejda.imageio</groupId>
+			<artifactId>webp-imageio</artifactId>
+			<version>${webp-imageio.version}</version>
 		</dependency>
 
 		<dependency>

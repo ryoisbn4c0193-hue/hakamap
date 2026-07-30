@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 type UiState = {
+  labelMode: 'managementNumber' | 'name' | 'both' | 'hidden';
   leftPanelCollapsed: boolean;
   rightPanelCollapsed: boolean;
   selectedGraveId?: string;
@@ -8,6 +9,7 @@ type UiState = {
   propertyTab: 'basic' | 'people' | 'assets' | 'history';
   selectGrave: (graveId?: string) => void;
   selectMapIds: (graveIds: readonly string[]) => void;
+  setLabelMode: (labelMode: UiState['labelMode']) => void;
   setPropertyTab: (tab: UiState['propertyTab']) => void;
   resetEditor: () => void;
   toggleLeftPanel: () => void;
@@ -16,6 +18,7 @@ type UiState = {
 
 export const useUiStore = create<UiState>((set) => ({
   leftPanelCollapsed: false,
+  labelMode: 'both',
   rightPanelCollapsed: false,
   propertyTab: 'basic',
   selectedMapIds: [],
@@ -29,10 +32,12 @@ export const useUiStore = create<UiState>((set) => ({
       selectedGraveId: selectedMapIds.length === 1 ? selectedMapIds[0] : undefined,
       selectedMapIds,
     }),
+  setLabelMode: (labelMode) => set({ labelMode }),
   setPropertyTab: (propertyTab) => set({ propertyTab }),
   resetEditor: () =>
     set({
       leftPanelCollapsed: false,
+      labelMode: 'both',
       propertyTab: 'basic',
       rightPanelCollapsed: false,
       selectedGraveId: undefined,

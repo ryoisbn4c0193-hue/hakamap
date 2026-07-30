@@ -13,12 +13,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { getBackgroundTileManifest, type ProjectSnapshot } from '../api/hakamapClient';
 
+import { graveLabel, type GraveLabelMode, type MapPoint, type MapRect } from './mapGeometry';
 import { PixiMapAdapter, type MapMode, type MapRenderModel } from './PixiMapAdapter';
-
-import type { MapPoint, MapRect } from './mapGeometry';
 
 type MapCanvasProps = {
   busy: boolean;
+  labelMode: GraveLabelMode;
   onCreateArea: (rectangle: MapRect) => void;
   onBackgroundFieldChange: (
     field: 'x' | 'y' | 'rotation' | 'scaleX' | 'scaleY',
@@ -31,12 +31,14 @@ type MapCanvasProps = {
   onUpdateArea: (rectangle: MapRect) => void;
   onTransformBackground: (x: number, y: number) => void;
   onSelectionChange: (graveIds: readonly string[]) => void;
+  onLabelModeChange: (mode: MapCanvasProps['labelMode']) => void;
   selectedIds: readonly string[];
   snapshot: ProjectSnapshot;
 };
 
 function MapCanvas({
   busy,
+  labelMode,
   onBackgroundFieldChange,
   onCreateArea,
   onCreateGrave,
@@ -46,6 +48,7 @@ function MapCanvas({
   onUpdateArea,
   onTransformBackground,
   onSelectionChange,
+  onLabelModeChange,
   selectedIds,
   snapshot,
 }: MapCanvasProps) {
@@ -111,16 +114,18 @@ function MapCanvas({
         displayOrder,
         height: grave.height,
         id: grave.graveId,
-        label: `${grave.managementNumber ?? '未採番'} ${grave.name ?? ''}`,
+        label: graveLabel(grave.managementNumber, grave.name, labelMode),
         rotation: grave.rotation,
         width: grave.width,
         x: grave.x,
         y: grave.y,
       })),
+      labelMode,
       selectedIds,
     }),
     [
       backgroundManifest.data,
+      labelMode,
       selectedIds,
       snapshot.areas,
       snapshot.background,
@@ -152,6 +157,7 @@ function MapCanvas({
   useEffect(() => adapter.current?.update(model), [model]);
   useEffect(() => adapter.current?.setMode(mode), [mode]);
   useEffect(() => adapter.current?.setSnapEnabled(snap), [snap]);
+  useEffect(() => adapter.current?.setInteractionEnabled(!busy), [busy]);
 
   return (
     <Box className="map-workspace">
@@ -188,11 +194,25 @@ function MapCanvas({
           }
           label="スナップ"
         />
+        <ToggleButtonGroup
+          exclusive
+          onChange={(_, value: MapCanvasProps['labelMode'] | null) => {
+            if (value !== null) onLabelModeChange(value);
+          }}
+          size="small"
+          value={labelMode}
+        >
+          <ToggleButton value="managementNumber">管理番号</ToggleButton>
+          <ToggleButton value="name">墓所名</ToggleButton>
+          <ToggleButton value="both">両方</ToggleButton>
+          <ToggleButton value="hidden">非表示</ToggleButton>
+        </ToggleButtonGroup>
         {snapshot.background === null
           ? null
           : (['x', 'y', 'rotation', 'scaleX', 'scaleY'] as const).map((field) => (
               <TextField
                 defaultValue={snapshot.background?.[field]}
+                disabled={busy}
                 slotProps={{ htmlInput: { step: field.startsWith('scale') ? 0.1 : 1 } }}
                 key={`${snapshot.background?.assetId}-${field}-${snapshot.revision}`}
                 label={
@@ -221,6 +241,10 @@ function MapCanvas({
         role="application"
         tabIndex={0}
         onKeyDown={(event) => {
+          if (busy && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+            event.preventDefault();
+            return;
+          }
           if (event.key === '+' || event.key === '=') {
             adapter.current?.zoom(1.2);
             event.preventDefault();

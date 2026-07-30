@@ -10,10 +10,33 @@ export type MapRect = Readonly<{
 }>;
 
 export type Viewport = Readonly<{ scale: number; x: number; y: number }>;
+export type BackgroundTransform = Readonly<{
+  height: number;
+  rotation: number;
+  scaleX: number;
+  scaleY: number;
+  width: number;
+  x: number;
+  y: number;
+}>;
 
 export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 8;
 export const SNAP_DISTANCE_PX = 8;
+export type GraveLabelMode = 'managementNumber' | 'name' | 'both' | 'hidden';
+
+export function graveLabel(
+  managementNumber: string | null,
+  name: string | null,
+  mode: GraveLabelMode,
+): string {
+  const numberLabel = managementNumber ?? '未採番';
+  const nameLabel = name ?? '';
+  if (mode === 'managementNumber') return numberLabel;
+  if (mode === 'name') return nameLabel;
+  if (mode === 'both') return `${numberLabel} ${nameLabel}`.trim();
+  return '';
+}
 
 export function clampZoom(scale: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, scale));
@@ -41,6 +64,62 @@ export function zoomAt(viewport: Viewport, screenPoint: MapPoint, factor: number
     x: screenPoint.x - mapPoint.x * scale,
     y: screenPoint.y - mapPoint.y * scale,
   };
+}
+
+function rotate(point: MapPoint, radians: number): MapPoint {
+  return {
+    x: point.x * Math.cos(radians) - point.y * Math.sin(radians),
+    y: point.x * Math.sin(radians) + point.y * Math.cos(radians),
+  };
+}
+
+function bounds(points: readonly MapPoint[], id: string): MapRect {
+  const left = Math.min(...points.map(({ x }) => x));
+  const top = Math.min(...points.map(({ y }) => y));
+  const right = Math.max(...points.map(({ x }) => x));
+  const bottom = Math.max(...points.map(({ y }) => y));
+  return { height: bottom - top, id, width: right - left, x: left, y: top };
+}
+
+export function backgroundBounds(background: BackgroundTransform): MapRect {
+  const radians = (background.rotation * Math.PI) / 180;
+  return bounds(
+    [
+      { x: 0, y: 0 },
+      { x: background.width * background.scaleX, y: 0 },
+      { x: 0, y: background.height * background.scaleY },
+      {
+        x: background.width * background.scaleX,
+        y: background.height * background.scaleY,
+      },
+    ].map((point) => {
+      const rotated = rotate(point, radians);
+      return { x: rotated.x + background.x, y: rotated.y + background.y };
+    }),
+    'background',
+  );
+}
+
+export function mapBoundsToBackgroundLocal(
+  mapBounds: MapRect,
+  background: BackgroundTransform,
+): MapRect {
+  const inverseRadians = (-background.rotation * Math.PI) / 180;
+  return bounds(
+    [
+      { x: mapBounds.x, y: mapBounds.y },
+      { x: mapBounds.x + mapBounds.width, y: mapBounds.y },
+      { x: mapBounds.x, y: mapBounds.y + mapBounds.height },
+      { x: mapBounds.x + mapBounds.width, y: mapBounds.y + mapBounds.height },
+    ].map((point) => {
+      const rotated = rotate(
+        { x: point.x - background.x, y: point.y - background.y },
+        inverseRadians,
+      );
+      return { x: rotated.x / background.scaleX, y: rotated.y / background.scaleY };
+    }),
+    'background-local',
+  );
 }
 
 export function normalizeRect(first: MapPoint, second: MapPoint): MapRect {

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  backgroundBounds,
   fitViewport,
+  graveLabel,
   hitTest,
   intersects,
   mapToScreen,
+  mapBoundsToBackgroundLocal,
   normalizeRect,
   screenToMap,
   selectIntersecting,
@@ -50,6 +53,13 @@ describe('map geometry', () => {
     expect(intersects(first, second, false)).toBe(false);
   });
 
+  it('builds all four grave label modes', () => {
+    expect(graveLabel('A-1', '山田家', 'managementNumber')).toBe('A-1');
+    expect(graveLabel('A-1', '山田家', 'name')).toBe('山田家');
+    expect(graveLabel('A-1', '山田家', 'both')).toBe('A-1 山田家');
+    expect(graveLabel('A-1', '山田家', 'hidden')).toBe('');
+  });
+
   it.each([
     [0.1, 80],
     [1, 8],
@@ -81,4 +91,25 @@ describe('map geometry', () => {
     expect(serializedModelBytes).toBeLessThan(1024 * 1024 * 1024);
     expect(viewport.scale).toBeGreaterThanOrEqual(0.1);
   });
+
+  it.each([0, 45, 90])(
+    'inverse transforms viewport corners for a background rotated %s degrees',
+    (rotation) => {
+      const background = {
+        height: 100,
+        rotation,
+        scaleX: 2,
+        scaleY: 0.5,
+        width: 200,
+        x: 30,
+        y: -20,
+      };
+      const mapBounds = backgroundBounds(background);
+      const local = mapBoundsToBackgroundLocal(mapBounds, background);
+      expect(local.x).toBeLessThanOrEqual(0.000_001);
+      expect(local.y).toBeLessThanOrEqual(0.000_001);
+      expect(local.x + local.width).toBeGreaterThanOrEqual(background.width - 0.000_001);
+      expect(local.y + local.height).toBeGreaterThanOrEqual(background.height - 0.000_001);
+    },
+  );
 });

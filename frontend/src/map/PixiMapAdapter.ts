@@ -1,9 +1,11 @@
 import { Application, Assets, Container, Graphics, Sprite, Text, type Texture } from 'pixi.js';
 
 import {
+  backgroundBounds,
   fitViewport,
   hitTest,
   intersects,
+  mapBoundsToBackgroundLocal,
   normalizeRect,
   screenToMap,
   selectIntersecting,
@@ -33,6 +35,7 @@ export type MapRenderModel = Readonly<{
   }>;
   areas: readonly MapArea[];
   graves: readonly MapGrave[];
+  labelMode: 'managementNumber' | 'name' | 'both' | 'hidden';
   selectedIds: readonly string[];
 }>;
 export type MapMode = 'select' | 'editArea' | 'createGrave' | 'createArea' | 'transformBackground';
@@ -72,12 +75,18 @@ const AREA_COLORS: Readonly<Record<string, number>> = {
 export class PixiMapAdapter {
   private application?: Application;
   private callbacks?: MapCallbacks;
-  private model: MapRenderModel = { areas: [], graves: [], selectedIds: [] };
+  private model: MapRenderModel = {
+    areas: [],
+    graves: [],
+    labelMode: 'both',
+    selectedIds: [],
+  };
   private mode: MapMode = 'select';
   private operation?: PointerOperation;
   private preview?: MapRect;
   private guides: Readonly<{ x?: number; y?: number }> = {};
   private snapEnabled = true;
+  private interactionEnabled = true;
   private selectedAreaId?: string;
   private viewport: Viewport = { scale: 1, x: 40, y: 40 };
   private readonly viewportContainer = new Container();
@@ -135,6 +144,11 @@ export class PixiMapAdapter {
     this.render();
   }
 
+  setInteractionEnabled(enabled: boolean): void {
+    this.interactionEnabled = enabled;
+    if (!enabled) this.cancelOperation();
+  }
+
   zoom(factor: number): void {
     const center = {
       x: (this.application?.screen.width ?? 0) / 2,
@@ -146,8 +160,10 @@ export class PixiMapAdapter {
 
   fit(): void {
     if (this.application === undefined) return;
+    const background =
+      this.model.background === undefined ? [] : [backgroundBounds(this.model.background)];
     this.viewport = fitViewport(
-      [...this.model.areas.filter(({ visible }) => visible), ...this.model.graves],
+      [...background, ...this.model.areas.filter(({ visible }) => visible), ...this.model.graves],
       this.application.screen.width,
       this.application.screen.height,
     );
@@ -183,7 +199,7 @@ export class PixiMapAdapter {
   };
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
-    if (this.application === undefined) return;
+    if (this.application === undefined || !this.interactionEnabled) return;
     this.application.canvas.setPointerCapture(event.pointerId);
     const screen = this.localPoint(event);
     const map = screenToMap(screen, this.viewport);
@@ -399,6 +415,13 @@ export class PixiMapAdapter {
         label.position.set(area.x + 3 / this.viewport.scale, area.y + 2 / this.viewport.scale);
         this.areaLayer.addChild(graphic, label);
       });
+    const viewportBounds: MapRect = {
+      height: this.application.screen.height / this.viewport.scale,
+      id: 'viewport',
+      width: this.application.screen.width / this.viewport.scale,
+      x: -this.viewport.x / this.viewport.scale,
+      y: -this.viewport.y / this.viewport.scale,
+    };
     this.model.graves.forEach((grave) => {
       const selected = this.model.selectedIds.includes(grave.id);
       const overlapping =
@@ -414,6 +437,26 @@ export class PixiMapAdapter {
           width: (selected ? 2 : 1) / this.viewport.scale,
         });
       this.graveLayer.addChild(graphic);
+      if (
+        grave.label.length > 0 &&
+        this.model.labelMode !== 'hidden' &&
+        this.viewport.scale >= 0.5 &&
+        intersects(grave, viewportBounds)
+      ) {
+        const label = new Text({
+          style: {
+            fill: 0x263238,
+            fontSize: 10 / this.viewport.scale,
+            stroke: { color: 0xffffff, width: 2 / this.viewport.scale },
+          },
+          text: grave.label,
+        });
+        label.position.set(
+          grave.x + grave.width / 2 - label.width / 2,
+          grave.y + grave.height / 2 - label.height / 2,
+        );
+        this.graveLayer.addChild(label);
+      }
       if (selected && this.model.selectedIds.length === 1) {
         const size = 8 / this.viewport.scale;
         this.overlayLayer.addChild(
@@ -464,19 +507,29 @@ export class PixiMapAdapter {
       Math.max(0, Math.round(Math.log2(1 / Math.max(this.viewport.scale, 0.0001)))),
     );
     const levelScale = 2 ** level;
-    const visibleLeft = (-this.viewport.x / this.viewport.scale - background.x) / background.scaleX;
-    const visibleTop = (-this.viewport.y / this.viewport.scale - background.y) / background.scaleY;
-    const visibleRight =
-      visibleLeft + this.application.screen.width / this.viewport.scale / background.scaleX;
-    const visibleBottom =
-      visibleTop + this.application.screen.height / this.viewport.scale / background.scaleY;
+    const visible = mapBoundsToBackgroundLocal(
+      {
+        height: this.application.screen.height / this.viewport.scale,
+        id: 'viewport',
+        width: this.application.screen.width / this.viewport.scale,
+        x: -this.viewport.x / this.viewport.scale,
+        y: -this.viewport.y / this.viewport.scale,
+      },
+      background,
+    );
     const tileMapSize = background.tileSize * levelScale;
     const maximumColumn = Math.ceil(background.width / tileMapSize) - 1;
     const maximumRow = Math.ceil(background.height / tileMapSize) - 1;
-    const firstColumn = Math.max(0, Math.floor(visibleLeft / tileMapSize) - 1);
-    const lastColumn = Math.min(maximumColumn, Math.floor(visibleRight / tileMapSize) + 1);
-    const firstRow = Math.max(0, Math.floor(visibleTop / tileMapSize) - 1);
-    const lastRow = Math.min(maximumRow, Math.floor(visibleBottom / tileMapSize) + 1);
+    const firstColumn = Math.max(0, Math.floor(visible.x / tileMapSize) - 1);
+    const lastColumn = Math.min(
+      maximumColumn,
+      Math.floor((visible.x + visible.width) / tileMapSize) + 1,
+    );
+    const firstRow = Math.max(0, Math.floor(visible.y / tileMapSize) - 1);
+    const lastRow = Math.min(
+      maximumRow,
+      Math.floor((visible.y + visible.height) / tileMapSize) + 1,
+    );
     const required = new Set<string>();
     for (let row = firstRow; row <= lastRow; row += 1) {
       for (let column = firstColumn; column <= lastColumn; column += 1) {
