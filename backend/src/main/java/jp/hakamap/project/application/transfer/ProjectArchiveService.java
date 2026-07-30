@@ -116,7 +116,7 @@ public final class ProjectArchiveService {
     return inspect(archive, OperationControl.NONE);
   }
 
-  private ArchiveInspection inspect(Path archive, OperationControl control) {
+  public ArchiveInspection inspect(Path archive, OperationControl control) {
     try {
       control.checkpoint();
       if (!Files.isRegularFile(archive) || Files.isSymbolicLink(archive)) {

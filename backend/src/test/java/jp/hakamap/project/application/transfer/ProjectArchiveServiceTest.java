@@ -185,6 +185,39 @@ class ProjectArchiveServiceTest {
     assertThat(target).doesNotExist();
   }
 
+  @Test
+  void checksCancellationWhileRevalidatingArchive() throws Exception {
+    ProjectRepository repository = repository();
+    Path root = temporaryDirectory.resolve("revalidate-project");
+    repository.write(root, project());
+    Path asset = root.resolve("assets/attachments/large.png");
+    Files.createDirectories(asset.getParent());
+    byte[] content = new byte[2 * 1024 * 1024];
+    new java.util.Random(1).nextBytes(content);
+    Files.write(asset, content);
+    ProjectArchiveService service =
+        new ProjectArchiveService(repository, Clock.fixed(NOW, ZoneOffset.UTC), "test");
+    Path archive = service.exportArchive(root, temporaryDirectory.resolve("revalidate.hakamap"));
+    java.util.concurrent.atomic.AtomicInteger checkpoints =
+        new java.util.concurrent.atomic.AtomicInteger();
+    OperationControl cancelDuringInspection =
+        new OperationControl() {
+          @Override
+          public void checkpoint() {
+            if (checkpoints.incrementAndGet() == 12) {
+              throw new ProjectTransferException("operation-cancelled");
+            }
+          }
+
+          @Override
+          public void beginCommit() {}
+        };
+
+    assertThatThrownBy(() -> service.inspect(archive, cancelDuringInspection))
+        .isInstanceOf(ProjectTransferException.class)
+        .hasMessage("operation-cancelled");
+  }
+
   private ProjectRepository repository() {
     return new FileProjectRepository(
         new DefensiveJsonCodec(new ClasspathJsonSchemaValidator()),

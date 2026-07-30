@@ -176,7 +176,7 @@ public final class ProjectTransferService {
         || !candidate.version().equals(backupVersion)) {
       throw new ProjectTransferException("backup-not-found");
     }
-    ProjectArchiveService.ArchiveInspection current = archives.inspect(candidate.path());
+    ProjectArchiveService.ArchiveInspection current = archives.inspect(candidate.path(), control);
     if (!current.archiveSha256().equals(candidate.archiveSha256())
         || current.sizeBytes() != candidate.sizeBytes()
         || !current.lastModified().equals(candidate.lastModified())) {
