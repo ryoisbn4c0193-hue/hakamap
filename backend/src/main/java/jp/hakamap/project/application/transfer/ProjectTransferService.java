@@ -185,10 +185,10 @@ public final class ProjectTransferService {
     Path root = openProjects.projectRoot(projectId);
     archives.createPreRestoreBackup(root, control);
     Path temporary = root.resolveSibling(".hakamap-restore-" + UUID.randomUUID() + ".tmp");
-    long backupBytes = directorySize(root.resolve("backup"), control);
-    ProjectArchiveService.ExtractedProject extracted =
-        archives.extractAndValidate(candidate.path(), temporary, control, backupBytes);
     try {
+      long backupBytes = directorySize(root.resolve("backup"), control);
+      ProjectArchiveService.ExtractedProject extracted =
+          archives.extractAndValidate(candidate.path(), temporary, control, backupBytes);
       copyTree(root.resolve("backup"), extracted.directory().resolve("backup"), control);
       control.beginCommit();
       openProjects.replaceProjectDirectory(

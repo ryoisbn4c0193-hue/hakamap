@@ -683,6 +683,8 @@ Phase 10のデータ安全性、排他制御、アーカイブ防御、および
   バージョン検査を標準出力へ出す`java --version`へ変更した。
 - WindowsのGitによるCRLF変換でPrettier検査が全件失敗する問題を検出し、
   `.gitattributes`で通常テキストをLF、WindowsバッチをCRLFへ固定した。
+- Windowsのクリーンコンパイルで復元バックアップ容量集計の`IOException`処理漏れを検出し、
+  復元処理の既存例外変換境界へ容量集計とアーカイブ展開を含めた。
 - Windows EXE作成、最低・推奨環境の性能、Windows E2E、外付け・SMB・切断・高DPI試験は
   Windows 11実機が必要なため未実施であり、Phase 11は完了扱いにしていない。
 
