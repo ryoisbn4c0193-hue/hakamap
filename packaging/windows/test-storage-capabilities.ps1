@@ -60,10 +60,12 @@ try {
 
     $Old = Join-Path $Probe 'project.json'
     $New = Join-Path $Probe 'project.json.new'
+    $Backup = Join-Path $Probe 'project.json.bak'
     [IO.File]::WriteAllText($Old, '{"value":"old"}')
     [IO.File]::WriteAllText($New, '{"value":"new"}')
-    [IO.File]::Replace($New, $Old, $null)
+    [IO.File]::Replace($New, $Old, $Backup)
     $Checks.atomicReplaceEquivalent = ([IO.File]::ReadAllText($Old) -eq '{"value":"new"}')
+    Remove-Item $Backup -Force
 
     $Payload = [byte[]](0..255)
     $Data = Join-Path $Probe 'readback.bin'

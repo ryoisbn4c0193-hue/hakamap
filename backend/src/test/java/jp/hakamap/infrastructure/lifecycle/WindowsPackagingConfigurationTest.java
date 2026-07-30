@@ -40,6 +40,8 @@ class WindowsPackagingConfigurationTest {
     assertThat(content)
         .contains("$First.Lock(0, 1)")
         .contains("[IO.File]::Replace")
+        .contains("$Backup = Join-Path $Probe 'project.json.bak'")
+        .contains("[IO.File]::Replace($New, $Old, $Backup)")
         .contains("$Stream.Flush($true)")
         .contains("Remove-Item $Probe")
         .contains("storageType = $StorageType")
