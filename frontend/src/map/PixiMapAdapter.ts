@@ -124,7 +124,7 @@ export class PixiMapAdapter {
     application.canvas.addEventListener('pointerup', this.handlePointerUp);
     application.canvas.addEventListener('pointercancel', this.cancelOperation);
     application.canvas.addEventListener('wheel', this.handleWheel, { passive: false });
-    this.render();
+    this.fit();
   }
 
   update(model: MapRenderModel): void {
