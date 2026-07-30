@@ -1,6 +1,10 @@
 package jp.hakamap.project.application.catalog;
 
+import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -82,6 +86,64 @@ public final class OpenProjectManager implements AutoCloseable {
     return aggregate;
   }
 
+  public synchronized ProjectAggregate replaceProjectDirectory(
+      UUID projectId,
+      Path replacement,
+      ProjectRepository projects,
+      ProjectFingerprintCalculator fingerprints) {
+    OpenProject open = requireOpen(projectId);
+    Path root = open.root();
+    Path previous = root.resolveSibling(".hakamap-restore-previous-" + UUID.randomUUID() + ".tmp");
+    Path rejected = root.resolveSibling(".hakamap-restore-rejected-" + UUID.randomUUID() + ".tmp");
+    open.lock().close();
+    boolean oldMoved = false;
+    boolean replacementMoved = false;
+    try {
+      atomicMove(root, previous);
+      oldMoved = true;
+      atomicMove(replacement, root);
+      replacementMoved = true;
+      ProjectFileLock newLock = ProjectFileLock.acquire(root);
+      ProjectAggregate aggregate;
+      try {
+        aggregate = projects.read(root);
+        if (!aggregate.metadata().id().value().equals(projectId)) {
+          throw new ProjectCatalogException("project-mismatch");
+        }
+      } catch (RuntimeException exception) {
+        newLock.close();
+        throw exception;
+      }
+      open.lock = newLock;
+      open.aggregate = aggregate;
+      open.editingSession = new ProjectEditingSession(aggregate, sha256(root), fingerprints);
+      deleteTreeQuietly(previous);
+      return aggregate;
+    } catch (IOException | RuntimeException exception) {
+      if (replacementMoved) {
+        try {
+          atomicMove(root, rejected);
+        } catch (IOException | RuntimeException quarantineFailure) {
+          exception.addSuppressed(quarantineFailure);
+        }
+      }
+      if (oldMoved) {
+        try {
+          atomicMove(previous, root);
+        } catch (IOException rollbackFailure) {
+          exception.addSuppressed(rollbackFailure);
+        }
+      }
+      try {
+        open.lock = ProjectFileLock.acquire(root);
+      } catch (RuntimeException lockFailure) {
+        exception.addSuppressed(lockFailure);
+      }
+      deleteTreeQuietly(rejected);
+      throw new ProjectCatalogException("backup-restore-failed", exception);
+    }
+  }
+
   public synchronized Path projectRoot(UUID projectId) {
     return requireOpen(projectId).root();
   }
@@ -132,6 +194,34 @@ public final class OpenProjectManager implements AutoCloseable {
     }
   }
 
+  private void atomicMove(Path source, Path target) throws IOException {
+    try {
+      Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
+    } catch (AtomicMoveNotSupportedException exception) {
+      throw new ProjectCatalogException("storage-atomic-move-unsupported", exception);
+    }
+  }
+
+  private void deleteTreeQuietly(Path root) {
+    if (!Files.exists(root)) {
+      return;
+    }
+    try (var stream = Files.walk(root)) {
+      stream
+          .sorted(java.util.Comparator.reverseOrder())
+          .forEach(
+              path -> {
+                try {
+                  Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                  // 確定後の旧ディレクトリは次回清掃対象として残す。
+                }
+              });
+    } catch (IOException ignored) {
+      // 確定後の旧ディレクトリは次回清掃対象として残す。
+    }
+  }
+
   @Override
   public synchronized void close() {
     if (openProject != null) {
@@ -147,7 +237,7 @@ public final class OpenProjectManager implements AutoCloseable {
 
     private ProjectAggregate aggregate;
 
-    private final ProjectFileLock lock;
+    private ProjectFileLock lock;
 
     private ProjectEditingSession editingSession;
 

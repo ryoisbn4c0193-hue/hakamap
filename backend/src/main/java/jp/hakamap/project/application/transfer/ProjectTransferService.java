@@ -151,18 +151,17 @@ public final class ProjectTransferService {
     }
     Path root = openProjects.projectRoot(projectId);
     archives.createPreRestoreBackup(root);
-    Path temporary = root.resolve(".restore-" + UUID.randomUUID() + ".tmp");
+    Path temporary = root.resolveSibling(".hakamap-restore-" + UUID.randomUUID() + ".tmp");
     ProjectArchiveService.ExtractedProject extracted =
         archives.extractAndValidate(candidate.path(), temporary);
     try {
-      copyAssets(extracted.directory().resolve("assets"), root.resolve("assets"));
-      Files.move(
-          extracted.directory().resolve("project.json"),
-          root.resolve("project.json"),
-          StandardCopyOption.ATOMIC_MOVE,
-          StandardCopyOption.REPLACE_EXISTING);
-      openProjects.reload(projectId, projects, fingerprints);
-    } catch (IOException exception) {
+      copyTree(root.resolve("backup"), extracted.directory().resolve("backup"));
+      openProjects.replaceProjectDirectory(
+          projectId, extracted.directory(), projects, fingerprints);
+    } catch (IOException | RuntimeException exception) {
+      if (exception instanceof ProjectTransferException transfer) {
+        throw transfer;
+      }
       throw new ProjectTransferException("backup-restore-failed", exception);
     } finally {
       ProjectArchiveService.deleteTreeQuietly(temporary);
@@ -228,7 +227,7 @@ public final class ProjectTransferService {
     }
   }
 
-  private void copyAssets(Path source, Path target) throws IOException {
+  private void copyTree(Path source, Path target) throws IOException {
     if (!Files.exists(source)) {
       return;
     }
@@ -241,16 +240,8 @@ public final class ProjectTransferService {
       if (!destination.startsWith(target.toAbsolutePath().normalize())) {
         throw new ProjectTransferException("archive-path-invalid");
       }
-      if (Files.exists(destination) && Files.mismatch(file, destination) != -1) {
-        throw new ProjectTransferException("backup-asset-conflict");
-      }
-    }
-    for (Path file : files) {
-      Path destination = target.resolve(source.relativize(file)).normalize();
-      if (!Files.exists(destination)) {
-        Files.createDirectories(destination.getParent());
-        Files.copy(file, destination);
-      }
+      Files.createDirectories(destination.getParent());
+      Files.copy(file, destination, StandardCopyOption.REPLACE_EXISTING);
     }
   }
 

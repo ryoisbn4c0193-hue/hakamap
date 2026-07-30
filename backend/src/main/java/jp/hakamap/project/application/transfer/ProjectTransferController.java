@@ -56,7 +56,9 @@ public class ProjectTransferController {
         operations.start(
             sessionId,
             true,
+            "project:" + projectId,
             () -> {
+              requireRevision(projectId, body.expectedRevision());
               transfers.export(projectId, body.fileSelectionId(), sessionId);
               return projectId;
             }));
@@ -72,6 +74,7 @@ public class ProjectTransferController {
         operations.start(
             sessionId,
             true,
+            "project:" + projectId,
             () -> {
               transfers.restore(
                   projectId,
@@ -92,6 +95,7 @@ public class ProjectTransferController {
         operations.start(
             sessionId,
             true,
+            "catalog",
             () ->
                 transfers.importArchive(
                     body.fileSelectionId(), body.destinationSelectionId(), sessionId)));

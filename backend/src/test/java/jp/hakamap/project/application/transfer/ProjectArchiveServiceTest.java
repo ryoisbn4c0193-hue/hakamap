@@ -87,6 +87,44 @@ class ProjectArchiveServiceTest {
     assertThat(temporaryDirectory.resolve("outside.txt")).doesNotExist();
   }
 
+  @Test
+  void rejectsDeclaredTotalSizeBeforeExtractionAndLeavesNoTemporaryDirectory() throws IOException {
+    Path archive = temporaryDirectory.resolve("oversized.hakamap");
+    String manifest =
+        """
+        {
+          "formatVersion": 1,
+          "archiveType": "export",
+          "applicationVersion": "test",
+          "createdAt": "2026-07-30T01:02:03.004Z",
+          "projectId": "2ded7f05-1b42-486a-ab7a-3ca0410f5e24",
+          "projectName": "テスト",
+          "files": [{
+            "path": "project.json",
+            "sizeBytes": %d,
+            "sha256": "unused"
+          }]
+        }
+        """
+            .formatted(ProjectArchiveService.MAX_TOTAL_UNCOMPRESSED_BYTES + 1);
+    try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(archive))) {
+      output.putNextEntry(new ZipEntry("manifest.json"));
+      output.write(manifest.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      output.closeEntry();
+      output.putNextEntry(new ZipEntry("project.json"));
+      output.write(new byte[] {1});
+      output.closeEntry();
+    }
+    ProjectArchiveService service =
+        new ProjectArchiveService(repository(), Clock.fixed(NOW, ZoneOffset.UTC), "test");
+    Path extracted = temporaryDirectory.resolve("oversized-out");
+
+    assertThatThrownBy(() -> service.extractAndValidate(archive, extracted))
+        .isInstanceOf(ProjectTransferException.class)
+        .hasMessage("archive-total-size-exceeded");
+    assertThat(extracted).doesNotExist();
+  }
+
   private ProjectRepository repository() {
     return new FileProjectRepository(
         new DefensiveJsonCodec(new ClasspathJsonSchemaValidator()),

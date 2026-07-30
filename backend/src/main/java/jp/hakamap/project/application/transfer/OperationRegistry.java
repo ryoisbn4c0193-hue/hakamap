@@ -3,19 +3,27 @@ package jp.hakamap.project.application.transfer;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class OperationRegistry implements AutoCloseable {
+  private static final Logger LOGGER = LoggerFactory.getLogger(OperationRegistry.class);
+
   private static final Duration RETENTION = Duration.ofMinutes(10);
 
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
   private final Map<String, Operation> operations = new LinkedHashMap<>();
+
+  private final Set<String> reservations = new HashSet<>();
 
   private final Clock clock;
 
@@ -25,9 +33,17 @@ public final class OperationRegistry implements AutoCloseable {
 
   public synchronized OperationView start(
       String sessionId, boolean cancellable, Supplier<UUID> action) {
+    return start(sessionId, cancellable, UUID.randomUUID().toString(), action);
+  }
+
+  public synchronized OperationView start(
+      String sessionId, boolean cancellable, String reservationKey, Supplier<UUID> action) {
     discardExpired();
+    if (!reservations.add(reservationKey)) {
+      throw new ProjectTransferException("project-busy");
+    }
     String id = UUID.randomUUID().toString();
-    Operation operation = new Operation(id, sessionId, cancellable);
+    Operation operation = new Operation(id, sessionId, reservationKey, cancellable);
     operations.put(id, operation);
     executor.submit(() -> execute(operation, action));
     return view(operation);
@@ -46,6 +62,7 @@ public final class OperationRegistry implements AutoCloseable {
     operation.status = "cancelled";
     operation.cancellable = false;
     operation.completedAt = clock.instant();
+    reservations.remove(operation.reservationKey);
     return view(operation);
   }
 
@@ -55,6 +72,7 @@ public final class OperationRegistry implements AutoCloseable {
         return;
       }
       operation.status = "running";
+      operation.cancellable = false;
     }
     try {
       UUID projectId = action.get();
@@ -63,13 +81,21 @@ public final class OperationRegistry implements AutoCloseable {
         operation.status = "succeeded";
         operation.projectId = projectId;
         operation.completedAt = clock.instant();
+        reservations.remove(operation.reservationKey);
       }
     } catch (RuntimeException exception) {
       synchronized (this) {
         operation.cancellable = false;
         operation.status = "failed";
-        operation.errorCode = exception.getMessage();
+        operation.errorCode =
+            exception instanceof ProjectTransferException
+                ? exception.getMessage()
+                : "internal-unexpected";
         operation.completedAt = clock.instant();
+        reservations.remove(operation.reservationKey);
+        if (!(exception instanceof ProjectTransferException)) {
+          LOGGER.error("operation-failed: {}", exception.getClass().getSimpleName());
+        }
       }
     }
   }
@@ -87,7 +113,7 @@ public final class OperationRegistry implements AutoCloseable {
         operation.id,
         operation.status,
         operation.cancellable,
-        "fileProcessing",
+        "queued".equals(operation.status) ? "waiting" : "fileProcessing",
         null,
         operation.projectId,
         operation.errorCode);
@@ -121,6 +147,8 @@ public final class OperationRegistry implements AutoCloseable {
 
     private final String sessionId;
 
+    private final String reservationKey;
+
     private String status = "queued";
 
     private boolean cancellable;
@@ -131,9 +159,10 @@ public final class OperationRegistry implements AutoCloseable {
 
     private Instant completedAt;
 
-    private Operation(String id, String sessionId, boolean cancellable) {
+    private Operation(String id, String sessionId, String reservationKey, boolean cancellable) {
       this.id = id;
       this.sessionId = sessionId;
+      this.reservationKey = reservationKey;
       this.cancellable = cancellable;
     }
   }

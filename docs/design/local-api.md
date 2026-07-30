@@ -481,14 +481,17 @@ DELETE /api/v1/operations/{operationId}
 - 開始成功時は`202 Accepted`、`Location: /api/v1/operations/{operationId}`を返す。
 - Operation IDは推測困難なランダム値とし、発行したHTTPセッションへ紐づける。
 - クライアントは約500ミリ秒間隔で状態を取得する。
-- 状態は`queued`、`running`、`committing`、`succeeded`、`failed`、`cancelled`とする。
+- 状態は`queued`、`running`、`succeeded`、`failed`、`cancelled`とする。
 - 応答は工程コード、進捗率またはスピナー種別、キャンセル可否、および安全な結果を含む。
-- `committing`以降はキャンセル不可とし、DELETEへ競合エラーを返す。
-- 手動保存は開始後キャンセル不可とする。エクスポート、自動バックアップ、
-  バックアップ復元、インポート、およびごみ箱復元は`committing`へ入る前だけキャンセル可能とする。
+- 手動保存は開始後キャンセル不可とする。MVPのエクスポート、バックアップ復元、
+  インポート、およびごみ箱復元は`queued`の間だけキャンセル可能とし、`running`へ
+  移った後のDELETEには`operation-cancel-unavailable`を返す。
 - 完了したOperationは結果取得後に削除し、取得されない場合も10分後にメモリから破棄する。
 - Operation ID、一時選択ID、絶対パス、および処理対象の入力値を通常ログへ出力しない。
-- 同じProjectで競合する長時間処理が進行中の場合は新しい処理を開始しない。
+- Operation受付時にProject単位の予約を取得し、同じProjectで競合する長時間処理が
+  予約済みの場合は`project-busy`で拒否する。実処理開始直前にもrevisionとdirty状態を
+  再検証し、キュー待機中に状態が変わった要求を実行しない。
+- 想定外例外は詳細をAPIへ返さず、固定コード`internal-unexpected`へ変換する。
 
 ## バックアップ一覧
 

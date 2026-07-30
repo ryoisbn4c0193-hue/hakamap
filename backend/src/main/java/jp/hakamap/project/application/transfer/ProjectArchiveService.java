@@ -44,6 +44,10 @@ public final class ProjectArchiveService {
 
   private static final long MAX_PROJECT_BYTES = 100L * 1024 * 1024;
 
+  static final long MAX_TOTAL_UNCOMPRESSED_BYTES = 20L * 1024 * 1024 * 1024;
+
+  private static final long REQUIRED_FREE_SPACE_MARGIN = 500L * 1024 * 1024;
+
   private static final DateTimeFormatter FILE_TIMESTAMP =
       DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmssSSS'Z'")
           .withLocale(Locale.ROOT)
@@ -112,8 +116,13 @@ public final class ProjectArchiveService {
         }
         Set<String> names = new HashSet<>();
         Map<String, ZipEntry> byName = new HashMap<>();
+        long zipTotal = 0;
         for (ZipEntry entry : entries) {
           String safe = safeEntryName(entry.getName());
+          if (entry.getSize() < 0 || entry.getSize() > MAX_TOTAL_UNCOMPRESSED_BYTES - zipTotal) {
+            throw new ProjectTransferException("archive-total-size-exceeded");
+          }
+          zipTotal += entry.getSize();
           if (entry.getSize() > 0
               && entry.getCompressedSize() > 0
               && entry.getSize() / entry.getCompressedSize() > 1_000) {
@@ -140,9 +149,15 @@ public final class ProjectArchiveService {
           throw new ProjectTransferException("archive-version-unsupported");
         }
         Set<String> declared = new HashSet<>();
+        long declaredTotal = 0;
         for (ArchiveFile file : manifest.files()) {
           String path = safeEntryName(file.path());
           ZipEntry entry = byName.get(path);
+          if (file.sizeBytes() < 0
+              || file.sizeBytes() > MAX_TOTAL_UNCOMPRESSED_BYTES - declaredTotal) {
+            throw new ProjectTransferException("archive-total-size-exceeded");
+          }
+          declaredTotal += file.sizeBytes();
           if (!declared.add(path.toLowerCase(Locale.ROOT))
               || entry == null
               || entry.getSize() != file.sizeBytes()
@@ -170,6 +185,15 @@ public final class ProjectArchiveService {
   public ExtractedProject extractAndValidate(Path archive, Path destination) {
     ArchiveInspection inspection = inspect(archive);
     try {
+      long declaredTotal = declaredTotal(archive);
+      Path usableRoot =
+          destination.toAbsolutePath().normalize().getParent() == null
+              ? destination.toAbsolutePath().normalize()
+              : destination.toAbsolutePath().normalize().getParent();
+      if (Files.getFileStore(usableRoot).getUsableSpace()
+          < declaredTotal + REQUIRED_FREE_SPACE_MARGIN) {
+        throw new ProjectTransferException("archive-space-insufficient");
+      }
       Files.createDirectories(destination);
       try (ZipFile zip = new ZipFile(archive.toFile())) {
         ArchiveManifest manifest;
@@ -185,7 +209,7 @@ public final class ProjectArchiveService {
           Files.createDirectories(target.getParent());
           try (InputStream input = zip.getInputStream(zip.getEntry(file.path()));
               OutputStream output = new BufferedOutputStream(Files.newOutputStream(target))) {
-            input.transferTo(output);
+            copyExactly(input, output, file.sizeBytes());
           }
         }
       }
@@ -200,6 +224,43 @@ public final class ProjectArchiveService {
         throw transfer;
       }
       throw new ProjectTransferException("archive-extract-failed", exception);
+    }
+  }
+
+  private long declaredTotal(Path archive) throws IOException {
+    try (ZipFile zip = new ZipFile(archive.toFile())) {
+      ZipEntry manifestEntry = zip.getEntry("manifest.json");
+      try (InputStream input = limited(zip.getInputStream(manifestEntry), MAX_MANIFEST_BYTES)) {
+        ArchiveManifest manifest = json.readValue(input, ArchiveManifest.class);
+        long total = 0;
+        for (ArchiveFile file : manifest.files()) {
+          if (file.sizeBytes() < 0 || file.sizeBytes() > MAX_TOTAL_UNCOMPRESSED_BYTES - total) {
+            throw new ProjectTransferException("archive-total-size-exceeded");
+          }
+          total += file.sizeBytes();
+        }
+        return total;
+      }
+    }
+  }
+
+  private void copyExactly(InputStream input, OutputStream output, long expected)
+      throws IOException {
+    byte[] buffer = new byte[64 * 1024];
+    long total = 0;
+    while (true) {
+      int read = input.read(buffer);
+      if (read < 0) {
+        break;
+      }
+      if (read > expected - total) {
+        throw new ProjectTransferException("archive-size-mismatch");
+      }
+      output.write(buffer, 0, read);
+      total += read;
+    }
+    if (total != expected) {
+      throw new ProjectTransferException("archive-size-mismatch");
     }
   }
 
