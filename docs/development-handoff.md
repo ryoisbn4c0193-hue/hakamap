@@ -672,15 +672,19 @@ Phase 10のデータ安全性、排他制御、アーカイブ防御、および
 - 配布設定の自動検査、Windows実機結果JSONの雛形、ローカル・外付け・SMB 3.x向けの
   排他ロック・置換・同期読戻し・清掃の保存先機能検査を追加した。
 - Windows CIで同じビルドスクリプトからEXEを作成し、ManifestのSHA-256を照合して
-  7日間だけ成果物を保存するWorkflowを追加した。未プッシュのため実行結果はまだない。
+  7日間だけ成果物を保存するWorkflowを追加した。
 - Linuxで同じモジュールの`jlink`ランタイムを生成した。初回試行で不足した
   `java.instrument`を検出して追加し、Spring BootとローカルHTTPの初期化まで確認した。
+- Windows 11実機へMicrosoft OpenJDK 21.0.11とWiX Toolset 3.14を導入し、
+  `java`、`jlink`、`jpackage`、`candle`、`light`を実行できることを確認した。
+- Windows PowerShell 5.1がBOMなしUTF-8の日本語を誤認してビルドスクリプトを解析できない
+  問題を検出し、Windows用PowerShellスクリプトをUTF-8 BOM付きとして互換性を確保した。
 - Windows EXE作成、最低・推奨環境の性能、Windows E2E、外付け・SMB・切断・高DPI試験は
   Windows 11実機が必要なため未実施であり、Phase 11は完了扱いにしていない。
 
 ## 次に行うこと
 
-Windows 11実機で`packaging/windows/README.md`に従ってEXEを作成し、
+Windows側のリポジトリを更新し、`packaging/windows/README.md`に従ってEXEを作成して、
 `docs/verification/phase-11-windows.md`の未実施項目を検証する。
 
 1. `jlink`と`jpackage`によるWindows EXEを作成してショートカット・更新・削除を検証する。
