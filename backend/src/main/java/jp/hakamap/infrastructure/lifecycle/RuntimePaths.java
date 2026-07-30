@@ -12,7 +12,7 @@ public record RuntimePaths(Path directory) {
     } else {
       base = Path.of(System.getProperty("user.home"), ".local", "share");
     }
-    return new RuntimePaths(base.resolve("Hakamap").resolve("runtime"));
+    return new RuntimePaths(base.resolve("HakamapData").resolve("runtime"));
   }
 
   public Path applicationLock() {

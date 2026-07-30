@@ -14,7 +14,7 @@ HakamapをWindows向けデスクトップアプリとして実行する際の、
 - ブラウザにはローカルHTTPサーバーが配信するReact画面を表示する。
 - 2回目以降のランチャー起動ではバックエンドを重複起動せず、既に起動している
   Hakamapをブラウザで開く。
-- ランチャーは`%LOCALAPPDATA%\Hakamap\runtime\application.lock`をJavaの
+- ランチャーは`%LOCALAPPDATA%\HakamapData\runtime\application.lock`をJavaの
   `FileChannel.tryLock()`で取得し、最初のバックエンドプロセスが終了まで保持する。
 - サーバー準備完了後、現在のWindowsユーザーだけがアクセスできる`runtime\instance.json`へ、
   プロセスID、起動ごとのインスタンスUUID、ポート番号、起動日時、および256ビット相当の

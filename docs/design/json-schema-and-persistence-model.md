@@ -11,8 +11,8 @@ Project、Catalog、およびRecoveryの保存境界を、自己完結したJSON
 | 形式 | 正式ファイル | Schema ID | 初期バージョン |
 | --- | --- | --- | --- |
 | Project | `<project-root>/project.json` | `urn:hakamap:project:1` | 1 |
-| Catalog | `%LOCALAPPDATA%/Hakamap/catalog.json` | `urn:hakamap:catalog:1` | 1 |
-| Recovery | `%LOCALAPPDATA%/Hakamap/recovery/<project-id>.recovery.json` | `urn:hakamap:recovery:1` | 1 |
+| Catalog | `%LOCALAPPDATA%/HakamapData/catalog.json` | `urn:hakamap:catalog:1` | 1 |
+| Recovery | `%LOCALAPPDATA%/HakamapData/recovery/<project-id>.recovery.json` | `urn:hakamap:recovery:1` | 1 |
 
 - JSON SchemaはDraft 2020-12を使用する。
 - 各Schemaは外部参照を持たない自己完結した1ファイルとする。

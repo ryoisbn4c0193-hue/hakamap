@@ -68,7 +68,7 @@ HakamapのブラウザUIとSpring Boot間の通信を端末内に限定し、同
 
 ### 二重起動との連携
 
-- `%LOCALAPPDATA%\Hakamap\runtime\application.lock`をOSの排他ファイルロックとして使用し、
+- `%LOCALAPPDATA%\HakamapData\runtime\application.lock`をOSの排他ファイルロックとして使用し、
   最初のプロセスだけがバックエンドを開始する。
 - 起動中のPID、インスタンスUUID、ポート番号、起動日時、および256ビット相当のランダムな
   制御トークンを、現在のWindowsユーザーだけがアクセスできる`runtime\instance.json`へ保存する。

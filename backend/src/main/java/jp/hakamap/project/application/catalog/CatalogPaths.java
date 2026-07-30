@@ -10,7 +10,7 @@ public record CatalogPaths(Path catalogFile) {
         localAppData == null || localAppData.isBlank()
             ? Path.of(System.getProperty("user.home"), ".local", "share")
             : Path.of(localAppData);
-    return new CatalogPaths(base.resolve("Hakamap").resolve("catalog.json"));
+    return new CatalogPaths(base.resolve("HakamapData").resolve("catalog.json"));
   }
 
   public Path temporaryAssetRoot() {

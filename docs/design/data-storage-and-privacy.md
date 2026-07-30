@@ -26,12 +26,13 @@ Hakamapのプロジェクトデータ、画像、添付ファイル、バック�
 
 - プロジェクトとは別に、実行時情報、一時ファイル、およびログを保存する
   アプリケーション管理領域をユーザー単位で設ける。
-- Windowsでは`%LOCALAPPDATA%\Hakamap`をアプリケーション管理領域のルートとする。
+- Windowsでは、インストール先`%LOCALAPPDATA%\Hakamap`と衝突しない
+  `%LOCALAPPDATA%\HakamapData`をアプリケーション管理領域のルートとする。
 - Windows以外の開発環境では、OSごとのユーザーデータディレクトリ規約に従う。
 - テストでは一時ディレクトリを使用し、実際の利用者データを読み書きしない。
 
 ```text
-%LOCALAPPDATA%\Hakamap\
+%LOCALAPPDATA%\HakamapData\
 ├─ catalog.json
 ├─ cache\
 │  ├─ thumbnails\
@@ -69,7 +70,7 @@ Hakamapのプロジェクトデータ、画像、添付ファイル、バック�
 - 元画像の縦横比を維持して枠内に収め、小さい画像は拡大しない。
 - PDFは取り込み時に変換した1ページ画像からサムネイルを生成する。
 - サムネイルはWebP形式、品質80で生成する。
-- `%LOCALAPPDATA%\Hakamap\cache\thumbnails`へ、元アセットのSHA-256を基準とする名前で保存する。
+- `%LOCALAPPDATA%\HakamapData\cache\thumbnails`へ、元アセットのSHA-256を基準とする名前で保存する。
 - キャッシュが存在しない場合は、添付一覧またはプレビューで必要になった時点に生成する。
 - 元アセットのSHA-256が変わった場合は、既存キャッシュを再利用せず別のサムネイルを生成する。
 - サムネイルは再生成可能な端末キャッシュとし、プロジェクト、バックアップ、および
@@ -86,7 +87,7 @@ Hakamapのプロジェクトデータ、画像、添付ファイル、バック�
 
 ## 端末ごとのプロジェクトカタログ
 
-- `%LOCALAPPDATA%\Hakamap\catalog.json`へ、この端末で管理するプロジェクト一覧を保存する。
+- `%LOCALAPPDATA%\HakamapData\catalog.json`へ、この端末で管理するプロジェクト一覧を保存する。
 - 各プロジェクトについて、プロジェクトUUID、保存先の絶対パス、最後に確認できた
   プロジェクト名、作成日時、および更新日時を保持する。
 - プロジェクト一覧では同名を区別するため、更新日時と保存場所の末尾だけを表示する。
@@ -137,7 +138,7 @@ Hakamapのプロジェクトデータ、画像、添付ファイル、バック�
 
 - `catalog.json`は`schemaVersion`を持つUTF-8の整形済みJSONとする。
 - 更新時は一時ファイルへ全体を書き出して検証し、完了後に正式ファイルへ置換する。
-- 更新直前の正常なカタログを`%LOCALAPPDATA%\Hakamap\catalog.json.bak`へ1世代保持する。
+- 更新直前の正常なカタログを`%LOCALAPPDATA%\HakamapData\catalog.json.bak`へ1世代保持する。
 - 起動時に`catalog.json`が破損している場合は、`.bak`を検証して自動復旧する。
 - 本体と`.bak`の両方が利用できない場合は、プロジェクト本体を変更または削除せず、
   空のプロジェクト一覧で起動してカタログを再作成する。
@@ -497,7 +498,7 @@ backend/src/main/resources/json-schema/
 - 保存先への接続断、外付けストレージの取り外し、または排他ロックの喪失を検出した場合は、
   新しいデータ編集操作と元の保存先への手動保存を停止する。
 - 現在の編集状態はメモリ上から破棄せず、復旧JSONとステージング済みアセットを
-  `%LOCALAPPDATA%\Hakamap\recovery`および`temp`へ保持する。
+  `%LOCALAPPDATA%\HakamapData\recovery`および`temp`へ保持する。
 - 利用者には「再接続して再試行」「別の保存先へ名前を付けて保存」「変更を破棄して閉じる」
   の選択肢を提示する。
 - 再接続して再試行する場合は、元保存先の排他ロックを再取得する。
@@ -686,7 +687,7 @@ backend/src/main/resources/json-schema/
 - `projectSnapshot`には復旧時点の`project.json`全体を格納し、未保存背景がある場合は
   `background`も含める。
 - `stagedAssets`には未保存の新規アセットだけを列挙し、存在しない場合も空配列として保存する。
-- `tempRelativePath`は`%LOCALAPPDATA%\Hakamap\temp`を基準とする相対パスとし、絶対パス、
+- `tempRelativePath`は`%LOCALAPPDATA%\HakamapData\temp`を基準とする相対パスとし、絶対パス、
   親参照、および管理領域外を指すパスを拒否する。
 - Undo／Redo履歴、編集リビジョン、ズーム、パン、および選択状態は復旧JSONへ含めない。
 - 復旧を適用した新しい編集セッションの`revision`は0から開始する。
@@ -711,7 +712,7 @@ backend/src/main/resources/json-schema/
 ## 未保存アセットのステージング
 
 - 新しく追加した背景、画像、および添付ファイルは、手動保存が完了するまで
-  `%LOCALAPPDATA%\Hakamap\temp`配下の編集セッション別領域へコピーする。
+  `%LOCALAPPDATA%\HakamapData\temp`配下の編集セッション別領域へコピーする。
 - 手動保存時は、ステージング済みファイルの検証後に正式な`assets`へ反映し、対応する
   `project.json`と整合した状態で保存を完了する。
 - 利用者が変更を保存せず破棄した場合は、その編集セッションのステージング済み
@@ -777,7 +778,7 @@ backend/src/main/resources/json-schema/
 - 氏名、日付、埋葬記録、メモ、ファイル内容、起動用認証情報をログへ記録しない。
 - ファイルシステムの絶対パスを、通常の運用ログやAPIレスポンスへ含めない。
 - 障害調査に必要な場合は、個人情報を含まないエラー分類、処理種別、内部IDなどを記録する。
-- ログは`%LOCALAPPDATA%\Hakamap\logs`へUTF-8のテキストとして出力する。
+- ログは`%LOCALAPPDATA%\HakamapData\logs`へUTF-8のテキストとして出力する。
 - 1ファイルを最大10MBとし、現行ファイル1つと過去5世代を保持する。最大容量の目安は60MBとする。
 - ローテーション後に上限を超える場合は、最も古い世代から削除する。
 - UTC日時、ログレベル、イベントコード、アプリケーションバージョン、個人情報を含まない
