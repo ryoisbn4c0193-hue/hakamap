@@ -21,6 +21,8 @@ class WindowsPackagingConfigurationTest {
         .contains("'java.instrument'")
         .contains("'java.desktop'")
         .contains("'jdk.crypto.ec'")
+        .contains("java --version")
+        .doesNotContain("java -version 2>&1")
         .contains("--java-options '-Xmx512m'")
         .contains("create-placeholder-icon.ps1")
         .contains("Hakamap-$Version.exe")

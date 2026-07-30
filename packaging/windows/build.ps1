@@ -40,7 +40,7 @@ foreach ($Command in @('java', 'jlink', 'jpackage')) {
         throw "Java 21 JDKの$Commandが見つかりません。"
     }
 }
-if ((java -version 2>&1 | Select-Object -First 1) -notmatch '"21[.\"]') {
+if ((java --version | Select-Object -First 1) -notmatch '21[.]') {
     throw 'Java 21 JDKを使用してください。'
 }
 if ([string]::IsNullOrWhiteSpace($IconPath)) {
