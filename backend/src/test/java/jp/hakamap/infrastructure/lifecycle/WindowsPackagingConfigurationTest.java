@@ -58,4 +58,15 @@ class WindowsPackagingConfigurationTest {
         .contains("actions/upload-artifact@v4")
         .doesNotContain("secrets.");
   }
+
+  @Test
+  void repositoryPinsTextLineEndingsAcrossWindowsAndLinux() throws Exception {
+    Path attributes = Path.of("../.gitattributes").toAbsolutePath().normalize();
+    String content = Files.readString(attributes);
+
+    assertThat(content)
+        .contains("* text=auto eol=lf")
+        .contains("*.bat text eol=crlf")
+        .contains("*.cmd text eol=crlf");
+  }
 }

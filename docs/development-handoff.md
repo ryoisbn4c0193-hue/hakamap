@@ -681,6 +681,8 @@ Phase 10のデータ安全性、排他制御、アーカイブ防御、および
   問題を検出し、Windows用PowerShellスクリプトをUTF-8 BOM付きとして互換性を確保した。
 - Windows PowerShell 5.1では`java -version`の正常な標準エラー出力が停止対象になるため、
   バージョン検査を標準出力へ出す`java --version`へ変更した。
+- WindowsのGitによるCRLF変換でPrettier検査が全件失敗する問題を検出し、
+  `.gitattributes`で通常テキストをLF、WindowsバッチをCRLFへ固定した。
 - Windows EXE作成、最低・推奨環境の性能、Windows E2E、外付け・SMB・切断・高DPI試験は
   Windows 11実機が必要なため未実施であり、Phase 11は完了扱いにしていない。
 
