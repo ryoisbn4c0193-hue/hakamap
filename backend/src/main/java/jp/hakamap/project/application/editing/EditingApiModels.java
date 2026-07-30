@@ -144,6 +144,16 @@ public final class EditingApiModels {
       String nextCursor,
       int totalCount) {}
 
+  public record GraveSearchPageResponse(
+      UUID projectId,
+      long revision,
+      List<GraveSearchResultResponse> items,
+      String nextCursor,
+      int totalCount) {}
+
+  public record GraveSearchResultResponse(
+      UUID graveId, String areaName, String managementNumber, String graveName) {}
+
   public record NumberingPreviewResponse(
       long revision,
       String numberingPreviewToken,

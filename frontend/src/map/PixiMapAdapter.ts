@@ -170,6 +170,19 @@ export class PixiMapAdapter {
     this.render();
   }
 
+  focusGrave(graveId: string): void {
+    if (this.application === undefined) return;
+    const grave = this.model.graves.find(({ id }) => id === graveId);
+    if (grave === undefined) return;
+    const scale = Math.max(this.viewport.scale, 1);
+    this.viewport = {
+      scale,
+      x: this.application.screen.width / 2 - (grave.x + grave.width / 2) * scale,
+      y: this.application.screen.height / 2 - (grave.y + grave.height / 2) * scale,
+    };
+    this.render();
+  }
+
   destroy(): void {
     const canvas = this.application?.canvas;
     canvas?.removeEventListener('pointerdown', this.handlePointerDown);

@@ -35,6 +35,9 @@ import jp.hakamap.project.domain.model.ProjectAggregate;
 import jp.hakamap.project.domain.model.ProjectMetadata;
 import jp.hakamap.project.domain.value.DisplayOrder;
 import jp.hakamap.project.domain.value.GraveId;
+import jp.hakamap.project.domain.value.GraveName;
+import jp.hakamap.project.domain.value.GraveNotes;
+import jp.hakamap.project.domain.value.ManagementNumber;
 import jp.hakamap.project.domain.value.MapRectangle;
 import jp.hakamap.project.domain.value.PersonId;
 import jp.hakamap.project.domain.value.PersonName;
@@ -305,6 +308,71 @@ class ProjectEditingApiServiceTest {
             () -> service.people(PROJECT_ID, graveId.value(), first.nextCursor(), "session-a"))
         .isInstanceOf(EditingApiException.class)
         .hasMessage("request-field-invalid");
+  }
+
+  @Test
+  void searchesNormalizedPersonFieldsExcludesNotesAndUsesNaturalManagementOrder() throws Exception {
+    GraveId firstId = new GraveId(UUID.fromString("8644022a-bca2-4c3e-b811-19c28b7a2d51"));
+    GraveId secondId = new GraveId(UUID.fromString("8644022a-bca2-4c3e-b811-19c28b7a2d52"));
+    Grave first =
+        new Grave(
+            firstId,
+            Optional.of(new ManagementNumber("10")),
+            Optional.of(new GraveName("共通")),
+            Optional.of(new GraveNotes("備考だけの語")),
+            new MapRectangle(
+                java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.TEN,
+                java.math.BigDecimal.TEN),
+            RotationDegrees.ZERO,
+            NOW);
+    Grave second =
+        new Grave(
+            secondId,
+            Optional.of(new ManagementNumber("2")),
+            Optional.of(new GraveName("共通")),
+            Optional.empty(),
+            new MapRectangle(
+                java.math.BigDecimal.valueOf(20),
+                java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.TEN,
+                java.math.BigDecimal.TEN),
+            RotationDegrees.ZERO,
+            NOW);
+    Person person =
+        new Person(
+            new PersonId(UUID.randomUUID()),
+            firstId,
+            Optional.of(new PersonName("ヤマ　ダ")),
+            Optional.empty(),
+            NOW,
+            NOW,
+            new DisplayOrder(0));
+    ProjectAggregate project =
+        new ProjectAggregate(
+            metadata(),
+            Optional.empty(),
+            List.of(),
+            List.of(first, second),
+            List.of(person),
+            List.of());
+    ProjectEditingApiService service = context(project).service();
+
+    EditingApiModels.GraveSearchPageResponse personResult =
+        service.search(PROJECT_ID, "やまだ", null, "session-a");
+    assertThat(personResult.items())
+        .extracting(EditingApiModels.GraveSearchResultResponse::graveId)
+        .containsExactly(firstId.value());
+    assertThat(service.search(PROJECT_ID, "備考だけ", null, "session-a").items()).isEmpty();
+    assertThat(service.search(PROJECT_ID, "共通", null, "session-a").items())
+        .extracting(EditingApiModels.GraveSearchResultResponse::managementNumber)
+        .containsExactly("2", "10");
+    assertThat(service.snapshot(PROJECT_ID))
+        .extracting(
+            EditingApiModels.ProjectSnapshotResponse::revision,
+            EditingApiModels.ProjectSnapshotResponse::dirty)
+        .containsExactly(0L, false);
   }
 
   @Test

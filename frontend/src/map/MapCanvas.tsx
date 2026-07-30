@@ -33,6 +33,7 @@ type MapCanvasProps = {
   onSelectionChange: (graveIds: readonly string[]) => void;
   onLabelModeChange: (mode: MapCanvasProps['labelMode']) => void;
   selectedIds: readonly string[];
+  focusedGraveId?: string;
   snapshot: ProjectSnapshot;
 };
 
@@ -50,6 +51,7 @@ function MapCanvas({
   onSelectionChange,
   onLabelModeChange,
   selectedIds,
+  focusedGraveId,
   snapshot,
 }: MapCanvasProps) {
   const host = useRef<HTMLDivElement>(null);
@@ -158,6 +160,9 @@ function MapCanvas({
   useEffect(() => adapter.current?.setMode(mode), [mode]);
   useEffect(() => adapter.current?.setSnapEnabled(snap), [snap]);
   useEffect(() => adapter.current?.setInteractionEnabled(!busy), [busy]);
+  useEffect(() => {
+    if (focusedGraveId !== undefined) adapter.current?.focusGrave(focusedGraveId);
+  }, [focusedGraveId]);
 
   return (
     <Box className="map-workspace">

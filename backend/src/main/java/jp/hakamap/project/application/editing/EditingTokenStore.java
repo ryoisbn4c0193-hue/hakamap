@@ -21,6 +21,8 @@ final class EditingTokenStore {
 
   private final Map<String, PeopleCursor> peopleCursors = new LinkedHashMap<>();
 
+  private final Map<String, SearchCursor> searchCursors = new LinkedHashMap<>();
+
   EditingTokenStore(Clock clock) {
     this.clock = clock;
   }
@@ -90,6 +92,7 @@ final class EditingTokenStore {
     confirmations.values().removeIf(value -> value.sessionId().equals(sessionId));
     numberings.values().removeIf(value -> value.sessionId().equals(sessionId));
     peopleCursors.values().removeIf(value -> value.sessionId().equals(sessionId));
+    searchCursors.values().removeIf(value -> value.sessionId().equals(sessionId));
   }
 
   synchronized String storePeopleCursor(
@@ -120,11 +123,40 @@ final class EditingTokenStore {
     return cursor.start();
   }
 
+  synchronized String storeSearchCursor(
+      String sessionId, UUID projectId, long revision, String query, int start) {
+    discardExpired();
+    String token = UUID.randomUUID().toString();
+    searchCursors.put(
+        token,
+        new SearchCursor(
+            sessionId, projectId, revision, query, start, clock.instant().plus(LIFETIME)));
+    return token;
+  }
+
+  synchronized int resolveSearchCursor(
+      String token, String sessionId, UUID projectId, long revision, String query) {
+    if (token == null || token.isBlank()) {
+      return 0;
+    }
+    discardExpired();
+    SearchCursor cursor = searchCursors.remove(token);
+    if (cursor == null
+        || !cursor.sessionId().equals(sessionId)
+        || !cursor.projectId().equals(projectId)
+        || cursor.revision() != revision
+        || !cursor.query().equals(query)) {
+      throw new EditingApiException("request-field-invalid");
+    }
+    return cursor.start();
+  }
+
   private void discardExpired() {
     Instant now = clock.instant();
     confirmations.values().removeIf(value -> !now.isBefore(value.expiresAt()));
     numberings.values().removeIf(value -> !now.isBefore(value.expiresAt()));
     peopleCursors.values().removeIf(value -> !now.isBefore(value.expiresAt()));
+    searchCursors.values().removeIf(value -> !now.isBefore(value.expiresAt()));
   }
 
   record StoredConfirmation(String token, Instant expiresAt) {}
@@ -154,6 +186,14 @@ final class EditingTokenStore {
       UUID projectId,
       UUID graveId,
       long revision,
+      int start,
+      Instant expiresAt) {}
+
+  private record SearchCursor(
+      String sessionId,
+      UUID projectId,
+      long revision,
+      String query,
       int start,
       Instant expiresAt) {}
 }

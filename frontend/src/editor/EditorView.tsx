@@ -20,8 +20,14 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   changeHistory,
@@ -30,7 +36,11 @@ import {
   getGravePeople,
   getProjectHistory,
   getProjectSnapshot,
+  searchGraves,
   type Grave,
+  type GraveSearchPage,
+  type Person,
+  type PeoplePage,
 } from '../api/hakamapClient';
 import MapCanvas from '../map/MapCanvas';
 import { useUiStore } from '../state/uiStore';
@@ -75,6 +85,23 @@ function EditorView({ projectId }: EditorViewProps) {
     queryFn: () => getProjectSnapshot(projectId),
     queryKey: ['projectSnapshot', projectId],
   });
+  const [searchInput, setSearchInput] = useState('');
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [focusedGraveId, setFocusedGraveId] = useState<string>();
+  const searchResults = useInfiniteQuery<
+    GraveSearchPage,
+    Error,
+    InfiniteData<GraveSearchPage>,
+    readonly unknown[],
+    string | undefined
+  >({
+    enabled: searchKeyword.length > 0,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => searchGraves(projectId, searchKeyword, pageParam),
+    queryKey: ['graveSearch', projectId, searchKeyword],
+  });
+  const firstSearchGraveId = searchResults.data?.pages[0]?.items[0]?.graveId;
   const selectedGrave = snapshot.data?.graves.find((grave) => grave.graveId === selectedGraveId);
   const [draft, setDraft] = useState<GraveDraft>(emptyDraft);
   const [draftSourceId, setDraftSourceId] = useState<string>();
@@ -189,6 +216,71 @@ function EditorView({ projectId }: EditorViewProps) {
           <Typography component="h2" variant="h2">
             エリアと管理状態
           </Typography>
+          <Stack
+            component="form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setSearchKeyword(searchInput);
+            }}
+            spacing={1}
+          >
+            <TextField
+              label="墓所を検索"
+              onChange={(event) => setSearchInput(event.target.value)}
+              size="small"
+              slotProps={{ htmlInput: { maxLength: 200 } }}
+              value={searchInput}
+            />
+            <Stack direction="row" spacing={1}>
+              <Button disabled={searchInput.trim().length === 0} type="submit" variant="contained">
+                検索
+              </Button>
+              <Button
+                onClick={() => {
+                  setSearchInput('');
+                  setSearchKeyword('');
+                  setFocusedGraveId(undefined);
+                }}
+              >
+                クリア
+              </Button>
+            </Stack>
+          </Stack>
+          {searchKeyword.length === 0 ? null : (
+            <Box>
+              <Typography component="h3" variant="subtitle2">
+                検索結果 {searchResults.data?.pages[0]?.totalCount ?? 0}件
+              </Typography>
+              <List aria-label="検索結果" dense sx={{ maxHeight: 260, overflow: 'auto' }}>
+                {searchResults.data?.pages.flatMap((page) =>
+                  page.items.map((result) => (
+                    <ListItemButton
+                      key={result.graveId}
+                      onClick={() => {
+                        requestSelection(result.graveId);
+                        setFocusedGraveId(result.graveId);
+                      }}
+                      selected={result.graveId === selectedGraveId}
+                    >
+                      <ListItemText
+                        primary={`${result.managementNumber ?? '未採番'} ${result.graveName ?? ''}`}
+                        secondary={result.areaName ?? '未割当'}
+                      />
+                    </ListItemButton>
+                  )),
+                )}
+              </List>
+              {searchResults.hasNextPage ? (
+                <Button
+                  disabled={searchResults.isFetchingNextPage}
+                  onClick={() => void searchResults.fetchNextPage()}
+                  size="small"
+                >
+                  続きを表示
+                </Button>
+              ) : null}
+            </Box>
+          )}
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             <Chip label={`すべて ${snapshot.data.graves.length}`} />
             <Chip label={`未割当 ${unassigned}`} />
@@ -217,6 +309,7 @@ function EditorView({ projectId }: EditorViewProps) {
 
         <MapCanvas
           busy={command.isPending}
+          focusedGraveId={focusedGraveId ?? firstSearchGraveId}
           labelMode={labelMode}
           onBackgroundFieldChange={(field, value) => {
             const background = snapshot.data.background;
@@ -361,9 +454,9 @@ function EditorView({ projectId }: EditorViewProps) {
               ) : null}
               {tab === 'assets' ? (
                 <AssetsTab
-                  assets={snapshot.data.assets.filter(
-                    (asset) => asset.graveId === selectedGrave.graveId,
-                  )}
+                  assets={snapshot.data.assets
+                    .filter((asset) => asset.graveId === selectedGrave.graveId)
+                    .sort((left, right) => (left.displayOrder ?? 0) - (right.displayOrder ?? 0))}
                   busy={command.isPending}
                   graveId={selectedGrave.graveId}
                   projectId={projectId}
@@ -478,34 +571,51 @@ function PeopleTab({
   projectId: string;
   onCommand: (type: string, payload: unknown) => void;
 }) {
-  const people = useQuery({
-    queryFn: () => getGravePeople(projectId, graveId),
+  const queryClient = useQueryClient();
+  const people = useInfiniteQuery<
+    PeoplePage,
+    Error,
+    InfiniteData<PeoplePage>,
+    readonly unknown[],
+    string | undefined
+  >({
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => getGravePeople(projectId, graveId, pageParam),
     queryKey: ['gravePeople', projectId, graveId],
   });
-  const [dialogOpen, setDialogOpen] = useState(false);
+  useEffect(() => {
+    const cached = queryClient
+      .getQueryCache()
+      .findAll({ queryKey: ['gravePeople', projectId] })
+      .filter((query) => query.queryKey[2] !== graveId)
+      .sort((left, right) => right.state.dataUpdatedAt - left.state.dataUpdatedAt);
+    cached.slice(4).forEach((query) => queryClient.removeQueries({ queryKey: query.queryKey }));
+  }, [graveId, projectId, queryClient]);
+  const [editing, setEditing] = useState<Person | 'new'>();
   const [name, setName] = useState('');
   const [posthumousName, setPosthumousName] = useState('');
+  const items = people.data?.pages.flatMap((page) => page.items) ?? [];
+  const openDialog = (person: Person | 'new') => {
+    setEditing(person);
+    setName(person === 'new' ? '' : (person.name ?? ''));
+    setPosthumousName(person === 'new' ? '' : (person.posthumousName ?? ''));
+  };
   return (
     <Stack spacing={2}>
-      <Button disabled={busy} onClick={() => setDialogOpen(true)} variant="outlined">
+      <Button disabled={busy} onClick={() => openDialog('new')} variant="outlined">
         人物を追加
       </Button>
-      {people.data?.items.map((person) => (
-        <Paper key={person.personId} sx={{ p: 1 }} variant="outlined">
-          <Typography>{person.name ?? '氏名未入力'}</Typography>
-          <Typography color="text.secondary">{person.posthumousName ?? '戒名未入力'}</Typography>
-          <Button
-            color="error"
-            disabled={busy}
-            onClick={() => onCommand('deletePerson', { personId: person.personId })}
-            size="small"
-          >
-            削除
-          </Button>
-        </Paper>
-      ))}
-      <Dialog onClose={() => setDialogOpen(false)} open={dialogOpen}>
-        <DialogTitle>人物を追加</DialogTitle>
+      <VirtualPeopleList
+        busy={busy}
+        hasNextPage={people.hasNextPage}
+        items={items}
+        loadNext={() => void people.fetchNextPage()}
+        onDelete={(personId) => onCommand('deletePerson', { personId })}
+        onEdit={openDialog}
+      />
+      <Dialog onClose={() => setEditing(undefined)} open={editing !== undefined}>
+        <DialogTitle>{editing === 'new' ? '人物を追加' : '人物を編集'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <TextField
@@ -521,26 +631,98 @@ function PeopleTab({
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>キャンセル</Button>
+          <Button onClick={() => setEditing(undefined)}>キャンセル</Button>
           <Button
+            disabled={name.trim().length === 0 && posthumousName.trim().length === 0}
             onClick={() => {
-              onCommand('createPerson', {
-                clientRef: crypto.randomUUID(),
-                graveId,
-                name,
-                posthumousName,
-              });
-              setDialogOpen(false);
+              onCommand(
+                editing === 'new' ? 'createPerson' : 'updatePerson',
+                editing === 'new'
+                  ? {
+                      clientRef: crypto.randomUUID(),
+                      graveId,
+                      name,
+                      posthumousName,
+                    }
+                  : { personId: editing?.personId, name, posthumousName },
+              );
+              setEditing(undefined);
               setName('');
               setPosthumousName('');
             }}
             variant="contained"
           >
-            追加
+            {editing === 'new' ? '追加' : '更新'}
           </Button>
         </DialogActions>
       </Dialog>
     </Stack>
+  );
+}
+
+function VirtualPeopleList({
+  busy,
+  hasNextPage,
+  items,
+  loadNext,
+  onDelete,
+  onEdit,
+}: {
+  busy: boolean;
+  hasNextPage: boolean;
+  items: Person[];
+  loadNext: () => void;
+  onDelete: (personId: string) => void;
+  onEdit: (person: Person) => void;
+}) {
+  const rowHeight = 112;
+  const viewportHeight = 360;
+  const [scrollTop, setScrollTop] = useState(0);
+  const start = Math.max(0, Math.floor(scrollTop / rowHeight) - 2);
+  const end = Math.min(items.length, Math.ceil((scrollTop + viewportHeight) / rowHeight) + 2);
+  return (
+    <Box
+      aria-label="人物一覧"
+      onScroll={(event) => {
+        const target = event.currentTarget;
+        setScrollTop(target.scrollTop);
+        if (hasNextPage && target.scrollTop + target.clientHeight >= target.scrollHeight - 80) {
+          loadNext();
+        }
+      }}
+      sx={{ height: viewportHeight, overflowY: 'auto', position: 'relative' }}
+    >
+      <Box sx={{ height: items.length * rowHeight, position: 'relative' }}>
+        {items.slice(start, end).map((person, offset) => (
+          <Paper
+            key={person.personId}
+            sx={{
+              height: rowHeight - 8,
+              left: 0,
+              p: 1,
+              position: 'absolute',
+              right: 0,
+              top: (start + offset) * rowHeight,
+            }}
+            variant="outlined"
+          >
+            <Typography>{person.name ?? '氏名未入力'}</Typography>
+            <Typography color="text.secondary">{person.posthumousName ?? '戒名未入力'}</Typography>
+            <Button disabled={busy} onClick={() => onEdit(person)} size="small">
+              編集
+            </Button>
+            <Button
+              color="error"
+              disabled={busy}
+              onClick={() => onDelete(person.personId)}
+              size="small"
+            >
+              削除
+            </Button>
+          </Paper>
+        ))}
+      </Box>
+    </Box>
   );
 }
 
@@ -556,12 +738,24 @@ function AssetsTab({
     displayName: string | null;
     mediaType: string;
     sizeBytes: number;
+    displayOrder: number | null;
   }>;
   busy: boolean;
   graveId: string;
   projectId: string;
   onCommand: (type: string, payload: unknown) => void;
 }) {
+  const [preview, setPreview] = useState<(typeof assets)[number]>();
+  const move = (index: number, direction: -1 | 1) => {
+    const reordered = [...assets];
+    const target = index + direction;
+    if (target < 0 || target >= reordered.length) return;
+    [reordered[index], reordered[target]] = [reordered[target]!, reordered[index]!];
+    onCommand('reorderAttachments', {
+      graveId,
+      orderedAssetIds: reordered.map(({ assetId }) => assetId),
+    });
+  };
   return (
     <Stack spacing={2}>
       <Button
@@ -577,19 +771,24 @@ function AssetsTab({
       >
         添付を追加
       </Button>
-      {assets.map((asset) => (
+      {assets.map((asset, index) => (
         <Paper key={asset.assetId} sx={{ p: 1 }} variant="outlined">
           <Typography>{asset.displayName ?? '添付ファイル'}</Typography>
           <Typography color="text.secondary">
             {asset.mediaType}・{Math.ceil(asset.sizeBytes / 1024)}KB
           </Typography>
-          <Button
-            component="a"
-            href={`/api/v1/projects/${projectId}/assets/${asset.assetId}/content`}
-            size="small"
-            target="_blank"
-          >
+          <Button onClick={() => setPreview(asset)} size="small">
             プレビュー
+          </Button>
+          <Button disabled={busy || index === 0} onClick={() => move(index, -1)} size="small">
+            上へ
+          </Button>
+          <Button
+            disabled={busy || index === assets.length - 1}
+            onClick={() => move(index, 1)}
+            size="small"
+          >
+            下へ
           </Button>
           <Button
             color="error"
@@ -601,6 +800,27 @@ function AssetsTab({
           </Button>
         </Paper>
       ))}
+      <Dialog
+        fullWidth
+        maxWidth="md"
+        onClose={() => setPreview(undefined)}
+        open={preview !== undefined}
+      >
+        <DialogTitle>{preview?.displayName ?? '添付ファイル'}</DialogTitle>
+        <DialogContent>
+          {preview === undefined ? null : (
+            <Box
+              alt={preview.displayName ?? '添付ファイルのプレビュー'}
+              component="img"
+              src={`/api/v1/projects/${projectId}/assets/${preview.assetId}/content`}
+              sx={{ display: 'block', maxHeight: '70vh', maxWidth: '100%', mx: 'auto' }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPreview(undefined)}>閉じる</Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

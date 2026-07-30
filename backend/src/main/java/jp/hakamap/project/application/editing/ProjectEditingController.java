@@ -206,6 +206,15 @@ public class ProjectEditingController {
     return editing.people(projectId, graveId, cursor, sessionId(request));
   }
 
+  @GetMapping("/search")
+  EditingApiModels.GraveSearchPageResponse search(
+      @PathVariable UUID projectId,
+      @RequestParam String q,
+      @RequestParam(required = false) String cursor,
+      HttpServletRequest request) {
+    return editing.search(projectId, q, cursor, sessionId(request));
+  }
+
   @GetMapping("/assets/{assetId}/content")
   ResponseEntity<byte[]> assetContent(@PathVariable UUID projectId, @PathVariable UUID assetId) {
     return assetResponse(editing.assetContent(projectId, assetId));

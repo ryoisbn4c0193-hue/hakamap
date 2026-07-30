@@ -9,6 +9,8 @@ import static jp.hakamap.project.application.editing.EditingApiModels.CommandRes
 import static jp.hakamap.project.application.editing.EditingApiModels.CommandResultResponse;
 import static jp.hakamap.project.application.editing.EditingApiModels.GravePeoplePageResponse;
 import static jp.hakamap.project.application.editing.EditingApiModels.GraveResponse;
+import static jp.hakamap.project.application.editing.EditingApiModels.GraveSearchPageResponse;
+import static jp.hakamap.project.application.editing.EditingApiModels.GraveSearchResultResponse;
 import static jp.hakamap.project.application.editing.EditingApiModels.GraveStateResponse;
 import static jp.hakamap.project.application.editing.EditingApiModels.HistoryItemResponse;
 import static jp.hakamap.project.application.editing.EditingApiModels.HistoryResponse;
@@ -85,6 +87,8 @@ import jp.hakamap.project.domain.value.RotationDegrees;
 public final class ProjectEditingApiService {
   private static final int PEOPLE_PAGE_SIZE = 100;
 
+  private static final int SEARCH_PAGE_SIZE = 200;
+
   private final OpenProjectManager openProjects;
 
   private final ProjectFingerprintCalculator fingerprints;
@@ -102,6 +106,8 @@ public final class ProjectEditingApiService {
   private final GraveGenerationService graveGeneration = new GraveGenerationService();
 
   private final NumberingService numbering = new NumberingService();
+
+  private final ProjectSearchService search = new ProjectSearchService();
 
   private final EditingTokenStore tokens;
 
@@ -284,6 +290,36 @@ public final class ProjectEditingApiService {
             : null;
     return new GravePeoplePageResponse(
         projectId, graveUuid, session.revision(), items, next, all.size());
+  }
+
+  public synchronized GraveSearchPageResponse search(
+      UUID projectId, String query, String cursor, String httpSessionId) {
+    if (query == null || query.codePointCount(0, query.length()) > 200) {
+      throw new EditingApiException("request-field-invalid");
+    }
+    ProjectEditingSession session = session(projectId);
+    int start =
+        tokens.resolveSearchCursor(cursor, httpSessionId, projectId, session.revision(), query);
+    List<ProjectSearchService.SearchResult> all = search.search(session.current(), query);
+    if (start < 0 || start > all.size()) {
+      throw new EditingApiException("request-field-invalid");
+    }
+    int end = Math.min(start + SEARCH_PAGE_SIZE, all.size());
+    List<GraveSearchResultResponse> items =
+        all.subList(start, end).stream()
+            .map(
+                result ->
+                    new GraveSearchResultResponse(
+                        result.graveId(),
+                        result.areaName(),
+                        result.managementNumber(),
+                        result.graveName()))
+            .toList();
+    String next =
+        end < all.size()
+            ? tokens.storeSearchCursor(httpSessionId, projectId, session.revision(), query, end)
+            : null;
+    return new GraveSearchPageResponse(projectId, session.revision(), items, next, all.size());
   }
 
   public synchronized AssetContent assetContent(UUID projectId, UUID assetUuid) {

@@ -175,6 +175,21 @@ const peoplePageSchema = z.object({
   totalCount: z.number().int().nonnegative(),
 });
 
+const graveSearchPageSchema = z.object({
+  projectId: z.uuid(),
+  revision: z.number().int(),
+  items: z.array(
+    z.object({
+      graveId: z.uuid(),
+      areaName: z.string().nullable(),
+      managementNumber: z.string().nullable(),
+      graveName: z.string().nullable(),
+    }),
+  ),
+  nextCursor: z.string().nullable(),
+  totalCount: z.number().int().nonnegative(),
+});
+
 const historySchema = z.object({
   projectId: z.uuid(),
   revision: z.number().int(),
@@ -197,6 +212,8 @@ export type ProjectCatalog = z.infer<typeof catalogSchema>;
 export type ProjectSnapshot = z.infer<typeof projectSnapshotSchema>;
 export type Grave = z.infer<typeof graveSchema>;
 export type Person = z.infer<typeof personSchema>;
+export type PeoplePage = z.infer<typeof peoplePageSchema>;
+export type GraveSearchPage = z.infer<typeof graveSearchPageSchema>;
 export type BackgroundTileManifest = z.infer<typeof backgroundTileManifestSchema>;
 
 let csrfToken: string | undefined;
@@ -439,10 +456,28 @@ export async function executeProjectCommand(
   );
 }
 
-export async function getGravePeople(projectId: string, graveId: string) {
+export async function getGravePeople(
+  projectId: string,
+  graveId: string,
+  cursor?: string,
+): Promise<PeoplePage> {
+  const query = cursor === undefined ? '' : `?cursor=${encodeURIComponent(cursor)}`;
   return requireJson(
-    await hakamapFetch(`/api/v1/projects/${projectId}/graves/${graveId}/people`),
+    await hakamapFetch(`/api/v1/projects/${projectId}/graves/${graveId}/people${query}`),
     peoplePageSchema,
+  );
+}
+
+export async function searchGraves(
+  projectId: string,
+  keyword: string,
+  cursor?: string,
+): Promise<GraveSearchPage> {
+  const parameters = new URLSearchParams({ q: keyword });
+  if (cursor !== undefined) parameters.set('cursor', cursor);
+  return requireJson(
+    await hakamapFetch(`/api/v1/projects/${projectId}/search?${parameters.toString()}`),
+    graveSearchPageSchema,
   );
 }
 
