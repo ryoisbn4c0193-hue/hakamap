@@ -43,6 +43,11 @@ foreach ($Command in @('java', 'jlink', 'jpackage')) {
 if ((java --version | Select-Object -First 1) -notmatch '21[.]') {
     throw 'Java 21 JDKを使用してください。'
 }
+
+Remove-Item $Work -Recurse -Force -ErrorAction SilentlyContinue
+New-Item $InputDirectory -ItemType Directory -Force | Out-Null
+New-Item $Output -ItemType Directory -Force | Out-Null
+
 if ([string]::IsNullOrWhiteSpace($IconPath)) {
     $IconPath = Join-Path $Work 'hakamap-placeholder.ico'
     & (Join-Path $PSScriptRoot 'create-placeholder-icon.ps1') -OutputPath $IconPath
@@ -54,10 +59,6 @@ $ResolvedIcon = (Resolve-Path $IconPath).Path
 if ([IO.Path]::GetExtension($ResolvedIcon) -ne '.ico') {
     throw 'アイコンは.ico形式で指定してください。'
 }
-
-Remove-Item $Work -Recurse -Force -ErrorAction SilentlyContinue
-New-Item $InputDirectory -ItemType Directory -Force | Out-Null
-New-Item $Output -ItemType Directory -Force | Out-Null
 
 Push-Location $Backend
 try {

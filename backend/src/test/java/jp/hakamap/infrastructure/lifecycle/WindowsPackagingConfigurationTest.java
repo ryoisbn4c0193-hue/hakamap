@@ -27,6 +27,8 @@ class WindowsPackagingConfigurationTest {
         .contains("create-placeholder-icon.ps1")
         .contains("Hakamap-$Version.exe")
         .doesNotContain("--win-console");
+    assertThat(content.indexOf("Remove-Item $Work"))
+        .isLessThan(content.indexOf("create-placeholder-icon.ps1"));
   }
 
   @Test
