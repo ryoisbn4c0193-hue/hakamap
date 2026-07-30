@@ -732,6 +732,9 @@ Phase 8レビュー指摘修正版を`origin/main`へプッシュし、外部Cha
 - Phase 7コミット`27836783a50e17d181b37e16e4172067b89e9389`とPhase 8コミットを
   `origin/main`へ反映済みである。Phase 7～8の外部レビュー基準コミットは
   `15d7b63221ca23b9e221abc9a3697ef347dba4df`である。
+- Phase 8レビュー指摘の修正基準コミットは
+  `6033bfd82db8b3eb2f6674da05b5e3585ff49fec`である。WebP背景、回転背景タイル範囲、
+  墓所ラベル4モード、背景を含む全体表示、および処理中の操作停止を含む。
 - Phase 2ではProject、Catalog、Recovery v1の保存record、Project Mapper、防御的JSON Codec、
   Schema後のJava整合性検証、およびファイルRepositoryを実装した。
 - ProjectとRecoveryのアセットは相対パス、通常ファイル、シンボリックリンク拒否、
