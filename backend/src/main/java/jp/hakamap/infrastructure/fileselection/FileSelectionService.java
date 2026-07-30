@@ -38,7 +38,7 @@ public final class FileSelectionService {
     }
     try {
       discardExpired();
-      List<Path> chosen = chooser.choose(mode);
+      List<Path> chosen = chooser.choose(mode, purpose);
       if (chosen.isEmpty()) {
         return new FileSelectionResult("cancelled", List.of(), List.of());
       }
@@ -67,10 +67,19 @@ public final class FileSelectionService {
     }
     selections.remove(id);
     Path path = context.path();
-    boolean valid =
-        purpose.requiredMode() == FileSelectionMode.DIRECTORY
-            ? Files.isDirectory(path)
-            : Files.isRegularFile(path);
+    boolean valid;
+    if (purpose == FileSelectionPurpose.EXPORT_DESTINATION) {
+      valid =
+          !Files.isDirectory(path)
+              && path.getParent() != null
+              && Files.isDirectory(path.getParent())
+              && !Files.isSymbolicLink(path.getParent());
+    } else {
+      valid =
+          purpose.requiredMode() == FileSelectionMode.DIRECTORY
+              ? Files.isDirectory(path)
+              : Files.isRegularFile(path);
+    }
     if (!valid || Files.isSymbolicLink(path)) {
       throw new FileSelectionException("file-selection-invalid");
     }

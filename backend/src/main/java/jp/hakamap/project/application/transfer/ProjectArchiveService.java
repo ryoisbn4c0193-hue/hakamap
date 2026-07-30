@@ -1,0 +1,440 @@
+package jp.hakamap.project.application.transfer;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileTime;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
+import jp.hakamap.persistence.json.repository.ProjectRepository;
+import jp.hakamap.project.domain.model.ProjectAggregate;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
+
+public final class ProjectArchiveService {
+  private static final int FORMAT_VERSION = 1;
+
+  private static final int MAX_FILES = 100_010;
+
+  private static final long MAX_MANIFEST_BYTES = 10L * 1024 * 1024;
+
+  private static final long MAX_PROJECT_BYTES = 100L * 1024 * 1024;
+
+  private static final DateTimeFormatter FILE_TIMESTAMP =
+      DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmssSSS'Z'")
+          .withLocale(Locale.ROOT)
+          .withZone(java.time.ZoneOffset.UTC);
+
+  private final JsonMapper json =
+      JsonMapper.builder().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
+
+  private final ProjectRepository projects;
+
+  private final Clock clock;
+
+  private final String applicationVersion;
+
+  public ProjectArchiveService(ProjectRepository projects, Clock clock, String applicationVersion) {
+    this.projects = projects;
+    this.clock = clock;
+    this.applicationVersion = applicationVersion;
+  }
+
+  public Path createAutomaticBackup(Path projectRoot) {
+    Path directory = projectRoot.resolve("backup/automatic");
+    if (latestSuccessfulDate(directory)
+        .map(date -> date.equals(clock.instant().atZone(ZoneId.systemDefault()).toLocalDate()))
+        .orElse(false)) {
+      return null;
+    }
+    Path result =
+        createArchive(
+            projectRoot,
+            directory.resolve("backup-" + FILE_TIMESTAMP.format(clock.instant()) + ".zip"),
+            "backup");
+    retainNewest(directory, 3);
+    return result;
+  }
+
+  public Path createPreRestoreBackup(Path projectRoot) {
+    Path directory = projectRoot.resolve("backup/pre-restore");
+    Path result =
+        createArchive(
+            projectRoot,
+            directory.resolve("pre-restore-" + FILE_TIMESTAMP.format(clock.instant()) + ".zip"),
+            "backup");
+    retainNewest(directory, 3);
+    return result;
+  }
+
+  public Path exportArchive(Path projectRoot, Path destination) {
+    Path target =
+        destination.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".hakamap")
+            ? destination
+            : destination.resolveSibling(destination.getFileName() + ".hakamap");
+    return createArchive(projectRoot, target, "export");
+  }
+
+  public ArchiveInspection inspect(Path archive) {
+    try {
+      if (!Files.isRegularFile(archive) || Files.isSymbolicLink(archive)) {
+        throw new ProjectTransferException("archive-invalid");
+      }
+      String archiveHash = sha256(archive);
+      try (ZipFile zip = new ZipFile(archive.toFile())) {
+        List<? extends ZipEntry> entries = zip.stream().toList();
+        if (entries.size() > MAX_FILES) {
+          throw new ProjectTransferException("archive-file-count-exceeded");
+        }
+        Set<String> names = new HashSet<>();
+        Map<String, ZipEntry> byName = new HashMap<>();
+        for (ZipEntry entry : entries) {
+          String safe = safeEntryName(entry.getName());
+          if (entry.getSize() > 0
+              && entry.getCompressedSize() > 0
+              && entry.getSize() / entry.getCompressedSize() > 1_000) {
+            throw new ProjectTransferException("archive-compression-ratio-exceeded");
+          }
+          if (entry.isDirectory() || !names.add(safe.toLowerCase(Locale.ROOT))) {
+            throw new ProjectTransferException("archive-structure-invalid");
+          }
+          byName.put(safe, entry);
+        }
+        ZipEntry manifestEntry = byName.get("manifest.json");
+        if (manifestEntry == null
+            || manifestEntry.getSize() < 0
+            || manifestEntry.getSize() > MAX_MANIFEST_BYTES) {
+          throw new ProjectTransferException("archive-manifest-invalid");
+        }
+        ArchiveManifest manifest;
+        try (InputStream input = limited(zip.getInputStream(manifestEntry), MAX_MANIFEST_BYTES)) {
+          manifest = json.readValue(input, ArchiveManifest.class);
+        }
+        if (manifest.formatVersion() != FORMAT_VERSION
+            || manifest.projectId() == null
+            || manifest.files() == null) {
+          throw new ProjectTransferException("archive-version-unsupported");
+        }
+        Set<String> declared = new HashSet<>();
+        for (ArchiveFile file : manifest.files()) {
+          String path = safeEntryName(file.path());
+          ZipEntry entry = byName.get(path);
+          if (!declared.add(path.toLowerCase(Locale.ROOT))
+              || entry == null
+              || entry.getSize() != file.sizeBytes()
+              || !sha256(zip.getInputStream(entry)).equals(file.sha256())) {
+            throw new ProjectTransferException("archive-integrity-invalid");
+          }
+        }
+        if (declared.size() + 1 != byName.size() || !declared.contains("project.json")) {
+          throw new ProjectTransferException("archive-manifest-mismatch");
+        }
+        return new ArchiveInspection(
+            manifest.projectId(),
+            manifest.projectName(),
+            manifest.createdAt(),
+            manifest.applicationVersion(),
+            Files.size(archive),
+            archiveHash,
+            Files.getLastModifiedTime(archive));
+      }
+    } catch (IOException exception) {
+      throw new ProjectTransferException("archive-invalid", exception);
+    }
+  }
+
+  public ExtractedProject extractAndValidate(Path archive, Path destination) {
+    ArchiveInspection inspection = inspect(archive);
+    try {
+      Files.createDirectories(destination);
+      try (ZipFile zip = new ZipFile(archive.toFile())) {
+        ArchiveManifest manifest;
+        ZipEntry manifestEntry = zip.getEntry("manifest.json");
+        try (InputStream input = limited(zip.getInputStream(manifestEntry), MAX_MANIFEST_BYTES)) {
+          manifest = json.readValue(input, ArchiveManifest.class);
+        }
+        for (ArchiveFile file : manifest.files()) {
+          Path target = destination.resolve(file.path()).normalize();
+          if (!target.startsWith(destination.toAbsolutePath().normalize())) {
+            throw new ProjectTransferException("archive-path-invalid");
+          }
+          Files.createDirectories(target.getParent());
+          try (InputStream input = zip.getInputStream(zip.getEntry(file.path()));
+              OutputStream output = new BufferedOutputStream(Files.newOutputStream(target))) {
+            input.transferTo(output);
+          }
+        }
+      }
+      ProjectAggregate project = projects.read(destination);
+      if (!project.metadata().id().value().equals(inspection.projectId())) {
+        throw new ProjectTransferException("archive-project-mismatch");
+      }
+      return new ExtractedProject(project, destination, inspection);
+    } catch (IOException | RuntimeException exception) {
+      deleteTreeQuietly(destination);
+      if (exception instanceof ProjectTransferException transfer) {
+        throw transfer;
+      }
+      throw new ProjectTransferException("archive-extract-failed", exception);
+    }
+  }
+
+  private Path createArchive(Path projectRoot, Path target, String archiveType) {
+    try {
+      List<Path> files = projectFiles(projectRoot);
+      ProjectAggregate project = projects.read(projectRoot);
+      List<ArchiveFile> manifestFiles = new ArrayList<>();
+      for (Path file : files) {
+        manifestFiles.add(
+            new ArchiveFile(
+                projectRoot.relativize(file).toString().replace('\\', '/'),
+                Files.size(file),
+                sha256(file)));
+      }
+      ArchiveManifest manifest =
+          new ArchiveManifest(
+              FORMAT_VERSION,
+              archiveType,
+              applicationVersion,
+              clock.instant(),
+              project.metadata().id().value(),
+              project.metadata().name().value(),
+              List.copyOf(manifestFiles));
+      Files.createDirectories(target.toAbsolutePath().normalize().getParent());
+      Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
+      try (ZipOutputStream zip =
+          new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(temporary)))) {
+        writeEntry(zip, "manifest.json", json.writeValueAsBytes(manifest));
+        for (Path file : files) {
+          String relative = projectRoot.relativize(file).toString().replace('\\', '/');
+          zip.putNextEntry(new ZipEntry(relative));
+          Files.copy(file, zip);
+          zip.closeEntry();
+        }
+      }
+      inspect(temporary);
+      move(temporary, target);
+      return target;
+    } catch (IOException exception) {
+      throw new ProjectTransferException("archive-create-failed", exception);
+    }
+  }
+
+  private List<Path> projectFiles(Path root) throws IOException {
+    List<Path> files = new ArrayList<>();
+    Path project = root.resolve("project.json");
+    if (!Files.isRegularFile(project) || Files.isSymbolicLink(project)) {
+      throw new ProjectTransferException("archive-project-missing");
+    }
+    if (Files.size(project) > MAX_PROJECT_BYTES) {
+      throw new ProjectTransferException("archive-project-size-exceeded");
+    }
+    files.add(project);
+    Path assets = root.resolve("assets");
+    if (Files.exists(assets)) {
+      try (var stream = Files.walk(assets)) {
+        stream
+            .filter(Files::isRegularFile)
+            .filter(path -> !Files.isSymbolicLink(path))
+            .sorted()
+            .forEach(files::add);
+      }
+    }
+    if (files.size() + 1 > MAX_FILES) {
+      throw new ProjectTransferException("archive-file-count-exceeded");
+    }
+    return List.copyOf(files);
+  }
+
+  private void retainNewest(Path directory, int count) {
+    if (!Files.isDirectory(directory)) {
+      return;
+    }
+    try (var stream = Files.list(directory)) {
+      List<Path> archives =
+          stream
+              .filter(path -> path.getFileName().toString().endsWith(".zip"))
+              .sorted(Comparator.comparing(this::modified).reversed())
+              .toList();
+      for (Path old : archives.stream().skip(count).toList()) {
+        Files.deleteIfExists(old);
+      }
+    } catch (IOException exception) {
+      throw new ProjectTransferException("archive-retention-failed", exception);
+    }
+  }
+
+  private java.util.Optional<java.time.LocalDate> latestSuccessfulDate(Path directory) {
+    if (!Files.isDirectory(directory)) {
+      return java.util.Optional.empty();
+    }
+    try (var stream = Files.list(directory)) {
+      return stream
+          .filter(path -> path.getFileName().toString().endsWith(".zip"))
+          .flatMap(
+              path -> {
+                try {
+                  return java.util.stream.Stream.of(inspect(path).createdAt());
+                } catch (RuntimeException exception) {
+                  return java.util.stream.Stream.empty();
+                }
+              })
+          .max(Comparator.naturalOrder())
+          .map(time -> time.atZone(ZoneId.systemDefault()).toLocalDate());
+    } catch (IOException exception) {
+      throw new ProjectTransferException("archive-list-failed", exception);
+    }
+  }
+
+  private FileTime modified(Path path) {
+    try {
+      return Files.getLastModifiedTime(path);
+    } catch (IOException exception) {
+      throw new ProjectTransferException("archive-list-failed", exception);
+    }
+  }
+
+  private String safeEntryName(String name) {
+    if (name == null
+        || name.isBlank()
+        || name.startsWith("/")
+        || name.startsWith("\\")
+        || name.contains("\\")
+        || Path.of(name).isAbsolute()
+        || Path.of(name).normalize().startsWith("..")) {
+      throw new ProjectTransferException("archive-path-invalid");
+    }
+    return name;
+  }
+
+  private InputStream limited(InputStream source, long limit) {
+    return new java.io.FilterInputStream(source) {
+      private long read;
+
+      @Override
+      public int read() throws IOException {
+        if (read >= limit) {
+          throw new IOException("limit");
+        }
+        int value = super.read();
+        if (value >= 0) {
+          read++;
+        }
+        return value;
+      }
+
+      @Override
+      public int read(byte[] bytes, int offset, int length) throws IOException {
+        if (read >= limit) {
+          throw new IOException("limit");
+        }
+        int value = super.read(bytes, offset, (int) Math.min(length, limit - read));
+        if (value > 0) {
+          read += value;
+        }
+        return value;
+      }
+    };
+  }
+
+  private String sha256(Path path) {
+    try (InputStream input = Files.newInputStream(path)) {
+      return sha256(input);
+    } catch (IOException exception) {
+      throw new ProjectTransferException("archive-integrity-invalid", exception);
+    }
+  }
+
+  private String sha256(InputStream input) {
+    try (InputStream source =
+        new DigestInputStream(
+            new BufferedInputStream(input), MessageDigest.getInstance("SHA-256"))) {
+      source.transferTo(OutputStream.nullOutputStream());
+      return HexFormat.of().formatHex(((DigestInputStream) source).getMessageDigest().digest());
+    } catch (IOException | NoSuchAlgorithmException exception) {
+      throw new ProjectTransferException("archive-integrity-invalid", exception);
+    }
+  }
+
+  private void writeEntry(ZipOutputStream zip, String name, byte[] content) throws IOException {
+    zip.putNextEntry(new ZipEntry(name));
+    zip.write(content);
+    zip.closeEntry();
+  }
+
+  private void move(Path source, Path target) throws IOException {
+    try {
+      Files.move(
+          source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    } catch (AtomicMoveNotSupportedException exception) {
+      throw new ProjectTransferException("archive-atomic-move-unsupported", exception);
+    }
+  }
+
+  public static void deleteTreeQuietly(Path root) {
+    if (root == null || !Files.exists(root)) {
+      return;
+    }
+    try (var stream = Files.walk(root)) {
+      stream
+          .sorted(Comparator.reverseOrder())
+          .forEach(
+              path -> {
+                try {
+                  Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                  // 次回起動時の清掃対象として残す。
+                }
+              });
+    } catch (IOException ignored) {
+      // 次回起動時の清掃対象として残す。
+    }
+  }
+
+  public record ArchiveManifest(
+      int formatVersion,
+      String archiveType,
+      String applicationVersion,
+      Instant createdAt,
+      UUID projectId,
+      String projectName,
+      List<ArchiveFile> files) {}
+
+  public record ArchiveFile(String path, long sizeBytes, String sha256) {}
+
+  public record ArchiveInspection(
+      UUID projectId,
+      String projectName,
+      Instant createdAt,
+      String applicationVersion,
+      long sizeBytes,
+      String archiveSha256,
+      FileTime lastModified) {}
+
+  public record ExtractedProject(
+      ProjectAggregate project, Path directory, ArchiveInspection inspection) {}
+}

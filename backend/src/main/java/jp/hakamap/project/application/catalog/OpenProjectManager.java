@@ -73,6 +73,15 @@ public final class OpenProjectManager implements AutoCloseable {
     requireOpen(projectId).editingSession = editingSession;
   }
 
+  public synchronized ProjectAggregate reload(
+      UUID projectId, ProjectRepository projects, ProjectFingerprintCalculator fingerprints) {
+    OpenProject open = requireOpen(projectId);
+    ProjectAggregate aggregate = projects.read(open.root());
+    open.aggregate = aggregate;
+    open.editingSession = new ProjectEditingSession(aggregate, sha256(open.root()), fingerprints);
+    return aggregate;
+  }
+
   public synchronized Path projectRoot(UUID projectId) {
     return requireOpen(projectId).root();
   }
@@ -136,7 +145,7 @@ public final class OpenProjectManager implements AutoCloseable {
 
     private final Path root;
 
-    private final ProjectAggregate aggregate;
+    private ProjectAggregate aggregate;
 
     private final ProjectFileLock lock;
 

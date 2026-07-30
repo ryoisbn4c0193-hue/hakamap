@@ -105,6 +105,26 @@ class FileSelectionServiceTest {
         .hasMessage("file-selection-request-invalid");
   }
 
+  @Test
+  void acceptsNewFilePathForExportDestination() {
+    Path destination = temporaryDirectory.resolve("export.hakamap");
+    FileSelectionService service =
+        new FileSelectionService(
+            ignored -> List.of(destination),
+            Clock.fixed(Instant.parse("2026-07-29T00:00:00Z"), ZoneOffset.UTC));
+
+    var result =
+        service.start(
+            "session-a", FileSelectionMode.SINGLE_FILE, FileSelectionPurpose.EXPORT_DESTINATION);
+
+    assertThat(
+            service.consume(
+                result.fileSelectionIds().getFirst(),
+                "session-a",
+                FileSelectionPurpose.EXPORT_DESTINATION))
+        .isEqualTo(destination.toAbsolutePath().normalize());
+  }
+
   private static final class MutableClock extends Clock {
     private Instant now;
 

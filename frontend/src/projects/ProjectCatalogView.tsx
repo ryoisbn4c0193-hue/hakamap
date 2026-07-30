@@ -19,8 +19,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   chooseProjectDirectory,
+  chooseTransferPath,
   createProject,
   getProjectCatalog,
+  importProject,
   openProject,
   permanentlyDeleteProject,
   registerProject,
@@ -82,6 +84,15 @@ function ProjectCatalogView({ onOpened }: ProjectCatalogViewProps) {
     }
   };
 
+  const selectAndImport = async () => {
+    const archive = await chooseTransferPath('importArchive');
+    if (archive === undefined) return;
+    const destination = await chooseTransferPath('importDestinationDirectory');
+    if (destination === undefined) return;
+    const projectId = await importProject(archive, destination);
+    onOpened(projectId);
+  };
+
   const activeProjects =
     catalog.data?.projects.filter((project) => project.state === 'active') ?? [];
   const trashedProjects =
@@ -130,6 +141,14 @@ function ProjectCatalogView({ onOpened }: ProjectCatalogViewProps) {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
+          <Button
+            onClick={() => {
+              void operation.mutateAsync(selectAndImport);
+            }}
+            variant="outlined"
+          >
+            インポート
+          </Button>
           <Button
             onClick={() => {
               void operation.mutateAsync(selectAndRegister);

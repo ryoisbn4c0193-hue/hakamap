@@ -13,6 +13,11 @@ import javax.swing.SwingUtilities;
 public final class SwingFileChooserGateway implements FileChooserGateway {
   @Override
   public List<Path> choose(FileSelectionMode mode) {
+    return choose(mode, null);
+  }
+
+  @Override
+  public List<Path> choose(FileSelectionMode mode, FileSelectionPurpose purpose) {
     if (GraphicsEnvironment.isHeadless()) {
       throw new FileSelectionException("file-selection-unavailable");
     }
@@ -25,7 +30,11 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
                   ? JFileChooser.DIRECTORIES_ONLY
                   : JFileChooser.FILES_ONLY);
           chooser.setMultiSelectionEnabled(mode == FileSelectionMode.MULTIPLE_FILES);
-          if (chooser.showOpenDialog(null) != JFileChooser.APPROVE_OPTION) {
+          int answer =
+              purpose == FileSelectionPurpose.EXPORT_DESTINATION
+                  ? chooser.showSaveDialog(null)
+                  : chooser.showOpenDialog(null);
+          if (answer != JFileChooser.APPROVE_OPTION) {
             return;
           }
           File[] selected =

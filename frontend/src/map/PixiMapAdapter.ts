@@ -183,6 +183,30 @@ export class PixiMapAdapter {
     this.render();
   }
 
+  exportImage(range: 'current' | 'selectedArea' = 'current'): string | undefined {
+    if (this.application === undefined) return undefined;
+    const previousViewport = this.viewport;
+    if (range === 'selectedArea') {
+      const area = this.model.areas.find(({ id }) => id === this.selectedAreaId);
+      if (area === undefined) return undefined;
+      this.viewport = fitViewport(
+        [area],
+        this.application.screen.width,
+        this.application.screen.height,
+      );
+    }
+    const selectedIds = this.model.selectedIds;
+    this.model = { ...this.model, selectedIds: [] };
+    this.overlayLayer.visible = false;
+    this.render();
+    const image = this.application.canvas.toDataURL('image/png');
+    this.model = { ...this.model, selectedIds };
+    this.overlayLayer.visible = true;
+    this.viewport = previousViewport;
+    this.render();
+    return image;
+  }
+
   destroy(): void {
     const canvas = this.application?.canvas;
     canvas?.removeEventListener('pointerdown', this.handlePointerDown);

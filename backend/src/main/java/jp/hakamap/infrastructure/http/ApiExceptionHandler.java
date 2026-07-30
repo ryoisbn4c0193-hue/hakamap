@@ -4,6 +4,7 @@ import jp.hakamap.infrastructure.fileselection.FileSelectionException;
 import jp.hakamap.project.application.catalog.ProjectCatalogException;
 import jp.hakamap.project.application.editing.EditingApiException;
 import jp.hakamap.project.application.history.EditingSessionException;
+import jp.hakamap.project.application.transfer.ProjectTransferException;
 import jp.hakamap.project.domain.result.ProjectInvariantException;
 import jp.hakamap.project.domain.value.DomainValidationException;
 import org.slf4j.Logger;
@@ -114,5 +115,22 @@ public class ApiExceptionHandler {
     return ResponseEntity.status(status)
         .header("Cache-Control", "no-store")
         .body(HakamapProblem.create(status, code));
+  }
+
+  @ExceptionHandler(ProjectTransferException.class)
+  ResponseEntity<ProblemDetail> transfer(ProjectTransferException exception) {
+    String code = exception.getMessage();
+    HttpStatus status =
+        switch (code) {
+          case "backup-not-found" -> HttpStatus.NOT_FOUND;
+          case "backup-version-conflict",
+              "backup-project-dirty",
+              "project-revision-conflict",
+              "project-destination-exists",
+              "import-project-open" ->
+              HttpStatus.CONFLICT;
+          default -> HttpStatus.UNPROCESSABLE_ENTITY;
+        };
+    return problem(status, code);
   }
 }

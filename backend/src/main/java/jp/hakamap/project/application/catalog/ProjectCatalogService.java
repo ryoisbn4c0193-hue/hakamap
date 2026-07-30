@@ -25,6 +25,7 @@ import jp.hakamap.persistence.json.repository.CatalogRepository;
 import jp.hakamap.persistence.json.repository.ProjectRepository;
 import jp.hakamap.project.application.editing.ProjectAssetStaging;
 import jp.hakamap.project.application.recovery.ProjectRecoveryCoordinator;
+import jp.hakamap.project.application.transfer.ProjectArchiveService;
 import jp.hakamap.project.domain.model.ProjectAggregate;
 import jp.hakamap.project.domain.model.ProjectMetadata;
 import jp.hakamap.project.domain.service.UuidSource;
@@ -61,6 +62,8 @@ public final class ProjectCatalogService {
 
   private final UuidSource uuids;
 
+  private final ProjectArchiveService archives;
+
   public ProjectCatalogService(
       CatalogPaths paths,
       CatalogRepository catalogs,
@@ -73,6 +76,34 @@ public final class ProjectCatalogService {
       ProjectRecoveryCoordinator recovery,
       Clock clock,
       UuidSource uuids) {
+    this(
+        paths,
+        catalogs,
+        catalogWriter,
+        projects,
+        selections,
+        openProjects,
+        storage,
+        assetStaging,
+        recovery,
+        clock,
+        uuids,
+        null);
+  }
+
+  public ProjectCatalogService(
+      CatalogPaths paths,
+      CatalogRepository catalogs,
+      CatalogWriter catalogWriter,
+      ProjectRepository projects,
+      FileSelectionService selections,
+      OpenProjectManager openProjects,
+      ProjectStorageTransactionCoordinator storage,
+      ProjectAssetStaging assetStaging,
+      ProjectRecoveryCoordinator recovery,
+      Clock clock,
+      UuidSource uuids,
+      ProjectArchiveService archives) {
     this.paths = paths;
     this.catalogs = catalogs;
     this.catalogWriter = catalogWriter;
@@ -84,6 +115,7 @@ public final class ProjectCatalogService {
     this.recovery = recovery;
     this.clock = clock;
     this.uuids = uuids;
+    this.archives = archives;
   }
 
   public synchronized CatalogView list() {
@@ -150,6 +182,19 @@ public final class ProjectCatalogService {
     return toView(entry, catalog.defaultProjectId());
   }
 
+  public synchronized OpenProjectView registerImported(Path root) {
+    if (openProjects.currentProjectId().isPresent()) {
+      throw new ProjectCatalogException("project-busy");
+    }
+    ProjectAggregate project = readProject(root);
+    CatalogFileV1 catalog = readCatalog();
+    UUID projectId = project.metadata().id().value();
+    requireNoDuplicate(catalog, projectId, root);
+    ActiveCatalogProjectV1 entry = active(root, project);
+    writeCatalog(withProject(catalog, entry));
+    return open(projectId);
+  }
+
   public synchronized OpenProjectView open(UUID projectId) {
     ActiveCatalogProjectV1 entry = requireActive(readCatalog(), projectId);
     ProjectAggregate aggregate = openProjects.open(projectId, Path.of(entry.path()), projects);
@@ -203,7 +248,16 @@ public final class ProjectCatalogService {
       assetStaging.forget(projectId);
     }
     recovery.cleanupAfterSave(projectId);
-    return new SaveProjectView(result.status() == CommitStatus.NO_CHANGES ? "noChanges" : "saved");
+    boolean backupWarning = false;
+    if (result.status() == CommitStatus.COMMITTED && archives != null) {
+      try {
+        archives.createAutomaticBackup(openProjects.projectRoot(projectId));
+      } catch (RuntimeException exception) {
+        backupWarning = true;
+      }
+    }
+    return new SaveProjectView(
+        result.status() == CommitStatus.NO_CHANGES ? "noChanges" : "saved", backupWarning);
   }
 
   private String saveErrorCode(String code) {
@@ -595,5 +649,5 @@ public final class ProjectCatalogService {
 
   public record CloseProjectView(String status) {}
 
-  public record SaveProjectView(String status) {}
+  public record SaveProjectView(String status, boolean backupWarning) {}
 }

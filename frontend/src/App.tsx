@@ -11,10 +11,19 @@ import {
   Toolbar,
   Typography,
 } from '@mui/material';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { closeProject, requestApplicationExit, saveProject } from './api/hakamapClient';
+import {
+  chooseTransferPath,
+  closeProject,
+  exportProject,
+  getBackups,
+  getProjectSnapshot,
+  requestApplicationExit,
+  restoreBackup,
+  saveProject,
+} from './api/hakamapClient';
 import EditorView from './editor/EditorView';
 import ProjectCatalogView from './projects/ProjectCatalogView';
 import { useUiStore } from './state/uiStore';
@@ -31,6 +40,15 @@ function App() {
   const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [appMessage, setAppMessage] = useState<string>();
+  const [backupsOpen, setBackupsOpen] = useState(false);
+  const backups = useQuery({
+    enabled: backupsOpen && openProjectId !== undefined,
+    queryFn: () => {
+      if (openProjectId === undefined) throw new Error('project-not-open');
+      return getBackups(openProjectId);
+    },
+    queryKey: ['projectBackups', openProjectId],
+  });
 
   const exitApplication = async () => {
     setExitRequested(true);
@@ -92,6 +110,33 @@ function App() {
                 <Button color="inherit" onClick={toggleRightPanel} size="small">
                   プロパティ
                 </Button>
+                <Button
+                  color="inherit"
+                  disabled={saving || openProjectId === undefined}
+                  onClick={() => {
+                    if (openProjectId === undefined) return;
+                    setSaving(true);
+                    void getProjectSnapshot(openProjectId)
+                      .then(async (snapshot) => {
+                        if (snapshot.dirty) {
+                          await saveProject(openProjectId);
+                        }
+                        const current = await getProjectSnapshot(openProjectId);
+                        const selection = await chooseTransferPath('exportDestination');
+                        if (selection !== undefined) {
+                          await exportProject(openProjectId, current.revision, selection);
+                        }
+                      })
+                      .catch(() => setAppMessage('エクスポートを完了できませんでした。'))
+                      .finally(() => setSaving(false));
+                  }}
+                  size="small"
+                >
+                  エクスポート
+                </Button>
+                <Button color="inherit" onClick={() => setBackupsOpen(true)} size="small">
+                  バックアップ
+                </Button>
                 <Button color="inherit" onClick={() => setCloseConfirmationOpen(true)} size="small">
                   プロジェクト一覧
                 </Button>
@@ -150,6 +195,50 @@ function App() {
           >
             保存して閉じる
           </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog fullWidth maxWidth="sm" onClose={() => setBackupsOpen(false)} open={backupsOpen}>
+        <DialogTitle>バックアップと復元</DialogTitle>
+        <DialogContent>
+          {backups.data?.items.length === 0 ? (
+            <Typography>利用できるバックアップはありません。</Typography>
+          ) : null}
+          <Stack spacing={1}>
+            {backups.data?.items.map((backup) => (
+              <Box key={backup.backupId}>
+                <Typography>
+                  {backup.backupType === 'automatic' ? '自動バックアップ' : '復元前の退避'}・
+                  {new Date(backup.createdAt).toLocaleString()}
+                </Typography>
+                <Button
+                  disabled={!backup.restorable || saving}
+                  onClick={() => {
+                    if (openProjectId === undefined || backups.data === undefined) return;
+                    setSaving(true);
+                    void restoreBackup(
+                      openProjectId,
+                      backups.data.revision,
+                      backup.backupId,
+                      backup.backupVersion,
+                    )
+                      .then(async () => {
+                        await queryClient.invalidateQueries({
+                          queryKey: ['projectSnapshot', openProjectId],
+                        });
+                        setBackupsOpen(false);
+                      })
+                      .catch(() => setAppMessage('バックアップを復元できませんでした。'))
+                      .finally(() => setSaving(false));
+                  }}
+                >
+                  復元
+                </Button>
+              </Box>
+            ))}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBackupsOpen(false)}>閉じる</Button>
         </DialogActions>
       </Dialog>
     </Box>

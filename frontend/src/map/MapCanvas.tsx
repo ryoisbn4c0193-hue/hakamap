@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getBackgroundTileManifest, type ProjectSnapshot } from '../api/hakamapClient';
 
 import { graveLabel, type GraveLabelMode, type MapPoint, type MapRect } from './mapGeometry';
+import MapOutputDialog from './MapOutputDialog';
 import { PixiMapAdapter, type MapMode, type MapRenderModel } from './PixiMapAdapter';
 
 type MapCanvasProps = {
@@ -86,6 +87,7 @@ function MapCanvas({
   ]);
   const [mode, setMode] = useState<MapMode>('select');
   const [snap, setSnap] = useState(true);
+  const [outputOpen, setOutputOpen] = useState(false);
   const backgroundManifest = useQuery({
     enabled: snapshot.background !== null,
     queryFn: () => getBackgroundTileManifest(snapshot.projectId),
@@ -193,6 +195,9 @@ function MapCanvas({
         <Button onClick={() => adapter.current?.fit()} size="small">
           全体表示
         </Button>
+        <Button onClick={() => setOutputOpen(true)} size="small">
+          印刷・出力
+        </Button>
         <FormControlLabel
           control={
             <Switch checked={snap} onChange={(_, checked) => setSnap(checked)} size="small" />
@@ -272,6 +277,11 @@ function MapCanvas({
             event.preventDefault();
           }
         }}
+      />
+      <MapOutputDialog
+        capture={(range) => adapter.current?.exportImage(range)}
+        onClose={() => setOutputOpen(false)}
+        open={outputOpen}
       />
     </Box>
   );

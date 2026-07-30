@@ -190,6 +190,34 @@ const graveSearchPageSchema = z.object({
   totalCount: z.number().int().nonnegative(),
 });
 
+const backupListSchema = z.object({
+  projectId: z.uuid(),
+  revision: z.number().int().nonnegative(),
+  items: z.array(
+    z.object({
+      backupId: z.string(),
+      backupType: z.enum(['automatic', 'preRestore']),
+      createdAt: z.iso.datetime(),
+      sizeBytes: z.number().int().nonnegative(),
+      applicationVersion: z.string().nullable(),
+      projectName: z.string().nullable(),
+      restorable: z.boolean(),
+      unavailableReason: z.string().nullable(),
+      backupVersion: z.string(),
+    }),
+  ),
+});
+
+const operationSchema = z.object({
+  operationId: z.string(),
+  status: z.enum(['queued', 'running', 'committing', 'succeeded', 'failed', 'cancelled']),
+  cancellable: z.boolean(),
+  phaseCode: z.string(),
+  progressPercent: z.number().int().min(0).max(100).nullable(),
+  projectId: z.uuid().nullable(),
+  errorCode: z.string().nullable(),
+});
+
 const historySchema = z.object({
   projectId: z.uuid(),
   revision: z.number().int(),
@@ -214,6 +242,7 @@ export type Grave = z.infer<typeof graveSchema>;
 export type Person = z.infer<typeof personSchema>;
 export type PeoplePage = z.infer<typeof peoplePageSchema>;
 export type GraveSearchPage = z.infer<typeof graveSearchPageSchema>;
+export type BackupList = z.infer<typeof backupListSchema>;
 export type BackgroundTileManifest = z.infer<typeof backgroundTileManifestSchema>;
 
 let csrfToken: string | undefined;
@@ -347,6 +376,21 @@ export async function chooseAttachmentFiles(): Promise<string[]> {
   return selected.status === 'cancelled' ? [] : selected.fileSelectionIds;
 }
 
+export async function chooseTransferPath(
+  purpose: 'exportDestination' | 'importArchive' | 'importDestinationDirectory',
+): Promise<string | undefined> {
+  const selectionMode = purpose === 'importDestinationDirectory' ? 'directory' : 'singleFile';
+  const selected = await requireJson(
+    await hakamapFetch('/api/v1/file-selections', {
+      body: JSON.stringify({ purpose, selectionMode }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    }),
+    fileSelectionSchema,
+  );
+  return selected.status === 'cancelled' ? undefined : selected.fileSelectionIds[0];
+}
+
 export async function createProject(name: string, directorySelectionId: string): Promise<void> {
   await changeProject('/api/v1/projects', 'POST', { name, directorySelectionId });
 }
@@ -388,6 +432,76 @@ export async function closeProject(projectId: string, action: 'save' | 'discard'
 
 export async function saveProject(projectId: string): Promise<void> {
   await changeProject(`/api/v1/projects/${projectId}/save`, 'POST');
+}
+
+export async function getBackups(projectId: string): Promise<BackupList> {
+  return requireJson(await hakamapFetch(`/api/v1/projects/${projectId}/backups`), backupListSchema);
+}
+
+export async function restoreBackup(
+  projectId: string,
+  expectedRevision: number,
+  backupId: string,
+  backupVersion: string,
+): Promise<void> {
+  await runOperation(
+    await hakamapFetch(`/api/v1/projects/${projectId}/operations/backup-restore`, {
+      body: JSON.stringify({
+        backupId,
+        backupVersion,
+        confirmedNoUnsavedChanges: true,
+        expectedRevision,
+      }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    }),
+  );
+}
+
+export async function exportProject(
+  projectId: string,
+  expectedRevision: number,
+  fileSelectionId: string,
+): Promise<void> {
+  await runOperation(
+    await hakamapFetch(`/api/v1/projects/${projectId}/operations/export`, {
+      body: JSON.stringify({ expectedRevision, fileSelectionId }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    }),
+  );
+}
+
+export async function importProject(
+  fileSelectionId: string,
+  destinationSelectionId: string,
+): Promise<string> {
+  const result = await runOperation(
+    await hakamapFetch('/api/v1/catalog/operations/import', {
+      body: JSON.stringify({ destinationSelectionId, fileSelectionId }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    }),
+  );
+  if (result.projectId === null) throw new Error('operation-result-invalid');
+  return result.projectId;
+}
+
+async function runOperation(response: Response): Promise<z.infer<typeof operationSchema>> {
+  let operation = await requireJson(response, operationSchema);
+  while (operation.status === 'queued' || operation.status === 'running') {
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 500);
+    });
+    operation = await requireJson(
+      await hakamapFetch(`/api/v1/operations/${operation.operationId}`),
+      operationSchema,
+    );
+  }
+  if (operation.status !== 'succeeded') {
+    throw new Error(operation.errorCode ?? 'operation-failed');
+  }
+  return operation;
 }
 
 export async function setDefaultProject(projectId: string): Promise<void> {
