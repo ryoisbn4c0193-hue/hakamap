@@ -481,11 +481,13 @@ DELETE /api/v1/operations/{operationId}
 - 開始成功時は`202 Accepted`、`Location: /api/v1/operations/{operationId}`を返す。
 - Operation IDは推測困難なランダム値とし、発行したHTTPセッションへ紐づける。
 - クライアントは約500ミリ秒間隔で状態を取得する。
-- 状態は`queued`、`running`、`succeeded`、`failed`、`cancelled`とする。
+- 状態は`queued`、`running`、`committing`、`succeeded`、`failed`、`cancelled`とする。
 - 応答は工程コード、進捗率またはスピナー種別、キャンセル可否、および安全な結果を含む。
-- 手動保存は開始後キャンセル不可とする。MVPのエクスポート、バックアップ復元、
-  インポート、およびごみ箱復元は`queued`の間だけキャンセル可能とし、`running`へ
-  移った後のDELETEには`operation-cancel-unavailable`を返す。
+- 手動保存は開始後キャンセル不可とする。エクスポート、バックアップ復元、
+  インポート、およびごみ箱復元は`queued`と`running`の間にキャンセル要求を受け付ける。
+  `running`では検査、圧縮、展開の処理境界で要求を検出して一時データを清掃し、
+  `cancelled`へ遷移する。`committing`以降のDELETEには
+  `operation-cancel-unavailable`を返す。
 - 完了したOperationは結果取得後に削除し、取得されない場合も10分後にメモリから破棄する。
 - Operation ID、一時選択ID、絶対パス、および処理対象の入力値を通常ログへ出力しない。
 - Operation受付時にProject単位の予約を取得し、同じProjectで競合する長時間処理が

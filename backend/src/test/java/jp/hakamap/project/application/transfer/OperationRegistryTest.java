@@ -57,7 +57,7 @@ class OperationRegistryTest {
   }
 
   @Test
-  void runningOperationIsNotAdvertisedAsCancellable() throws Exception {
+  void runningOperationCanBeCancelledBeforeCommit() throws Exception {
     try (OperationRegistry operations =
         new OperationRegistry(Clock.fixed(Instant.parse("2026-07-30T00:00:00Z"), ZoneOffset.UTC))) {
       CountDownLatch started = new CountDownLatch(1);
@@ -67,9 +67,12 @@ class OperationRegistryTest {
               "session-a",
               true,
               "project:one",
-              () -> {
+              control -> {
                 started.countDown();
-                await(release);
+                while (release.getCount() > 0) {
+                  control.checkpoint();
+                  Thread.onSpinWait();
+                }
                 return UUID.randomUUID();
               });
       assertThat(started.await(1, TimeUnit.SECONDS)).isTrue();
@@ -77,7 +80,42 @@ class OperationRegistryTest {
       OperationRegistry.OperationView running =
           operations.get(operation.operationId(), "session-a");
       assertThat(running.status()).isEqualTo("running");
-      assertThat(running.cancellable()).isFalse();
+      assertThat(running.cancellable()).isTrue();
+
+      operations.cancel(operation.operationId(), "session-a");
+      OperationRegistry.OperationView cancelled = operation;
+      for (int attempt = 0; attempt < 100 && !"cancelled".equals(cancelled.status()); attempt++) {
+        Thread.sleep(5);
+        cancelled = operations.get(operation.operationId(), "session-a");
+      }
+      assertThat(cancelled.status()).isEqualTo("cancelled");
+
+      release.countDown();
+    }
+  }
+
+  @Test
+  void committingOperationCannotBeCancelled() throws Exception {
+    try (OperationRegistry operations =
+        new OperationRegistry(Clock.fixed(Instant.parse("2026-07-30T00:00:00Z"), ZoneOffset.UTC))) {
+      CountDownLatch committing = new CountDownLatch(1);
+      CountDownLatch release = new CountDownLatch(1);
+      OperationRegistry.OperationView operation =
+          operations.start(
+              "session-a",
+              true,
+              "project:one",
+              control -> {
+                control.beginCommit();
+                committing.countDown();
+                await(release);
+                return UUID.randomUUID();
+              });
+      assertThat(committing.await(1, TimeUnit.SECONDS)).isTrue();
+
+      OperationRegistry.OperationView result = operations.get(operation.operationId(), "session-a");
+      assertThat(result.status()).isEqualTo("committing");
+      assertThat(result.cancellable()).isFalse();
       assertThatThrownBy(() -> operations.cancel(operation.operationId(), "session-a"))
           .isInstanceOf(ProjectTransferException.class)
           .hasMessage("operation-cancel-unavailable");

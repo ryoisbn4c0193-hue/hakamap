@@ -33,11 +33,16 @@ public final class OperationRegistry implements AutoCloseable {
 
   public synchronized OperationView start(
       String sessionId, boolean cancellable, Supplier<UUID> action) {
-    return start(sessionId, cancellable, UUID.randomUUID().toString(), action);
+    return start(sessionId, cancellable, UUID.randomUUID().toString(), ignored -> action.get());
   }
 
   public synchronized OperationView start(
       String sessionId, boolean cancellable, String reservationKey, Supplier<UUID> action) {
+    return start(sessionId, cancellable, reservationKey, ignored -> action.get());
+  }
+
+  public synchronized OperationView start(
+      String sessionId, boolean cancellable, String reservationKey, OperationAction action) {
     discardExpired();
     if (!reservations.add(reservationKey)) {
       throw new ProjectTransferException("project-busy");
@@ -56,32 +61,37 @@ public final class OperationRegistry implements AutoCloseable {
 
   public synchronized OperationView cancel(String id, String sessionId) {
     Operation operation = require(id, sessionId);
-    if (!operation.cancellable || !"queued".equals(operation.status)) {
+    if (!operation.cancellable
+        || (!"queued".equals(operation.status) && !"running".equals(operation.status))) {
       throw new ProjectTransferException("operation-cancel-unavailable");
     }
-    operation.status = "cancelled";
+    operation.cancelRequested = true;
     operation.cancellable = false;
-    operation.completedAt = clock.instant();
-    reservations.remove(operation.reservationKey);
+    if ("queued".equals(operation.status)) {
+      completeCancelled(operation);
+    }
     return view(operation);
   }
 
-  private void execute(Operation operation, Supplier<UUID> action) {
+  private void execute(Operation operation, OperationAction action) {
     synchronized (this) {
       if ("cancelled".equals(operation.status)) {
         return;
       }
       operation.status = "running";
-      operation.cancellable = false;
     }
     try {
-      UUID projectId = action.get();
+      UUID projectId = action.execute(control(operation));
       synchronized (this) {
         operation.cancellable = false;
         operation.status = "succeeded";
         operation.projectId = projectId;
         operation.completedAt = clock.instant();
         reservations.remove(operation.reservationKey);
+      }
+    } catch (OperationCancelledException exception) {
+      synchronized (this) {
+        completeCancelled(operation);
       }
     } catch (RuntimeException exception) {
       synchronized (this) {
@@ -100,6 +110,35 @@ public final class OperationRegistry implements AutoCloseable {
     }
   }
 
+  private OperationControl control(Operation operation) {
+    return new OperationControl() {
+      @Override
+      public void checkpoint() {
+        synchronized (OperationRegistry.this) {
+          if (operation.cancelRequested) {
+            throw new OperationCancelledException();
+          }
+        }
+      }
+
+      @Override
+      public void beginCommit() {
+        synchronized (OperationRegistry.this) {
+          checkpoint();
+          operation.status = "committing";
+          operation.cancellable = false;
+        }
+      }
+    };
+  }
+
+  private void completeCancelled(Operation operation) {
+    operation.status = "cancelled";
+    operation.cancellable = false;
+    operation.completedAt = clock.instant();
+    reservations.remove(operation.reservationKey);
+  }
+
   private Operation require(String id, String sessionId) {
     Operation operation = operations.get(id);
     if (operation == null || !operation.sessionId.equals(sessionId)) {
@@ -113,7 +152,11 @@ public final class OperationRegistry implements AutoCloseable {
         operation.id,
         operation.status,
         operation.cancellable,
-        "queued".equals(operation.status) ? "waiting" : "fileProcessing",
+        switch (operation.status) {
+          case "queued" -> "waiting";
+          case "committing" -> "committing";
+          default -> "fileProcessing";
+        },
         null,
         operation.projectId,
         operation.errorCode);
@@ -142,6 +185,13 @@ public final class OperationRegistry implements AutoCloseable {
       UUID projectId,
       String errorCode) {}
 
+  @FunctionalInterface
+  public interface OperationAction {
+    UUID execute(OperationControl control);
+  }
+
+  private static final class OperationCancelledException extends RuntimeException {}
+
   private static final class Operation {
     private final String id;
 
@@ -152,6 +202,8 @@ public final class OperationRegistry implements AutoCloseable {
     private String status = "queued";
 
     private boolean cancellable;
+
+    private boolean cancelRequested;
 
     private UUID projectId;
 

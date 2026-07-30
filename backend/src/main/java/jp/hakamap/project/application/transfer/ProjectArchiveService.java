@@ -10,7 +10,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
-import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
@@ -96,19 +95,28 @@ public final class ProjectArchiveService {
   }
 
   public Path exportArchive(Path projectRoot, Path destination) {
+    return exportArchive(projectRoot, destination, OperationControl.NONE);
+  }
+
+  public Path exportArchive(Path projectRoot, Path destination, OperationControl control) {
     Path target =
         destination.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".hakamap")
             ? destination
             : destination.resolveSibling(destination.getFileName() + ".hakamap");
-    return createArchive(projectRoot, target, "export");
+    return createArchive(projectRoot, target, "export", control);
   }
 
   public ArchiveInspection inspect(Path archive) {
+    return inspect(archive, OperationControl.NONE);
+  }
+
+  private ArchiveInspection inspect(Path archive, OperationControl control) {
     try {
+      control.checkpoint();
       if (!Files.isRegularFile(archive) || Files.isSymbolicLink(archive)) {
         throw new ProjectTransferException("archive-invalid");
       }
-      String archiveHash = sha256(archive);
+      String archiveHash = sha256(archive, control);
       try (ZipFile zip = new ZipFile(archive.toFile())) {
         List<? extends ZipEntry> entries = zip.stream().toList();
         if (entries.size() > MAX_FILES) {
@@ -118,6 +126,7 @@ public final class ProjectArchiveService {
         Map<String, ZipEntry> byName = new HashMap<>();
         long zipTotal = 0;
         for (ZipEntry entry : entries) {
+          control.checkpoint();
           String safe = safeEntryName(entry.getName());
           if (entry.getSize() < 0 || entry.getSize() > MAX_TOTAL_UNCOMPRESSED_BYTES - zipTotal) {
             throw new ProjectTransferException("archive-total-size-exceeded");
@@ -151,6 +160,7 @@ public final class ProjectArchiveService {
         Set<String> declared = new HashSet<>();
         long declaredTotal = 0;
         for (ArchiveFile file : manifest.files()) {
+          control.checkpoint();
           String path = safeEntryName(file.path());
           ZipEntry entry = byName.get(path);
           if (file.sizeBytes() < 0
@@ -161,7 +171,7 @@ public final class ProjectArchiveService {
           if (!declared.add(path.toLowerCase(Locale.ROOT))
               || entry == null
               || entry.getSize() != file.sizeBytes()
-              || !sha256(zip.getInputStream(entry)).equals(file.sha256())) {
+              || !sha256(zip.getInputStream(entry), control).equals(file.sha256())) {
             throw new ProjectTransferException("archive-integrity-invalid");
           }
         }
@@ -183,7 +193,13 @@ public final class ProjectArchiveService {
   }
 
   public ExtractedProject extractAndValidate(Path archive, Path destination) {
-    ArchiveInspection inspection = inspect(archive);
+    return extractAndValidate(archive, destination, OperationControl.NONE);
+  }
+
+  public ExtractedProject extractAndValidate(
+      Path archive, Path destination, OperationControl control) {
+    control.checkpoint();
+    ArchiveInspection inspection = inspect(archive, control);
     try {
       long declaredTotal = declaredTotal(archive);
       Path usableRoot =
@@ -202,6 +218,7 @@ public final class ProjectArchiveService {
           manifest = json.readValue(input, ArchiveManifest.class);
         }
         for (ArchiveFile file : manifest.files()) {
+          control.checkpoint();
           Path target = destination.resolve(file.path()).normalize();
           if (!target.startsWith(destination.toAbsolutePath().normalize())) {
             throw new ProjectTransferException("archive-path-invalid");
@@ -209,7 +226,7 @@ public final class ProjectArchiveService {
           Files.createDirectories(target.getParent());
           try (InputStream input = zip.getInputStream(zip.getEntry(file.path()));
               OutputStream output = new BufferedOutputStream(Files.newOutputStream(target))) {
-            copyExactly(input, output, file.sizeBytes());
+            copyExactly(input, output, file.sizeBytes(), control);
           }
         }
       }
@@ -244,11 +261,13 @@ public final class ProjectArchiveService {
     }
   }
 
-  private void copyExactly(InputStream input, OutputStream output, long expected)
+  private void copyExactly(
+      InputStream input, OutputStream output, long expected, OperationControl control)
       throws IOException {
     byte[] buffer = new byte[64 * 1024];
     long total = 0;
     while (true) {
+      control.checkpoint();
       int read = input.read(buffer);
       if (read < 0) {
         break;
@@ -265,11 +284,19 @@ public final class ProjectArchiveService {
   }
 
   private Path createArchive(Path projectRoot, Path target, String archiveType) {
+    return createArchive(projectRoot, target, archiveType, OperationControl.NONE);
+  }
+
+  private Path createArchive(
+      Path projectRoot, Path target, String archiveType, OperationControl control) {
+    Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
     try {
+      control.checkpoint();
       List<Path> files = projectFiles(projectRoot);
       ProjectAggregate project = projects.read(projectRoot);
       List<ArchiveFile> manifestFiles = new ArrayList<>();
       for (Path file : files) {
+        control.checkpoint();
         manifestFiles.add(
             new ArchiveFile(
                 projectRoot.relativize(file).toString().replace('\\', '/'),
@@ -286,22 +313,42 @@ public final class ProjectArchiveService {
               project.metadata().name().value(),
               List.copyOf(manifestFiles));
       Files.createDirectories(target.toAbsolutePath().normalize().getParent());
-      Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
       try (ZipOutputStream zip =
           new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(temporary)))) {
         writeEntry(zip, "manifest.json", json.writeValueAsBytes(manifest));
         for (Path file : files) {
+          control.checkpoint();
           String relative = projectRoot.relativize(file).toString().replace('\\', '/');
           zip.putNextEntry(new ZipEntry(relative));
-          Files.copy(file, zip);
+          copy(file, zip, control);
           zip.closeEntry();
         }
       }
-      inspect(temporary);
+      control.checkpoint();
+      inspect(temporary, control);
+      control.beginCommit();
       move(temporary, target);
       return target;
-    } catch (IOException exception) {
+    } catch (IOException | RuntimeException exception) {
+      deleteTreeQuietly(temporary);
+      if (exception instanceof ProjectTransferException transfer) {
+        throw transfer;
+      }
       throw new ProjectTransferException("archive-create-failed", exception);
+    }
+  }
+
+  private void copy(Path source, OutputStream output, OperationControl control) throws IOException {
+    try (InputStream input = Files.newInputStream(source)) {
+      byte[] buffer = new byte[64 * 1024];
+      while (true) {
+        control.checkpoint();
+        int read = input.read(buffer);
+        if (read < 0) {
+          return;
+        }
+        output.write(buffer, 0, read);
+      }
     }
   }
 
@@ -423,19 +470,34 @@ public final class ProjectArchiveService {
   }
 
   private String sha256(Path path) {
+    return sha256(path, OperationControl.NONE);
+  }
+
+  private String sha256(Path path, OperationControl control) {
     try (InputStream input = Files.newInputStream(path)) {
-      return sha256(input);
+      return sha256(input, control);
     } catch (IOException exception) {
       throw new ProjectTransferException("archive-integrity-invalid", exception);
     }
   }
 
   private String sha256(InputStream input) {
-    try (InputStream source =
-        new DigestInputStream(
-            new BufferedInputStream(input), MessageDigest.getInstance("SHA-256"))) {
-      source.transferTo(OutputStream.nullOutputStream());
-      return HexFormat.of().formatHex(((DigestInputStream) source).getMessageDigest().digest());
+    return sha256(input, OperationControl.NONE);
+  }
+
+  private String sha256(InputStream input, OperationControl control) {
+    try (InputStream source = new BufferedInputStream(input)) {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] buffer = new byte[64 * 1024];
+      while (true) {
+        control.checkpoint();
+        int read = source.read(buffer);
+        if (read < 0) {
+          break;
+        }
+        digest.update(buffer, 0, read);
+      }
+      return HexFormat.of().formatHex(digest.digest());
     } catch (IOException | NoSuchAlgorithmException exception) {
       throw new ProjectTransferException("archive-integrity-invalid", exception);
     }

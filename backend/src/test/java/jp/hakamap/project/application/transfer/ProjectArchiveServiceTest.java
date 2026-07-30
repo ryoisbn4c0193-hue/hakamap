@@ -125,6 +125,32 @@ class ProjectArchiveServiceTest {
     assertThat(extracted).doesNotExist();
   }
 
+  @Test
+  void removesTemporaryArchiveWhenCancelledDuringProcessing() {
+    ProjectRepository repository = repository();
+    Path root = temporaryDirectory.resolve("cancel-project");
+    repository.write(root, project());
+    Path target = temporaryDirectory.resolve("cancelled.hakamap");
+    ProjectArchiveService service =
+        new ProjectArchiveService(repository, Clock.fixed(NOW, ZoneOffset.UTC), "test");
+    OperationControl cancelImmediately =
+        new OperationControl() {
+          @Override
+          public void checkpoint() {
+            throw new ProjectTransferException("operation-cancelled");
+          }
+
+          @Override
+          public void beginCommit() {}
+        };
+
+    assertThatThrownBy(() -> service.exportArchive(root, target, cancelImmediately))
+        .isInstanceOf(ProjectTransferException.class)
+        .hasMessage("operation-cancelled");
+    assertThat(target).doesNotExist();
+    assertThat(target.resolveSibling("cancelled.hakamap.tmp")).doesNotExist();
+  }
+
   private ProjectRepository repository() {
     return new FileProjectRepository(
         new DefensiveJsonCodec(new ClasspathJsonSchemaValidator()),

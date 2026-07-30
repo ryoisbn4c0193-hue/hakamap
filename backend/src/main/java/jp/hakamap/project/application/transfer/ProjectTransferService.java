@@ -72,13 +72,27 @@ public final class ProjectTransferService {
   }
 
   public synchronized void export(UUID projectId, UUID selectionId, String sessionId) {
+    export(projectId, selectionId, sessionId, OperationControl.NONE);
+  }
+
+  public synchronized void export(
+      UUID projectId, UUID selectionId, String sessionId, OperationControl control) {
     Path destination =
         selections.consume(selectionId, sessionId, FileSelectionPurpose.EXPORT_DESTINATION);
-    archives.exportArchive(openProjects.projectRoot(projectId), destination);
+    archives.exportArchive(openProjects.projectRoot(projectId), destination, control);
   }
 
   public synchronized UUID importArchive(
       UUID archiveSelectionId, UUID destinationSelectionId, String sessionId) {
+    return importArchive(
+        archiveSelectionId, destinationSelectionId, sessionId, OperationControl.NONE);
+  }
+
+  public synchronized UUID importArchive(
+      UUID archiveSelectionId,
+      UUID destinationSelectionId,
+      String sessionId,
+      OperationControl control) {
     if (openProjects.currentProjectId().isPresent()) {
       throw new ProjectTransferException("import-project-open");
     }
@@ -93,7 +107,7 @@ public final class ProjectTransferService {
             .toAbsolutePath()
             .normalize();
     ProjectArchiveService.ExtractedProject extracted =
-        archives.extractAndValidate(archive, temporary);
+        archives.extractAndValidate(archive, temporary, control);
     UUID projectId = extracted.project().metadata().id().value();
     Path target = parent.resolve("hakamap-project-" + projectId).toAbsolutePath().normalize();
     if (Files.exists(target)) {
@@ -101,6 +115,7 @@ public final class ProjectTransferService {
       throw new ProjectTransferException("project-destination-exists");
     }
     try {
+      control.beginCommit();
       Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
       catalog.registerImported(target);
       return projectId;
@@ -123,6 +138,24 @@ public final class ProjectTransferService {
       String backupId,
       String backupVersion,
       String sessionId) {
+    restore(
+        projectId,
+        expectedRevision,
+        confirmedNoUnsavedChanges,
+        backupId,
+        backupVersion,
+        sessionId,
+        OperationControl.NONE);
+  }
+
+  public synchronized void restore(
+      UUID projectId,
+      long expectedRevision,
+      boolean confirmedNoUnsavedChanges,
+      String backupId,
+      String backupVersion,
+      String sessionId,
+      OperationControl control) {
     if (!confirmedNoUnsavedChanges) {
       throw new ProjectTransferException("backup-project-dirty");
     }
@@ -153,9 +186,10 @@ public final class ProjectTransferService {
     archives.createPreRestoreBackup(root);
     Path temporary = root.resolveSibling(".hakamap-restore-" + UUID.randomUUID() + ".tmp");
     ProjectArchiveService.ExtractedProject extracted =
-        archives.extractAndValidate(candidate.path(), temporary);
+        archives.extractAndValidate(candidate.path(), temporary, control);
     try {
       copyTree(root.resolve("backup"), extracted.directory().resolve("backup"));
+      control.beginCommit();
       openProjects.replaceProjectDirectory(
           projectId, extracted.directory(), projects, fingerprints);
     } catch (IOException | RuntimeException exception) {

@@ -57,9 +57,9 @@ public class ProjectTransferController {
             sessionId,
             true,
             "project:" + projectId,
-            () -> {
+            control -> {
               requireRevision(projectId, body.expectedRevision());
-              transfers.export(projectId, body.fileSelectionId(), sessionId);
+              transfers.export(projectId, body.fileSelectionId(), sessionId, control);
               return projectId;
             }));
   }
@@ -75,14 +75,15 @@ public class ProjectTransferController {
             sessionId,
             true,
             "project:" + projectId,
-            () -> {
+            control -> {
               transfers.restore(
                   projectId,
                   body.expectedRevision(),
                   body.confirmedNoUnsavedChanges(),
                   body.backupId(),
                   body.backupVersion(),
-                  sessionId);
+                  sessionId,
+                  control);
               return projectId;
             }));
   }
@@ -96,9 +97,9 @@ public class ProjectTransferController {
             sessionId,
             true,
             "catalog",
-            () ->
+            control ->
                 transfers.importArchive(
-                    body.fileSelectionId(), body.destinationSelectionId(), sessionId)));
+                    body.fileSelectionId(), body.destinationSelectionId(), sessionId, control)));
   }
 
   @GetMapping("/operations/{operationId}")
