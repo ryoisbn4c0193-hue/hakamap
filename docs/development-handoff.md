@@ -8,8 +8,9 @@
 `docs/implementation-plan.md`のPhase単位で実装する。Phase 6の編集コマンドAPIと
 自動復旧の実行時接続と復旧破棄の再試行対応まで完了し、外部レビューに合格した。
 Phase 8のPixiJS地図編集まで外部レビューに合格し、Phase 9とPhase 10の製品機能を完了した。
-Phase 10の初回外部レビュー指摘を修正したため、次は修正差分の再レビューを行い、
-合格後にPhase 11のWindows配布・性能・障害検証を実施する。
+Phase 10のデータ安全性、排他制御、アーカイブ防御、および協調キャンセルまで
+外部レビューに合格した。Phase 11のWindows配布・性能・障害検証を進めており、
+配布・検証スクリプトとLinux上の最小ランタイム検証まで完了した。
 - 当時のコミット`aa92223`に対する再レビューは合格となり、重要な矛盾が解消され、
   MVP、将来拡張、および未決事項の境界が明確であると確認された。
 - 基本アーキテクチャとして、React、TypeScript、PixiJS、Java 21、Spring Boot、および
@@ -665,11 +666,22 @@ Phase 10の初回外部レビュー指摘を修正したため、次は修正差
   引継ぎも協調キャンセル対象とし、引継ぎ容量を復元前の空き容量検査へ含めた。
 - 復元開始時の候補アーカイブ再検証にもOperationのキャンセル制御を伝播し、
   アーカイブ全体と各エントリーのSHA-256検証中も64KiB単位で中断可能にした。
+- Phase 11として、Java 21の`jlink`ランタイムとユーザー単位`jpackage` EXEを生成する
+  Windows PowerShellスクリプトを追加した。固定アップグレードUUID、デスクトップ・
+  スタートメニューショートカット、512MiB heap、およびSHA-256 Manifestを設定した。
+- 配布設定の自動検査、Windows実機結果JSONの雛形、ローカル・外付け・SMB 3.x向けの
+  排他ロック・置換・同期読戻し・清掃の保存先機能検査を追加した。
+- Windows CIで同じビルドスクリプトからEXEを作成し、ManifestのSHA-256を照合して
+  7日間だけ成果物を保存するWorkflowを追加した。未プッシュのため実行結果はまだない。
+- Linuxで同じモジュールの`jlink`ランタイムを生成した。初回試行で不足した
+  `java.instrument`を検出して追加し、Spring BootとローカルHTTPの初期化まで確認した。
+- Windows EXE作成、最低・推奨環境の性能、Windows E2E、外付け・SMB・切断・高DPI試験は
+  Windows 11実機が必要なため未実施であり、Phase 11は完了扱いにしていない。
 
 ## 次に行うこと
 
-Phase 10レビュー修正コミット`082fbb1d309f61137c2bd25b033ebf781f450f59`を
-外部ChatGPTで再レビューする。合格後に`docs/implementation-plan.md`のPhase 11を開始する。
+Windows 11実機で`packaging/windows/README.md`に従ってEXEを作成し、
+`docs/verification/phase-11-windows.md`の未実施項目を検証する。
 
 1. `jlink`と`jpackage`によるWindows EXEを作成してショートカット・更新・削除を検証する。
 2. Windows最低・推奨環境で起動、読込、検索、操作、保存、およびメモリを測定する。
@@ -740,7 +752,7 @@ Phase 10レビュー修正コミット`082fbb1d309f61137c2bd25b033ebf781f450f59`
 
 ## 検査結果
 
-- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、124件のJavaテスト、
+- `cd backend && ./mvnw verify`: 成功。フロントエンド標準検査、127件のJavaテスト、
   Checkstyle、Spotless、および実行可能JAR生成を含む。
 - `cd frontend && pnpm lint`: 成功。
 - `cd frontend && pnpm format:check`: 成功。
@@ -759,7 +771,7 @@ Phase 10レビュー修正コミット`082fbb1d309f61137c2bd25b033ebf781f450f59`
   `082fbb1d309f61137c2bd25b033ebf781f450f59`である。復元の原子切替とロールバック、
   旧アセット除去、アーカイブ総量・空き容量防御、Operation競合制御と例外秘匿、
   安定ロックの継続保持、全ファイル処理区間の協調キャンセル、および
-  既存バックアップを含む復元容量検査を含む。
+  既存バックアップを含む復元容量検査を含み、外部レビュー合格済みである。
 - Phase 6の自動復旧実行時接続と部分失敗後も再試行可能な復旧破棄までを含む
   レビュー基準コミットは`bb4d272becdf1fbf0bd43c213ca28216a3bd06a5`であり、
   `origin/main`へ反映済みで、外部レビュー合格済みである。

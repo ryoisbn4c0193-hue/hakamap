@@ -31,3 +31,6 @@ Thumbs.db
 *.trace.db
 data/
 backups/
+packaging/out/
+packaging/work/
+packaging/results/

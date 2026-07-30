@@ -3,8 +3,9 @@
 Hakamapは、墓地全体の図面を背景として取り込み、エリア、墓所、人物、写真・添付情報を
 地図上で管理する、オフラインかつ単一ユーザー向けのWindowsアプリです。
 
-MVPの要件定義、基本設計、および詳細設計8工程は完了し、Phase 4の
-アプリライフサイクルとローカルHTTP保護まで実装しています。設計と実装では
+MVPの要件定義、基本設計、および詳細設計8工程は完了し、Phase 10の
+バックアップ・入出力まで実装しています。Phase 11のWindows配布・性能・障害検証は
+進行中です。設計と実装では
 `docs/requirements`、`docs/design`、および`docs/adr`にある最新文書を正とします。
 
 ## MVPの概要
@@ -127,6 +128,7 @@ cd backend
 - [フロントエンド状態管理](docs/design/frontend-state-management.md)
 - [PixiJS描画・座標変換・当たり判定](docs/design/pixi-map-interaction.md)
 - [テスト・テストデータ・Windows検証](docs/design/test-strategy.md)
+- [Phase 11 Windows検証記録](docs/verification/phase-11-windows.md)
 - [MVP実装計画](docs/implementation-plan.md)
 - [データ保存とプライバシー](docs/design/data-storage-and-privacy.md)
 - [バックアップと復元](docs/design/backup-and-restore.md)
@@ -151,6 +153,7 @@ cd backend
 
 ## Windows配布
 
-Windows 11上で、Java 21ランタイムを同梱した`Hakamap-<バージョン>.exe`を作成する予定です。
+Windows 11上で、Java 21ランタイムを同梱した`Hakamap-<バージョン>.exe`を
+`packaging/windows/build.ps1`で作成します。
 MVPではコード署名と自動アップデートを行いません。Windows用成果物はWindows上で作成し、
 Linuxからのクロスビルドには依存しません。

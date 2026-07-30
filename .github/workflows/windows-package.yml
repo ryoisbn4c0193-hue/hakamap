@@ -1,0 +1,68 @@
+name: Windows package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version
+        required: true
+        default: 0.1.0
+  pull_request:
+    paths:
+      - ".github/workflows/windows-package.yml"
+      - "backend/**"
+      - "frontend/**"
+      - "packaging/windows/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/windows-package.yml"
+      - "backend/**"
+      - "frontend/**"
+      - "packaging/windows/**"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-2025
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: "21"
+          cache: maven
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $Version = if ('${{ inputs.version }}') { '${{ inputs.version }}' } else { '0.1.0' }
+          .\packaging\windows\build.ps1 -Version $Version
+
+      - name: Verify package manifest
+        shell: pwsh
+        run: |
+          $Manifest = Get-Content .\packaging\out\manifest.json | ConvertFrom-Json
+          $Installer = Join-Path .\packaging\out $Manifest.file
+          if (-not (Test-Path $Installer -PathType Leaf)) {
+            throw 'Installer is missing.'
+          }
+          $Actual = (Get-FileHash $Installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($Actual -ne $Manifest.sha256) {
+            throw 'Installer SHA-256 does not match manifest.'
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hakamap-windows-package
+          path: |
+            packaging/out/Hakamap-*.exe
+            packaging/out/manifest.json
+          if-no-files-found: error
+          retention-days: 7
