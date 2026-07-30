@@ -95,7 +95,6 @@ public final class OpenProjectManager implements AutoCloseable {
     Path root = open.root();
     Path previous = root.resolveSibling(".hakamap-restore-previous-" + UUID.randomUUID() + ".tmp");
     Path rejected = root.resolveSibling(".hakamap-restore-rejected-" + UUID.randomUUID() + ".tmp");
-    open.lock().close();
     boolean oldMoved = false;
     boolean replacementMoved = false;
     try {
@@ -103,18 +102,11 @@ public final class OpenProjectManager implements AutoCloseable {
       oldMoved = true;
       atomicMove(replacement, root);
       replacementMoved = true;
-      ProjectFileLock newLock = ProjectFileLock.acquire(root);
       ProjectAggregate aggregate;
-      try {
-        aggregate = projects.read(root);
-        if (!aggregate.metadata().id().value().equals(projectId)) {
-          throw new ProjectCatalogException("project-mismatch");
-        }
-      } catch (RuntimeException exception) {
-        newLock.close();
-        throw exception;
+      aggregate = projects.read(root);
+      if (!aggregate.metadata().id().value().equals(projectId)) {
+        throw new ProjectCatalogException("project-mismatch");
       }
-      open.lock = newLock;
       open.aggregate = aggregate;
       open.editingSession = new ProjectEditingSession(aggregate, sha256(root), fingerprints);
       deleteTreeQuietly(previous);
@@ -133,11 +125,6 @@ public final class OpenProjectManager implements AutoCloseable {
         } catch (IOException rollbackFailure) {
           exception.addSuppressed(rollbackFailure);
         }
-      }
-      try {
-        open.lock = ProjectFileLock.acquire(root);
-      } catch (RuntimeException lockFailure) {
-        exception.addSuppressed(lockFailure);
       }
       deleteTreeQuietly(rejected);
       throw new ProjectCatalogException("backup-restore-failed", exception);
@@ -237,7 +224,7 @@ public final class OpenProjectManager implements AutoCloseable {
 
     private ProjectAggregate aggregate;
 
-    private ProjectFileLock lock;
+    private final ProjectFileLock lock;
 
     private ProjectEditingSession editingSession;
 

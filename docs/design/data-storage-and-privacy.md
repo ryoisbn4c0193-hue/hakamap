@@ -443,7 +443,6 @@ backend/src/main/resources/json-schema/
 ```text
 <project-folder>\
 ├─ project.json
-├─ .hakamap.lock
 ├─ assets\
 │  ├─ backgrounds\
 │  └─ attachments\
@@ -461,7 +460,8 @@ backend/src/main/resources/json-schema/
 
 ## プロジェクトの排他制御
 
-- プロジェクトを開くとき、Javaの`FileChannel`でプロジェクトルートの`.hakamap.lock`を開き、
+- プロジェクトを開くとき、Javaの`FileChannel`でプロジェクトルートと同じ親にある
+  `<プロジェクトディレクトリ名>.hakamap.lock`を開き、
   `tryLock()`でOSの排他ファイルロックを取得してプロジェクトを閉じるまで保持する。
 - ロックを取得できない場合は、同じプロジェクトが利用中である旨を表示し、編集目的では開かない。
 - MVPでは、ロック取得失敗時に読み取り専用で開く機能を設けない。

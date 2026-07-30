@@ -84,12 +84,18 @@ public final class ProjectArchiveService {
   }
 
   public Path createPreRestoreBackup(Path projectRoot) {
+    return createPreRestoreBackup(projectRoot, OperationControl.NONE);
+  }
+
+  public Path createPreRestoreBackup(Path projectRoot, OperationControl control) {
     Path directory = projectRoot.resolve("backup/pre-restore");
     Path result =
         createArchive(
             projectRoot,
             directory.resolve("pre-restore-" + FILE_TIMESTAMP.format(clock.instant()) + ".zip"),
-            "backup");
+            "backup",
+            control,
+            false);
     retainNewest(directory, 3);
     return result;
   }
@@ -103,7 +109,7 @@ public final class ProjectArchiveService {
         destination.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".hakamap")
             ? destination
             : destination.resolveSibling(destination.getFileName() + ".hakamap");
-    return createArchive(projectRoot, target, "export", control);
+    return createArchive(projectRoot, target, "export", control, true);
   }
 
   public ArchiveInspection inspect(Path archive) {
@@ -198,6 +204,11 @@ public final class ProjectArchiveService {
 
   public ExtractedProject extractAndValidate(
       Path archive, Path destination, OperationControl control) {
+    return extractAndValidate(archive, destination, control, 0);
+  }
+
+  public ExtractedProject extractAndValidate(
+      Path archive, Path destination, OperationControl control, long additionalBytes) {
     control.checkpoint();
     ArchiveInspection inspection = inspect(archive, control);
     try {
@@ -206,8 +217,11 @@ public final class ProjectArchiveService {
           destination.toAbsolutePath().normalize().getParent() == null
               ? destination.toAbsolutePath().normalize()
               : destination.toAbsolutePath().normalize().getParent();
-      if (Files.getFileStore(usableRoot).getUsableSpace()
-          < declaredTotal + REQUIRED_FREE_SPACE_MARGIN) {
+      if (additionalBytes < 0
+          || declaredTotal > Long.MAX_VALUE - additionalBytes
+          || declaredTotal + additionalBytes > Long.MAX_VALUE - REQUIRED_FREE_SPACE_MARGIN
+          || Files.getFileStore(usableRoot).getUsableSpace()
+              < declaredTotal + additionalBytes + REQUIRED_FREE_SPACE_MARGIN) {
         throw new ProjectTransferException("archive-space-insufficient");
       }
       Files.createDirectories(destination);
@@ -284,11 +298,15 @@ public final class ProjectArchiveService {
   }
 
   private Path createArchive(Path projectRoot, Path target, String archiveType) {
-    return createArchive(projectRoot, target, archiveType, OperationControl.NONE);
+    return createArchive(projectRoot, target, archiveType, OperationControl.NONE, false);
   }
 
   private Path createArchive(
-      Path projectRoot, Path target, String archiveType, OperationControl control) {
+      Path projectRoot,
+      Path target,
+      String archiveType,
+      OperationControl control,
+      boolean markCommit) {
     Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
     try {
       control.checkpoint();
@@ -301,7 +319,7 @@ public final class ProjectArchiveService {
             new ArchiveFile(
                 projectRoot.relativize(file).toString().replace('\\', '/'),
                 Files.size(file),
-                sha256(file)));
+                sha256(file, control)));
       }
       ArchiveManifest manifest =
           new ArchiveManifest(
@@ -326,7 +344,11 @@ public final class ProjectArchiveService {
       }
       control.checkpoint();
       inspect(temporary, control);
-      control.beginCommit();
+      if (markCommit) {
+        control.beginCommit();
+      } else {
+        control.checkpoint();
+      }
       move(temporary, target);
       return target;
     } catch (IOException | RuntimeException exception) {

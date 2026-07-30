@@ -183,12 +183,13 @@ public final class ProjectTransferService {
       throw new ProjectTransferException("backup-version-conflict");
     }
     Path root = openProjects.projectRoot(projectId);
-    archives.createPreRestoreBackup(root);
+    archives.createPreRestoreBackup(root, control);
     Path temporary = root.resolveSibling(".hakamap-restore-" + UUID.randomUUID() + ".tmp");
+    long backupBytes = directorySize(root.resolve("backup"), control);
     ProjectArchiveService.ExtractedProject extracted =
-        archives.extractAndValidate(candidate.path(), temporary, control);
+        archives.extractAndValidate(candidate.path(), temporary, control, backupBytes);
     try {
-      copyTree(root.resolve("backup"), extracted.directory().resolve("backup"));
+      copyTree(root.resolve("backup"), extracted.directory().resolve("backup"), control);
       control.beginCommit();
       openProjects.replaceProjectDirectory(
           projectId, extracted.directory(), projects, fingerprints);
@@ -261,7 +262,7 @@ public final class ProjectTransferService {
     }
   }
 
-  private void copyTree(Path source, Path target) throws IOException {
+  private void copyTree(Path source, Path target, OperationControl control) throws IOException {
     if (!Files.exists(source)) {
       return;
     }
@@ -270,13 +271,43 @@ public final class ProjectTransferService {
       files = stream.filter(Files::isRegularFile).toList();
     }
     for (Path file : files) {
+      control.checkpoint();
       Path destination = target.resolve(source.relativize(file)).normalize();
       if (!destination.startsWith(target.toAbsolutePath().normalize())) {
         throw new ProjectTransferException("archive-path-invalid");
       }
       Files.createDirectories(destination.getParent());
-      Files.copy(file, destination, StandardCopyOption.REPLACE_EXISTING);
+      try (var input = Files.newInputStream(file);
+          var output = Files.newOutputStream(destination)) {
+        byte[] buffer = new byte[64 * 1024];
+        while (true) {
+          control.checkpoint();
+          int read = input.read(buffer);
+          if (read < 0) {
+            break;
+          }
+          output.write(buffer, 0, read);
+        }
+      }
     }
+  }
+
+  private long directorySize(Path directory, OperationControl control) throws IOException {
+    if (!Files.exists(directory)) {
+      return 0;
+    }
+    long total = 0;
+    try (var stream = Files.walk(directory)) {
+      for (Path file : stream.filter(Files::isRegularFile).toList()) {
+        control.checkpoint();
+        long size = Files.size(file);
+        if (size > Long.MAX_VALUE - total) {
+          throw new ProjectTransferException("archive-space-insufficient");
+        }
+        total += size;
+      }
+    }
+    return total;
   }
 
   private void discardExpired() {

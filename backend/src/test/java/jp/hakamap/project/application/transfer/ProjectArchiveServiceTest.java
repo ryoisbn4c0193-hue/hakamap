@@ -151,6 +151,40 @@ class ProjectArchiveServiceTest {
     assertThat(target.resolveSibling("cancelled.hakamap.tmp")).doesNotExist();
   }
 
+  @Test
+  void checksCancellationWhileHashingLargeAsset() throws Exception {
+    ProjectRepository repository = repository();
+    Path root = temporaryDirectory.resolve("hash-cancel-project");
+    repository.write(root, project());
+    Path asset = root.resolve("assets/attachments/large.png");
+    Files.createDirectories(asset.getParent());
+    Files.write(asset, new byte[2 * 1024 * 1024]);
+    Path target = temporaryDirectory.resolve("hash-cancelled.hakamap");
+    ProjectArchiveService service =
+        new ProjectArchiveService(repository, Clock.fixed(NOW, ZoneOffset.UTC), "test");
+    java.util.concurrent.atomic.AtomicInteger checkpoints =
+        new java.util.concurrent.atomic.AtomicInteger();
+    OperationControl cancelDuringHash =
+        new OperationControl() {
+          @Override
+          public void checkpoint() {
+            if (checkpoints.incrementAndGet() == 12) {
+              throw new ProjectTransferException("operation-cancelled");
+            }
+          }
+
+          @Override
+          public void beginCommit() {
+            throw new AssertionError("ハッシュ計算中は確定段階へ進まない");
+          }
+        };
+
+    assertThatThrownBy(() -> service.exportArchive(root, target, cancelDuringHash))
+        .isInstanceOf(ProjectTransferException.class)
+        .hasMessage("operation-cancelled");
+    assertThat(target).doesNotExist();
+  }
+
   private ProjectRepository repository() {
     return new FileProjectRepository(
         new DefensiveJsonCodec(new ClasspathJsonSchemaValidator()),

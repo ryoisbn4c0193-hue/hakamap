@@ -253,6 +253,23 @@ class ProjectStorageTransactionCoordinatorTest {
   }
 
   @Test
+  void keepsStableLockWhileProjectDirectoryIsExchanged() throws Exception {
+    Path root = initializedProject();
+    Path previous = root.resolveSibling("previous");
+
+    try (ProjectFileLock lock = ProjectFileLock.acquire(root)) {
+      Files.move(root, previous);
+      Files.createDirectories(root);
+
+      assertThat(lock.valid()).isTrue();
+      assertThatThrownBy(() -> ProjectFileLock.acquire(root))
+          .isInstanceOfSatisfying(
+              StorageException.class,
+              exception -> assertThat(exception.code()).isEqualTo("project-already-locked"));
+    }
+  }
+
+  @Test
   void commitsCatalogAndKeepsValidatedBackup() {
     AtomicInteger sequence = new AtomicInteger();
     CatalogStorageTransaction transaction =

@@ -19,9 +19,10 @@ public final class ProjectFileLock implements AutoCloseable {
   }
 
   public static ProjectFileLock acquire(Path projectRoot) {
-    Path lockPath = projectRoot.resolve(".hakamap.lock").toAbsolutePath().normalize();
+    Path normalizedRoot = projectRoot.toAbsolutePath().normalize();
+    Path lockPath = normalizedRoot.resolveSibling(normalizedRoot.getFileName() + ".hakamap.lock");
     try {
-      Files.createDirectories(projectRoot);
+      Files.createDirectories(normalizedRoot.getParent());
       if (Files.isSymbolicLink(lockPath)) {
         throw new StorageException("project-lock-link-rejected");
       }
