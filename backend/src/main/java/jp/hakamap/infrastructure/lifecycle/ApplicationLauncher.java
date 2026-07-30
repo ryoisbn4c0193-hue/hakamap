@@ -20,6 +20,7 @@ public final class ApplicationLauncher {
     }
     RuntimeLease lease = acquired.orElseThrow();
     SpringApplication application = new SpringApplication(HakamapApplication.class);
+    application.setHeadless(false);
     application.setDefaultProperties(Map.of("server.address", "127.0.0.1", "server.port", "0"));
     application.addInitializers(
         context -> {
