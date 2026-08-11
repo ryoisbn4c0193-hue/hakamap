@@ -33,6 +33,10 @@ public record Grave(
     return new Grave(id, managementNumber, name, notes, target, rotation, commandTime);
   }
 
+  public Grave transform(MapRectangle target, RotationDegrees targetRotation, Instant commandTime) {
+    return new Grave(id, managementNumber, name, notes, target, targetRotation, commandTime);
+  }
+
   public Grave number(ManagementNumber number, Instant commandTime) {
     return new Grave(id, Optional.of(number), name, notes, rectangle, rotation, commandTime);
   }

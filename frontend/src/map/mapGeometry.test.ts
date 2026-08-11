@@ -6,6 +6,7 @@ import {
   fitViewport,
   graveLabel,
   hitTest,
+  hitTestRotated,
   inverseViewportScale,
   intersects,
   keepSnappedRectangleInsideArea,
@@ -14,9 +15,13 @@ import {
   mapToBackgroundLocal,
   normalizeRect,
   normalizeRotation,
+  resetBackgroundAspectRatio,
+  rotateBackgroundAroundCenter,
+  rotatedRectanglesIntersect,
   screenToMap,
   selectIntersecting,
   snapRectangle,
+  snapRotation,
   zoomAt,
 } from './mapGeometry';
 
@@ -53,6 +58,22 @@ describe('map geometry', () => {
       { id: 'front', x: 0, y: 0, width: 10, height: 10, displayOrder: 1 },
     ];
     expect(hitTest(rectangles, { x: 10, y: 10 })).toBe('front');
+  });
+
+  it('uses the rotated outline for hit testing and overlap', () => {
+    const rotated = { height: 4, id: 'rotated', rotation: 90, width: 20, x: 0, y: 0 };
+    expect(hitTestRotated([rotated], { x: 10, y: 10 })).toBe('rotated');
+    expect(hitTestRotated([rotated], { x: 1, y: 1 })).toBeUndefined();
+    expect(
+      rotatedRectanglesIntersect(rotated, {
+        height: 3,
+        id: 'other',
+        rotation: 45,
+        width: 3,
+        x: 9,
+        y: 8,
+      }),
+    ).toBe(true);
   });
 
   it('does not treat edge contact as an overlap', () => {
@@ -154,5 +175,51 @@ describe('map geometry', () => {
     [-720, 0],
   ])('normalizes mouse rotation %s to %s degrees', (rotation, expected) => {
     expect(normalizeRotation(rotation)).toBe(expected);
+  });
+
+  it.each([
+    [4, 0],
+    [86, 90],
+    [184, 180],
+    [274, 270],
+    [96, 96],
+  ])('snaps rotation %s to %s degrees near right angles', (rotation, expected) => {
+    expect(snapRotation(rotation)).toBe(expected);
+  });
+
+  it('keeps the background center fixed while rotating', () => {
+    const background = {
+      height: 100,
+      rotation: 0,
+      scaleX: 2,
+      scaleY: 0.5,
+      width: 200,
+      x: 30,
+      y: -20,
+    };
+    const center = backgroundLocalToMap({ x: 100, y: 50 }, background);
+    const rotated = rotateBackgroundAroundCenter(background, -90);
+    expect(rotated.rotation).toBe(270);
+    const rotatedCenter = backgroundLocalToMap({ x: 100, y: 50 }, rotated);
+    expect(rotatedCenter.x).toBeCloseTo(center.x);
+    expect(rotatedCenter.y).toBeCloseTo(center.y);
+  });
+
+  it('keeps the background center fixed while restoring its aspect ratio', () => {
+    const background = {
+      height: 100,
+      rotation: 45,
+      scaleX: 2,
+      scaleY: 0.5,
+      width: 200,
+      x: 30,
+      y: -20,
+    };
+    const center = backgroundLocalToMap({ x: 100, y: 50 }, background);
+    const restored = resetBackgroundAspectRatio(background);
+    expect(restored.scaleY).toBe(2);
+    const restoredCenter = backgroundLocalToMap({ x: 100, y: 50 }, restored);
+    expect(restoredCenter.x).toBeCloseTo(center.x);
+    expect(restoredCenter.y).toBeCloseTo(center.y);
   });
 });

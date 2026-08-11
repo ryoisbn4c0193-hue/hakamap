@@ -124,6 +124,7 @@ const projectSnapshotSchema = z.object({
       y: z.number(),
       width: z.number(),
       height: z.number(),
+      rotation: z.number(),
       colorPreset: z.string(),
       visible: z.boolean(),
       displayOrder: z.number().int(),

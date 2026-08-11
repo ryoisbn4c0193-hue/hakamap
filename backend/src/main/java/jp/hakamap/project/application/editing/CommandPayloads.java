@@ -67,6 +67,7 @@ public final class CommandPayloads {
       BigDecimal y,
       BigDecimal width,
       BigDecimal height,
+      BigDecimal rotation,
       String colorPreset,
       boolean visible)
       implements CommandPayload {}
@@ -112,7 +113,12 @@ public final class CommandPayloads {
   }
 
   public record ResizeGrave(
-      UUID graveId, BigDecimal x, BigDecimal y, BigDecimal width, BigDecimal height)
+      UUID graveId,
+      BigDecimal x,
+      BigDecimal y,
+      BigDecimal width,
+      BigDecimal height,
+      BigDecimal rotation)
       implements CommandPayload {}
 
   public record CopyGraves(List<UUID> graveIds, BigDecimal deltaX, BigDecimal deltaY)

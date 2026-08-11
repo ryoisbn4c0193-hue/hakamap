@@ -12,6 +12,8 @@ import jp.hakamap.project.domain.value.IncompleteReason;
 public final class GraveStatusDeriver {
   private final AreaMembershipResolver membershipResolver;
 
+  private final RotatedRectangleGeometry geometry = new RotatedRectangleGeometry();
+
   public GraveStatusDeriver(AreaMembershipResolver membershipResolver) {
     this.membershipResolver = membershipResolver;
   }
@@ -28,7 +30,12 @@ public final class GraveStatusDeriver {
       incomplete.add(IncompleteReason.UNNUMBERED);
       warnings.add(DomainWarningCode.UNNUMBERED);
     }
-    if (area.isPresent() && !area.orElseThrow().rectangle().containsClosed(grave.rectangle())) {
+    if (area.isPresent()
+        && !geometry.containsClosed(
+            area.orElseThrow().rectangle(),
+            area.orElseThrow().rotation(),
+            grave.rectangle(),
+            grave.rotation())) {
       warnings.add(DomainWarningCode.OUTSIDE_AREA_BOUNDS);
     }
     GraveCompletionStatus completion =

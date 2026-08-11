@@ -174,6 +174,12 @@ function EditorView({ projectId }: EditorViewProps) {
     warnings: readonly { code: string; count: number }[];
   }>();
 
+  useEffect(() => {
+    if (notification === undefined) return undefined;
+    const timer = window.setTimeout(() => setNotification(undefined), 5_000);
+    return () => window.clearTimeout(timer);
+  }, [notification]);
+
   if (selectedGrave?.graveId !== draftSourceId) {
     setDraft(draftFrom(selectedGrave));
     setDraftSourceId(selectedGrave?.graveId);
@@ -457,6 +463,7 @@ function EditorView({ projectId }: EditorViewProps) {
                 colorPreset: area.colorPreset,
                 height: area.height,
                 name,
+                rotation: area.rotation,
                 visible: area.visible,
                 width: area.width,
                 x: area.x,
@@ -492,6 +499,7 @@ function EditorView({ projectId }: EditorViewProps) {
             mapCommand('resizeGrave', {
               graveId: rectangle.id,
               height: rectangle.height,
+              rotation: rectangle.rotation ?? 0,
               width: rectangle.width,
               x: rectangle.x,
               y: rectangle.y,
@@ -505,6 +513,7 @@ function EditorView({ projectId }: EditorViewProps) {
                 colorPreset: area.colorPreset,
                 height: rectangle.height,
                 name: area.name,
+                rotation: rectangle.rotation ?? area.rotation,
                 visible: area.visible,
                 width: rectangle.width,
                 x: rectangle.x,

@@ -52,8 +52,8 @@ public final class ProjectInvariantValidator {
     requireUnique(
         areas, area -> textNormalization.comparisonKey(area.name().value()), "area-name-duplicate");
     requireUnique(areas, Area::color, "area-color-in-use");
-    geometry.requireNoAreaOverlap(areas, Area::rectangle, "area-overlap");
-    geometry.requireNoAreaOverlap(graves, Grave::rectangle, "grave-overlap");
+    geometry.requireNoAreaOverlap(areas, Area::rectangle, Area::rotation, "area-overlap");
+    geometry.requireNoAreaOverlap(graves, Grave::rectangle, Grave::rotation, "grave-overlap");
 
     Set<jp.hakamap.project.domain.value.GraveId> graveIds =
         graves.stream().map(Grave::id).collect(Collectors.toUnmodifiableSet());

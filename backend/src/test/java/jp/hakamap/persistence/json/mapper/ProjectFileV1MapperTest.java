@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import jp.hakamap.persistence.json.PersistenceTestFixtures;
+import jp.hakamap.persistence.json.model.project.AreaV1;
 import jp.hakamap.persistence.json.model.project.ProjectFileV1;
 import jp.hakamap.project.domain.model.Area;
 import jp.hakamap.project.domain.model.Grave;
@@ -37,6 +38,7 @@ class ProjectFileV1MapperTest {
             new AreaName("二組"),
             new MapRectangle(
                 BigDecimal.valueOf(20), BigDecimal.ZERO, BigDecimal.TEN, BigDecimal.TEN),
+            new RotationDegrees(BigDecimal.valueOf(45)),
             AreaColorPreset.GREEN,
             true,
             new DisplayOrder(1));
@@ -74,7 +76,37 @@ class ProjectFileV1MapperTest {
     ProjectFileV1 roundTrip = mapper.toFile(mapper.toDomain(file));
 
     assertThat(file.areas()).extracting(area -> area.name()).containsExactly("一組", "二組");
+    assertThat(file.areas().get(1).rotation()).isEqualByComparingTo("45");
     assertThat(file).isEqualTo(roundTrip);
     assertThat(file.project().createdAt()).isEqualTo(Instant.parse("2026-01-02T03:04:05.006Z"));
+  }
+
+  @Test
+  void treatsAnAreaWithoutRotationFromAnExistingProjectAsZeroDegrees() {
+    ProjectFileV1 empty = PersistenceTestFixtures.emptyProjectFile();
+    AreaV1 legacyArea =
+        new AreaV1(
+            UUID.fromString("22222222-2222-4222-8222-222222222222"),
+            "第一",
+            BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            BigDecimal.TEN,
+            BigDecimal.TEN,
+            null,
+            "blue",
+            true,
+            0);
+    ProjectFileV1 legacy =
+        new ProjectFileV1(
+            empty.schemaVersion(),
+            empty.project(),
+            empty.background(),
+            List.of(legacyArea),
+            empty.graves(),
+            empty.people(),
+            empty.assets());
+
+    assertThat(mapper.toDomain(legacy).areas().values().iterator().next().rotation())
+        .isEqualTo(RotationDegrees.ZERO);
   }
 }

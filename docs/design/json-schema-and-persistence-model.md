@@ -150,6 +150,7 @@ record AreaV1(
     BigDecimal y,
     BigDecimal width,
     BigDecimal height,
+    BigDecimal rotation,
     String colorPreset,
     boolean visible,
     int displayOrder) {}
@@ -178,6 +179,9 @@ record PersonV1(
 
 - `background`、`managementNumber`、`name`、`notes`、および`posthumousName`のうち
   Schemaで任意とした値は、デシリアライズ境界に限って`null`を許容する。
+- `AreaV1.rotation`は既存のv1ファイルとの互換性のためSchema上は省略可能とし、
+  省略または`null`の場合はMapperで0度として読み込む。新規保存時は必ず正規化済みの
+  回転角度を書き出す。
 - Mapperは任意値をドメインの`Optional`と値オブジェクトへ変換し、空文字や不正値を拒否する。
 
 ```java

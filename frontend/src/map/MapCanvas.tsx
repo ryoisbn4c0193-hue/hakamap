@@ -17,7 +17,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { getBackgroundTileManifest, type ProjectSnapshot } from '../api/hakamapClient';
 
-import { graveLabel, type GraveLabelMode, type MapPoint, type MapRect } from './mapGeometry';
+import {
+  graveLabel,
+  resetBackgroundAspectRatio,
+  type GraveLabelMode,
+  type MapPoint,
+  type MapRect,
+} from './mapGeometry';
 import MapOutputDialog from './MapOutputDialog';
 import {
   PixiMapAdapter,
@@ -130,6 +136,7 @@ function MapCanvas({
         height: area.height,
         id: area.areaId,
         name: area.name,
+        rotation: area.rotation,
         visible: area.visible,
         width: area.width,
         x: area.x,
@@ -237,6 +244,21 @@ function MapCanvas({
           size="small"
         >
           背景を削除
+        </Button>
+        <Button
+          disabled={
+            busy ||
+            snapshot.background === null ||
+            snapshot.background.scaleX === snapshot.background.scaleY
+          }
+          onClick={() => {
+            if (model.background !== undefined) {
+              onTransformBackground(resetBackgroundAspectRatio(model.background));
+            }
+          }}
+          size="small"
+        >
+          縦横比を戻す
         </Button>
         <Button disabled={busy || !canUndo} onClick={() => onHistoryChange('undo')} size="small">
           元に戻す

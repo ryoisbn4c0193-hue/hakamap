@@ -39,6 +39,7 @@ public final class EditingApiModels {
       BigDecimal y,
       BigDecimal width,
       BigDecimal height,
+      BigDecimal rotation,
       String colorPreset,
       boolean visible,
       int displayOrder) {}

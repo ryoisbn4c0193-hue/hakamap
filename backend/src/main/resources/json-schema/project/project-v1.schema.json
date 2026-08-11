@@ -200,6 +200,9 @@
         "height": {
           "$ref": "#/$defs/positiveMapValue"
         },
+        "rotation": {
+          "$ref": "#/$defs/rotation"
+        },
         "colorPreset": {
           "enum": [
             "blue",

@@ -65,14 +65,14 @@ record CommandContext(
 | 背景 | `TRANSFORM_BACKGROUND` | 1回のドラッグまたは数値適用 |
 | 背景 | `REMOVE_BACKGROUND` | 確認後の削除1回 |
 | エリア | `CREATE_AREA` | 作成1件 |
-| エリア | `UPDATE_AREA` | 名称、形状、色、表示状態の確定1回 |
+| エリア | `UPDATE_AREA` | 名称、形状、回転、色、表示状態の確定1回 |
 | エリア | `DELETE_AREA` | エリア1件の削除と導出状態再計算 |
 | 墓所 | `CREATE_GRAVE` | ドラッグ作成1件 |
 | 墓所 | `CREATE_GRAVE_GRID` | 行列指定の全生成墓所 |
 | 墓所 | `FILL_GRAVE_RANGE` | 指定範囲の全生成墓所 |
 | 墓所 | `UPDATE_GRAVE_INFO` | プロパティ適用1回 |
 | 墓所 | `MOVE_GRAVES` | 単体または複数の1回の移動 |
-| 墓所 | `RESIZE_GRAVE` | 1回のドラッグまたは数値適用 |
+| 墓所 | `RESIZE_GRAVE` | 1回のサイズ変更、回転ドラッグ、または数値適用 |
 | 墓所 | `COPY_GRAVES` | 単体または複数の全コピー先 |
 | 墓所 | `DELETE_GRAVES` | 確認した単体または複数の一括削除 |
 | 墓所 | `NUMBER_GRAVES` | プレビュー確認後の全採番対象 |
@@ -100,7 +100,8 @@ record CommandContext(
 
 ### ポインター操作
 
-- 墓所、エリア、および背景のドラッグ中はReactとPixiJSで候補をプレビューする。
+- 墓所、エリア、および背景の移動、サイズ変更、回転ドラッグ中はReactとPixiJSで
+  候補をプレビューする。
 - ポインターを離して操作を確定した時点で、開始状態から確定状態までを1コマンドとして送信する。
 - ドラッグ中の各座標をAPIへ送信せず、履歴へも記録しない。
 - ドラッグをキャンセルした場合、または確定値が開始値と同じ場合はコマンドを記録しない。

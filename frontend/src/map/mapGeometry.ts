@@ -7,6 +7,7 @@ export type MapRect = Readonly<{
   width: number;
   height: number;
   displayOrder?: number;
+  rotation?: number;
 }>;
 
 export type Viewport = Readonly<{ scale: number; x: number; y: number }>;
@@ -97,6 +98,53 @@ export function normalizeRotation(rotation: number): number {
   return ((rotation % 360) + 360) % 360;
 }
 
+export function snapRotation(rotation: number, threshold = 5): number {
+  const normalized = normalizeRotation(rotation);
+  const nearest = Math.round(normalized / 90) * 90;
+  const distance = Math.abs(normalizeRotation(normalized - nearest + 180) - 180);
+  return distance <= threshold ? normalizeRotation(nearest) : normalized;
+}
+
+export function rotateBackgroundAroundCenter<T extends BackgroundTransform>(
+  background: T,
+  rotation: number,
+): T {
+  const center = backgroundLocalToMap(
+    { x: background.width / 2, y: background.height / 2 },
+    background,
+  );
+  const normalized = normalizeRotation(rotation);
+  const radians = (normalized * Math.PI) / 180;
+  const scaledCenter = {
+    x: (background.width * background.scaleX) / 2,
+    y: (background.height * background.scaleY) / 2,
+  };
+  const rotatedCenter = rotate(scaledCenter, radians);
+  return {
+    ...background,
+    rotation: normalized,
+    x: center.x - rotatedCenter.x,
+    y: center.y - rotatedCenter.y,
+  };
+}
+
+export function resetBackgroundAspectRatio<T extends BackgroundTransform>(background: T): T {
+  const center = backgroundLocalToMap(
+    { x: background.width / 2, y: background.height / 2 },
+    background,
+  );
+  const updated = { ...background, scaleY: background.scaleX };
+  const updatedCenter = backgroundLocalToMap(
+    { x: background.width / 2, y: background.height / 2 },
+    updated,
+  );
+  return {
+    ...updated,
+    x: updated.x + center.x - updatedCenter.x,
+    y: updated.y + center.y - updatedCenter.y,
+  };
+}
+
 function bounds(points: readonly MapPoint[], id: string): MapRect {
   const left = Math.min(...points.map(({ x }) => x));
   const top = Math.min(...points.map(({ y }) => y));
@@ -153,6 +201,50 @@ export function contains(rect: MapRect, point: MapPoint): boolean {
   );
 }
 
+export function rectangleLocalToMap(
+  point: MapPoint,
+  rectangle: MapRect,
+  rotation = rectangle.rotation ?? 0,
+): MapPoint {
+  const center = { x: rectangle.x + rectangle.width / 2, y: rectangle.y + rectangle.height / 2 };
+  const rotated = rotate(
+    { x: point.x - rectangle.width / 2, y: point.y - rectangle.height / 2 },
+    (rotation * Math.PI) / 180,
+  );
+  return { x: center.x + rotated.x, y: center.y + rotated.y };
+}
+
+export function mapToRectangleLocal(
+  point: MapPoint,
+  rectangle: MapRect,
+  rotation = rectangle.rotation ?? 0,
+): MapPoint {
+  const center = { x: rectangle.x + rectangle.width / 2, y: rectangle.y + rectangle.height / 2 };
+  const rotated = rotate(
+    { x: point.x - center.x, y: point.y - center.y },
+    (-rotation * Math.PI) / 180,
+  );
+  return { x: rotated.x + rectangle.width / 2, y: rotated.y + rectangle.height / 2 };
+}
+
+export function rotatedRectangleCorners(rectangle: MapRect): readonly MapPoint[] {
+  return [
+    rectangleLocalToMap({ x: 0, y: 0 }, rectangle),
+    rectangleLocalToMap({ x: rectangle.width, y: 0 }, rectangle),
+    rectangleLocalToMap({ x: rectangle.width, y: rectangle.height }, rectangle),
+    rectangleLocalToMap({ x: 0, y: rectangle.height }, rectangle),
+  ];
+}
+
+export function rotatedRectangleBounds(rectangle: MapRect): MapRect {
+  return bounds(rotatedRectangleCorners(rectangle), rectangle.id);
+}
+
+export function containsRotated(rectangle: MapRect, point: MapPoint): boolean {
+  const local = mapToRectangleLocal(point, rectangle);
+  return local.x >= 0 && local.x <= rectangle.width && local.y >= 0 && local.y <= rectangle.height;
+}
+
 export function intersects(first: MapRect, second: MapRect, touching = true): boolean {
   const compare = touching
     ? (left: number, right: number) => left <= right
@@ -165,6 +257,44 @@ export function intersects(first: MapRect, second: MapRect, touching = true): bo
   );
 }
 
+function projectionsOverlap(
+  first: readonly MapPoint[],
+  second: readonly MapPoint[],
+  axis: MapPoint,
+  touching: boolean,
+): boolean {
+  const project = (points: readonly MapPoint[]) => {
+    const values = points.map((point) => point.x * axis.x + point.y * axis.y);
+    return { maximum: Math.max(...values), minimum: Math.min(...values) };
+  };
+  const firstProjection = project(first);
+  const secondProjection = project(second);
+  return touching
+    ? firstProjection.minimum <= secondProjection.maximum &&
+        secondProjection.minimum <= firstProjection.maximum
+    : firstProjection.minimum < secondProjection.maximum &&
+        secondProjection.minimum < firstProjection.maximum;
+}
+
+export function rotatedRectanglesIntersect(
+  first: MapRect,
+  second: MapRect,
+  touching = true,
+): boolean {
+  const firstCorners = rotatedRectangleCorners(first);
+  const secondCorners = rotatedRectangleCorners(second);
+  const axes = [firstCorners, secondCorners].flatMap((corners) =>
+    [0, 1].map((index) => {
+      const start = corners[index];
+      const end = corners[index + 1];
+      const edge = { x: end.x - start.x, y: end.y - start.y };
+      const length = Math.hypot(edge.x, edge.y);
+      return { x: -edge.y / length, y: edge.x / length };
+    }),
+  );
+  return axes.every((axis) => projectionsOverlap(firstCorners, secondCorners, axis, touching));
+}
+
 export function hitTest(rectangles: readonly MapRect[], point: MapPoint): string | undefined {
   return [...rectangles]
     .sort(
@@ -174,11 +304,25 @@ export function hitTest(rectangles: readonly MapRect[], point: MapPoint): string
     .find((rectangle) => contains(rectangle, point))?.id;
 }
 
+export function hitTestRotated(
+  rectangles: readonly MapRect[],
+  point: MapPoint,
+): string | undefined {
+  return [...rectangles]
+    .sort(
+      (first, second) =>
+        (second.displayOrder ?? 0) - (first.displayOrder ?? 0) || second.id.localeCompare(first.id),
+    )
+    .find((rectangle) => containsRotated(rectangle, point))?.id;
+}
+
 export function selectIntersecting(
   rectangles: readonly MapRect[],
   selection: MapRect,
 ): readonly string[] {
-  return rectangles.filter((rectangle) => intersects(rectangle, selection)).map(({ id }) => id);
+  return rectangles
+    .filter((rectangle) => rotatedRectanglesIntersect(rectangle, selection))
+    .map(({ id }) => id);
 }
 
 type SnapAxis = Readonly<{ value: number; kind: 'edge' | 'corner' }>;

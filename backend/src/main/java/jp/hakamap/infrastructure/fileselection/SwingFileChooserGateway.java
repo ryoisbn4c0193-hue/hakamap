@@ -2,6 +2,8 @@ package jp.hakamap.infrastructure.fileselection;
 
 import java.awt.FileDialog;
 import java.awt.GraphicsEnvironment;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
@@ -13,6 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
 public final class SwingFileChooserGateway implements FileChooserGateway {
   @Override
@@ -109,6 +112,24 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
     chooser.setAlwaysOnTop(true);
     chooser.setMultipleMode(mode == FileSelectionMode.MULTIPLE_FILES);
     chooser.setLocationRelativeTo(null);
+    chooser.addWindowListener(
+        new WindowAdapter() {
+          @Override
+          public void windowOpened(WindowEvent event) {
+            chooser.toFront();
+            chooser.requestFocus();
+            Timer foregroundRetry =
+                new Timer(
+                    200,
+                    ignored -> {
+                      chooser.setAlwaysOnTop(true);
+                      chooser.toFront();
+                      chooser.requestFocus();
+                    });
+            foregroundRetry.setRepeats(false);
+            foregroundRetry.start();
+          }
+        });
     chooser.setVisible(true);
     File[] selected = chooser.getFiles();
     chooser.dispose();

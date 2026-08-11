@@ -557,6 +557,7 @@ public final class ProjectEditingApiService {
             id,
             new AreaName(payload.name()),
             rectangle(payload.x(), payload.y(), payload.width(), payload.height()),
+            payload.rotation() == null ? old.rotation() : new RotationDegrees(payload.rotation()),
             color(payload.colorPreset()),
             payload.visible(),
             old.displayOrder());
@@ -682,8 +683,11 @@ public final class ProjectEditingApiService {
     return mutation(
         replaceGrave(
             before,
-            old.move(
+            old.transform(
                 rectangle(payload.x(), payload.y(), payload.width(), payload.height()),
+                payload.rotation() == null
+                    ? old.rotation()
+                    : new RotationDegrees(payload.rotation()),
                 timestamp)));
   }
 
@@ -1152,6 +1156,7 @@ public final class ProjectEditingApiService {
         value.rectangle().top(),
         value.rectangle().size().width(),
         value.rectangle().size().height(),
+        value.rotation().value(),
         apiEnum(value.color()),
         value.visible(),
         value.displayOrder().value());

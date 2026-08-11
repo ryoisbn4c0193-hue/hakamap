@@ -128,6 +128,7 @@ public final class ProjectFileV1Mapper {
         value.rectangle().top(),
         value.rectangle().size().width(),
         value.rectangle().size().height(),
+        value.rotation().value(),
         value.color().name().toLowerCase(Locale.ROOT),
         value.visible(),
         value.displayOrder().value());
@@ -138,6 +139,7 @@ public final class ProjectFileV1Mapper {
         new AreaId(value.id()),
         new AreaName(value.name()),
         new MapRectangle(value.x(), value.y(), value.width(), value.height()),
+        value.rotation() == null ? RotationDegrees.ZERO : new RotationDegrees(value.rotation()),
         AreaColorPreset.valueOf(value.colorPreset().toUpperCase(Locale.ROOT)),
         value.visible(),
         new DisplayOrder(value.displayOrder()));

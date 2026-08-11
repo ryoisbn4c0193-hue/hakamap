@@ -115,6 +115,76 @@ class ProjectEditingApiServiceTest {
   }
 
   @Test
+  void rotatesAreaAndGraveThroughTypedCommandsAndKeepsUndoHistory() throws Exception {
+    TestContext context = context(emptyProject());
+    ProjectEditingApiService service = context.service();
+    service.execute(
+        PROJECT_ID,
+        "session-a",
+        0,
+        CommandType.CREATE_AREA,
+        new CommandPayloads.CreateArea(
+            "area-1",
+            "第一",
+            java.math.BigDecimal.ZERO,
+            java.math.BigDecimal.ZERO,
+            java.math.BigDecimal.valueOf(100),
+            java.math.BigDecimal.valueOf(100),
+            "blue",
+            true));
+    service.execute(
+        PROJECT_ID,
+        "session-a",
+        1,
+        CommandType.CREATE_GRAVE,
+        new CommandPayloads.CreateGrave(
+            "grave-1",
+            java.math.BigDecimal.valueOf(40),
+            java.math.BigDecimal.valueOf(40),
+            java.math.BigDecimal.TEN,
+            java.math.BigDecimal.valueOf(20)));
+    var snapshot = service.snapshot(PROJECT_ID);
+    var area = snapshot.areas().getFirst();
+    var grave = snapshot.graves().getFirst();
+
+    service.execute(
+        PROJECT_ID,
+        "session-a",
+        2,
+        CommandType.UPDATE_AREA,
+        new CommandPayloads.UpdateArea(
+            area.areaId(),
+            area.name(),
+            area.x(),
+            area.y(),
+            area.width(),
+            area.height(),
+            java.math.BigDecimal.valueOf(45),
+            area.colorPreset(),
+            area.visible()));
+    service.execute(
+        PROJECT_ID,
+        "session-a",
+        3,
+        CommandType.RESIZE_GRAVE,
+        new CommandPayloads.ResizeGrave(
+            grave.graveId(),
+            grave.x(),
+            grave.y(),
+            grave.width(),
+            grave.height(),
+            java.math.BigDecimal.valueOf(90)));
+
+    assertThat(service.snapshot(PROJECT_ID).areas().getFirst().rotation())
+        .isEqualByComparingTo("45");
+    assertThat(service.snapshot(PROJECT_ID).graves().getFirst().rotation())
+        .isEqualByComparingTo("90");
+    service.undo(PROJECT_ID, 4);
+    assertThat(service.snapshot(PROJECT_ID).graves().getFirst().rotation())
+        .isEqualByComparingTo("0");
+  }
+
+  @Test
   void updatesGraveInfoWhileTreatingBlankOptionalFieldsAsUnset() throws Exception {
     GraveId graveId = new GraveId(UUID.fromString("8644022a-bca2-4c3e-b811-19c28b7a2d58"));
     Grave grave =

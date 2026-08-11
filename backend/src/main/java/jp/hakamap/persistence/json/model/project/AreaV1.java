@@ -11,6 +11,7 @@ import java.util.UUID;
   "y",
   "width",
   "height",
+  "rotation",
   "colorPreset",
   "visible",
   "displayOrder"
@@ -22,6 +23,7 @@ public record AreaV1(
     BigDecimal y,
     BigDecimal width,
     BigDecimal height,
+    BigDecimal rotation,
     String colorPreset,
     boolean visible,
     int displayOrder) {}
