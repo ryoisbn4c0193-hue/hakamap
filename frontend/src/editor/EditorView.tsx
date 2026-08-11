@@ -96,6 +96,14 @@ export function editingErrorMessage(error: unknown): string {
   return '操作中に予期しないエラーが発生しました。入力内容は保持されています。';
 }
 
+export function placementWarningMessage(code: string, count: number): string {
+  const messages: Readonly<Record<string, string>> = {
+    outside_area_bounds: `エリア範囲外の墓所が${count}件あります。`,
+    unassigned: `所属エリアのない墓所が${count}件あります。`,
+  };
+  return messages[code] ?? `確認が必要な墓所が${count}件あります。`;
+}
+
 const emptyDraft: GraveDraft = { managementNumber: '', name: '', notes: '' };
 
 export function createAreaPayload(rectangle: MapRect, areaCount: number, clientRef: string) {
@@ -307,22 +315,24 @@ function EditorView({ projectId }: EditorViewProps) {
   return (
     <>
       {editingBusy ? <LinearProgress aria-label="操作を処理中" /> : null}
-      <Snackbar
-        anchorOrigin={{ horizontal: 'center', vertical: 'top' }}
-        autoHideDuration={5_000}
-        onClose={(_, reason) => {
-          if (reason !== 'clickaway') setNotification(undefined);
-        }}
-        open={notification !== undefined}
-      >
-        <Alert
-          onClose={() => setNotification(undefined)}
-          severity={notification?.severity ?? 'info'}
-          variant="filled"
+      {notification === undefined ? null : (
+        <Snackbar
+          anchorOrigin={{ horizontal: 'center', vertical: 'top' }}
+          autoHideDuration={5_000}
+          onClose={(_, reason) => {
+            if (reason !== 'clickaway') setNotification(undefined);
+          }}
+          open
         >
-          {notification?.message}
-        </Alert>
-      </Snackbar>
+          <Alert
+            onClose={() => setNotification(undefined)}
+            severity={notification.severity}
+            variant="filled"
+          >
+            {notification.message}
+          </Alert>
+        </Snackbar>
+      )}
       <Box
         className="editor-layout"
         component="main"
@@ -652,11 +662,7 @@ function EditorView({ projectId }: EditorViewProps) {
         <DialogContent>
           {pendingConfirmation?.warnings.map((warning) => (
             <Typography key={warning.code}>
-              {warning.code === 'outsideAreaBounds'
-                ? `エリア範囲外の墓所が${warning.count}件あります。`
-                : warning.code === 'unassigned'
-                  ? `所属エリアのない墓所が${warning.count}件あります。`
-                  : `${warning.code}: ${warning.count}件`}
+              {placementWarningMessage(warning.code, warning.count)}
             </Typography>
           ))}
           警告を確認したうえで配置できます。

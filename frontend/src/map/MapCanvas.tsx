@@ -74,6 +74,7 @@ function MapCanvas({
   const [selectedAreaId, setSelectedAreaId] = useState<string>();
   const host = useRef<HTMLDivElement>(null);
   const adapter = useRef<PixiMapAdapter | undefined>(undefined);
+  const fittedBackgroundId = useRef<string | undefined>(undefined);
   const callbacks = useRef({
     onAreaSelectionChange: (areaId?: string) => setSelectedAreaId(areaId),
     onCreateArea,
@@ -187,6 +188,18 @@ function MapCanvas({
   }, []);
 
   useEffect(() => adapter.current?.update(model), [model]);
+  useEffect(() => {
+    const backgroundId = model.background?.assetId;
+    const current = adapter.current;
+    if (
+      current !== undefined &&
+      backgroundId !== undefined &&
+      fittedBackgroundId.current !== backgroundId
+    ) {
+      current.fit();
+      fittedBackgroundId.current = backgroundId;
+    }
+  }, [model.background?.assetId]);
   useEffect(() => adapter.current?.setMode(mode), [mode]);
   useEffect(() => adapter.current?.setSnapEnabled(snap), [snap]);
   useEffect(() => adapter.current?.setInteractionEnabled(!busy), [busy]);
@@ -206,7 +219,7 @@ function MapCanvas({
           size="small"
           value={mode}
         >
-          <ToggleButton value="select">選択</ToggleButton>
+          <ToggleButton value="select">墓所編集</ToggleButton>
           <ToggleButton value="editArea">エリア編集</ToggleButton>
           <ToggleButton value="createGrave">墓所作成</ToggleButton>
           <ToggleButton value="createArea">エリア作成</ToggleButton>

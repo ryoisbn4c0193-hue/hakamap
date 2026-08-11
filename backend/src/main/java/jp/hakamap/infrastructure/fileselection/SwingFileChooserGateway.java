@@ -1,5 +1,6 @@
 package jp.hakamap.infrastructure.fileselection;
 
+import java.awt.FileDialog;
 import java.awt.GraphicsEnvironment;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
@@ -25,12 +26,6 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
     AtomicReference<List<Path>> result = new AtomicReference<>(List.of());
     Runnable dialog =
         () -> {
-          JFileChooser chooser = new JFileChooser();
-          chooser.setFileSelectionMode(
-              mode == FileSelectionMode.DIRECTORY
-                  ? JFileChooser.DIRECTORIES_ONLY
-                  : JFileChooser.FILES_ONLY);
-          chooser.setMultiSelectionEnabled(mode == FileSelectionMode.MULTIPLE_FILES);
           JFrame owner = new JFrame();
           owner.setAlwaysOnTop(true);
           owner.setType(java.awt.Window.Type.UTILITY);
@@ -40,23 +35,14 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
           owner.setVisible(true);
           owner.toFront();
           owner.requestFocus();
-          int answer;
           try {
-            answer =
-                purpose == FileSelectionPurpose.EXPORT_DESTINATION
-                    ? chooser.showSaveDialog(owner)
-                    : chooser.showOpenDialog(owner);
+            result.set(
+                mode == FileSelectionMode.DIRECTORY
+                    ? chooseDirectory(owner, purpose)
+                    : chooseNativeFiles(owner, mode, purpose));
           } finally {
             owner.dispose();
           }
-          if (answer != JFileChooser.APPROVE_OPTION) {
-            return;
-          }
-          File[] selected =
-              mode == FileSelectionMode.MULTIPLE_FILES
-                  ? chooser.getSelectedFiles()
-                  : new File[] {chooser.getSelectedFile()};
-          result.set(Arrays.stream(selected).map(File::toPath).toList());
         };
     try {
       if (SwingUtilities.isEventDispatchThread()) {
@@ -71,5 +57,31 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
     } catch (InvocationTargetException exception) {
       throw new FileSelectionException("file-selection-failed");
     }
+  }
+
+  private List<Path> chooseNativeFiles(
+      JFrame owner, FileSelectionMode mode, FileSelectionPurpose purpose) {
+    int dialogMode =
+        purpose == FileSelectionPurpose.EXPORT_DESTINATION ? FileDialog.SAVE : FileDialog.LOAD;
+    FileDialog chooser = new FileDialog(owner, "ファイルを選択", dialogMode);
+    chooser.setAlwaysOnTop(true);
+    chooser.setMultipleMode(mode == FileSelectionMode.MULTIPLE_FILES);
+    chooser.setLocationRelativeTo(null);
+    chooser.setVisible(true);
+    File[] selected = chooser.getFiles();
+    chooser.dispose();
+    return Arrays.stream(selected).map(File::toPath).toList();
+  }
+
+  private List<Path> chooseDirectory(JFrame owner, FileSelectionPurpose purpose) {
+    JFileChooser chooser = new JFileChooser();
+    chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+    int answer =
+        purpose == FileSelectionPurpose.EXPORT_DESTINATION
+            ? chooser.showSaveDialog(owner)
+            : chooser.showOpenDialog(owner);
+    return answer == JFileChooser.APPROVE_OPTION
+        ? List.of(chooser.getSelectedFile().toPath())
+        : List.of();
   }
 }

@@ -5,7 +5,11 @@ import { HakamapApiError } from '../api/hakamapClient';
 import AppProviders from '../app/AppProviders';
 import { useUiStore } from '../state/uiStore';
 
-import EditorView, { createAreaPayload, editingErrorMessage } from './EditorView';
+import EditorView, {
+  createAreaPayload,
+  editingErrorMessage,
+  placementWarningMessage,
+} from './EditorView';
 
 const projectId = '11111111-1111-4111-8111-111111111111';
 const firstGraveId = '22222222-2222-4222-8222-222222222222';
@@ -101,6 +105,13 @@ describe('EditorView', () => {
       'エリア同士は重ねられません。位置またはサイズを調整してください。',
     );
     expect(editingErrorMessage(new HakamapApiError(422, 'unknown-code'))).toContain('unknown-code');
+  });
+
+  it('配置警告の物理名を利用者向けメッセージへ変換する', () => {
+    expect(placementWarningMessage('outside_area_bounds', 1)).toBe(
+      'エリア範囲外の墓所が1件あります。',
+    );
+    expect(placementWarningMessage('unassigned', 2)).toBe('所属エリアのない墓所が2件あります。');
   });
 
   it('三領域と四つのプロパティタブを表示する', async () => {
