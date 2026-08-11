@@ -226,6 +226,16 @@ function App() {
             </Box>
             <Box component="section">
               <Typography component="h2" gutterBottom variant="h2">
+                背景画像の配置調整
+              </Typography>
+              <Typography>
+                「背景移動」を選び、画像内をドラッグすると移動できます。右下の四角いハンドルを
+                ドラッグすると縦横を拡縮し、Shiftキーを押しながら操作すると縦横比を維持します。
+                上辺中央の丸いハンドルをドラッグすると、時計回り・反時計回りに回転できます。
+              </Typography>
+            </Box>
+            <Box component="section">
+              <Typography component="h2" gutterBottom variant="h2">
                 墓所の選択・移動
               </Typography>
               <Typography>
@@ -239,7 +249,7 @@ function App() {
                 編集モードと保存
               </Typography>
               <Typography>
-                地図上部の「選択」「エリア編集」「墓所作成」「エリア作成」から操作を選びます。
+                地図上部の「墓所編集」「エリア編集」「墓所作成」「エリア作成」から操作を選びます。
                 プロパティの入力は「適用」で編集状態へ反映し、上部の「保存」でファイルへ
                 保存します。保存後も、プロジェクトを開いている間は履歴を元に戻せます。
               </Typography>

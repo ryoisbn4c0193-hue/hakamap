@@ -19,7 +19,12 @@ import { getBackgroundTileManifest, type ProjectSnapshot } from '../api/hakamapC
 
 import { graveLabel, type GraveLabelMode, type MapPoint, type MapRect } from './mapGeometry';
 import MapOutputDialog from './MapOutputDialog';
-import { PixiMapAdapter, type MapMode, type MapRenderModel } from './PixiMapAdapter';
+import {
+  PixiMapAdapter,
+  type MapBackground,
+  type MapMode,
+  type MapRenderModel,
+} from './PixiMapAdapter';
 
 type MapCanvasProps = {
   busy: boolean;
@@ -29,10 +34,6 @@ type MapCanvasProps = {
   onAreaNameChange: (areaId: string, name: string) => void;
   onChooseBackground: () => void;
   onCreateArea: (rectangle: MapRect) => void;
-  onBackgroundFieldChange: (
-    field: 'x' | 'y' | 'rotation' | 'scaleX' | 'scaleY',
-    value: number,
-  ) => void;
   onCreateGrave: (rectangle: MapRect) => void;
   onMoveGraves: (graveIds: readonly string[], delta: MapPoint) => void;
   onHistoryChange: (action: 'undo' | 'redo') => void;
@@ -40,7 +41,7 @@ type MapCanvasProps = {
   onRemoveBackground: () => void;
   onResizeGrave: (rectangle: MapRect) => void;
   onUpdateArea: (rectangle: MapRect) => void;
-  onTransformBackground: (x: number, y: number) => void;
+  onTransformBackground: (background: MapBackground) => void;
   onSelectionChange: (graveIds: readonly string[]) => void;
   onLabelModeChange: (mode: MapCanvasProps['labelMode']) => void;
   selectedIds: readonly string[];
@@ -54,7 +55,6 @@ function MapCanvas({
   canUndo,
   labelMode,
   onAreaNameChange,
-  onBackgroundFieldChange,
   onChooseBackground,
   onCreateArea,
   onCreateGrave,
@@ -176,7 +176,7 @@ function MapCanvas({
         onMoveGraves: (ids, delta) => callbacks.current.onMoveGraves(ids, delta),
         onResizeGrave: (rectangle) => callbacks.current.onResizeGrave(rectangle),
         onUpdateArea: (rectangle) => callbacks.current.onUpdateArea(rectangle),
-        onTransformBackground: (x, y) => callbacks.current.onTransformBackground(x, y),
+        onTransformBackground: (background) => callbacks.current.onTransformBackground(background),
         onSelectionChange: (ids) => callbacks.current.onSelectionChange(ids),
       })
       .then(() => next.resize(element.clientWidth, element.clientHeight));
@@ -275,32 +275,6 @@ function MapCanvas({
           <ToggleButton value="both">両方</ToggleButton>
           <ToggleButton value="hidden">非表示</ToggleButton>
         </ToggleButtonGroup>
-        {snapshot.background === null
-          ? null
-          : (['x', 'y', 'rotation', 'scaleX', 'scaleY'] as const).map((field) => (
-              <TextField
-                defaultValue={snapshot.background?.[field]}
-                disabled={busy}
-                slotProps={{ htmlInput: { step: field.startsWith('scale') ? 0.1 : 1 } }}
-                key={`${snapshot.background?.assetId}-${field}-${snapshot.revision}`}
-                label={
-                  {
-                    rotation: '回転',
-                    scaleX: 'X倍率',
-                    scaleY: 'Y倍率',
-                    x: '背景X',
-                    y: '背景Y',
-                  }[field]
-                }
-                onBlur={(event) => {
-                  const value = Number(event.target.value);
-                  if (Number.isFinite(value)) onBackgroundFieldChange(field, value);
-                }}
-                size="small"
-                sx={{ width: 76 }}
-                type="number"
-              />
-            ))}
         {mode === 'editArea' && selectedAreaId !== undefined ? (
           <TextField
             defaultValue={

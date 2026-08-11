@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   backgroundBounds,
+  backgroundLocalToMap,
   fitViewport,
   graveLabel,
   hitTest,
@@ -10,7 +11,9 @@ import {
   keepSnappedRectangleInsideArea,
   mapToScreen,
   mapBoundsToBackgroundLocal,
+  mapToBackgroundLocal,
   normalizeRect,
+  normalizeRotation,
   screenToMap,
   selectIntersecting,
   snapRectangle,
@@ -128,4 +131,28 @@ describe('map geometry', () => {
       expect(local.y + local.height).toBeGreaterThanOrEqual(background.height - 0.000_001);
     },
   );
+
+  it('converts rotated and independently scaled background points in both directions', () => {
+    const background = {
+      height: 100,
+      rotation: 315,
+      scaleX: 1.5,
+      scaleY: 0.75,
+      width: 200,
+      x: -30,
+      y: 40,
+    };
+    const local = { x: 120, y: 45 };
+    const restored = mapToBackgroundLocal(backgroundLocalToMap(local, background), background);
+    expect(restored.x).toBeCloseTo(local.x);
+    expect(restored.y).toBeCloseTo(local.y);
+  });
+
+  it.each([
+    [-2, 358],
+    [362, 2],
+    [-720, 0],
+  ])('normalizes mouse rotation %s to %s degrees', (rotation, expected) => {
+    expect(normalizeRotation(rotation)).toBe(expected);
+  });
 });

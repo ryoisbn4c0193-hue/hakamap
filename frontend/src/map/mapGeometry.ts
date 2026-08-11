@@ -77,6 +77,26 @@ function rotate(point: MapPoint, radians: number): MapPoint {
   };
 }
 
+export function backgroundLocalToMap(point: MapPoint, background: BackgroundTransform): MapPoint {
+  const rotated = rotate(
+    { x: point.x * background.scaleX, y: point.y * background.scaleY },
+    (background.rotation * Math.PI) / 180,
+  );
+  return { x: rotated.x + background.x, y: rotated.y + background.y };
+}
+
+export function mapToBackgroundLocal(point: MapPoint, background: BackgroundTransform): MapPoint {
+  const rotated = rotate(
+    { x: point.x - background.x, y: point.y - background.y },
+    (-background.rotation * Math.PI) / 180,
+  );
+  return { x: rotated.x / background.scaleX, y: rotated.y / background.scaleY };
+}
+
+export function normalizeRotation(rotation: number): number {
+  return ((rotation % 360) + 360) % 360;
+}
+
 function bounds(points: readonly MapPoint[], id: string): MapRect {
   const left = Math.min(...points.map(({ x }) => x));
   const top = Math.min(...points.map(({ y }) => y));
@@ -86,20 +106,13 @@ function bounds(points: readonly MapPoint[], id: string): MapRect {
 }
 
 export function backgroundBounds(background: BackgroundTransform): MapRect {
-  const radians = (background.rotation * Math.PI) / 180;
   return bounds(
     [
       { x: 0, y: 0 },
-      { x: background.width * background.scaleX, y: 0 },
-      { x: 0, y: background.height * background.scaleY },
-      {
-        x: background.width * background.scaleX,
-        y: background.height * background.scaleY,
-      },
-    ].map((point) => {
-      const rotated = rotate(point, radians);
-      return { x: rotated.x + background.x, y: rotated.y + background.y };
-    }),
+      { x: background.width, y: 0 },
+      { x: 0, y: background.height },
+      { x: background.width, y: background.height },
+    ].map((point) => backgroundLocalToMap(point, background)),
     'background',
   );
 }
@@ -108,20 +121,13 @@ export function mapBoundsToBackgroundLocal(
   mapBounds: MapRect,
   background: BackgroundTransform,
 ): MapRect {
-  const inverseRadians = (-background.rotation * Math.PI) / 180;
   return bounds(
     [
       { x: mapBounds.x, y: mapBounds.y },
       { x: mapBounds.x + mapBounds.width, y: mapBounds.y },
       { x: mapBounds.x, y: mapBounds.y + mapBounds.height },
       { x: mapBounds.x + mapBounds.width, y: mapBounds.y + mapBounds.height },
-    ].map((point) => {
-      const rotated = rotate(
-        { x: point.x - background.x, y: point.y - background.y },
-        inverseRadians,
-      );
-      return { x: rotated.x / background.scaleX, y: rotated.y / background.scaleY };
-    }),
+    ].map((point) => mapToBackgroundLocal(point, background)),
     'background-local',
   );
 }

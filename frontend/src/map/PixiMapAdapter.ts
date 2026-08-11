@@ -2,12 +2,15 @@ import { Application, Assets, Container, Graphics, Sprite, Text, type Texture } 
 
 import {
   backgroundBounds,
+  backgroundLocalToMap,
   fitViewport,
   hitTest,
   inverseViewportScale,
   intersects,
   keepSnappedRectangleInsideArea,
   mapBoundsToBackgroundLocal,
+  mapToBackgroundLocal,
+  normalizeRotation,
   normalizeRect,
   screenToMap,
   selectIntersecting,
@@ -22,23 +25,24 @@ export type MapArea = MapRect &
   Readonly<{ color: string; name: string; visible: boolean; displayOrder: number }>;
 export type MapGrave = MapRect & Readonly<{ label: string; rotation: number }>;
 export type MapRenderModel = Readonly<{
-  background?: Readonly<{
-    assetId: string;
-    height: number;
-    maximumLevel: number;
-    projectId: string;
-    rotation: number;
-    scaleX: number;
-    scaleY: number;
-    tileSize: number;
-    width: number;
-    x: number;
-    y: number;
-  }>;
+  background?: MapBackground;
   areas: readonly MapArea[];
   graves: readonly MapGrave[];
   labelMode: 'managementNumber' | 'name' | 'both' | 'hidden';
   selectedIds: readonly string[];
+}>;
+export type MapBackground = Readonly<{
+  assetId: string;
+  height: number;
+  maximumLevel: number;
+  projectId: string;
+  rotation: number;
+  scaleX: number;
+  scaleY: number;
+  tileSize: number;
+  width: number;
+  x: number;
+  y: number;
 }>;
 export type MapMode = 'select' | 'editArea' | 'createGrave' | 'createArea' | 'transformBackground';
 export type MapCallbacks = Readonly<{
@@ -48,7 +52,7 @@ export type MapCallbacks = Readonly<{
   onMoveGraves: (graveIds: readonly string[], delta: MapPoint) => void;
   onResizeGrave: (rectangle: MapRect) => void;
   onUpdateArea: (rectangle: MapRect) => void;
-  onTransformBackground: (x: number, y: number) => void;
+  onTransformBackground: (background: MapBackground) => void;
   onSelectionChange: (graveIds: readonly string[]) => void;
 }>;
 
@@ -63,7 +67,13 @@ type PointerOperation =
     }>
   | Readonly<{ kind: 'resize'; original: MapRect; start: MapPoint }>
   | Readonly<{ kind: 'area'; original: MapRect; resizing: boolean; start: MapPoint }>
-  | Readonly<{ kind: 'background'; original: MapPoint; start: MapPoint }>
+  | Readonly<{
+      action: 'move' | 'resize' | 'rotate';
+      kind: 'background';
+      original: MapBackground;
+      start: MapPoint;
+      startAngle: number;
+    }>
   | Readonly<{ kind: 'create'; start: MapPoint }>;
 
 const AREA_COLORS: Readonly<Record<string, number>> = {
@@ -102,6 +112,7 @@ export class PixiMapAdapter {
   private mode: MapMode = 'select';
   private operation?: PointerOperation;
   private preview?: MapRect;
+  private backgroundPreview?: MapBackground;
   private guides: Readonly<{ x?: number; y?: number }> = {};
   private snapEnabled = true;
   private interactionEnabled = true;
@@ -116,6 +127,7 @@ export class PixiMapAdapter {
   private readonly backgroundSprites = new Map<string, Sprite>();
   private readonly backgroundTextures = new Map<string, Texture>();
   private readonly backgroundUrls = new Map<string, string>();
+  private readonly backgroundLoadingKeys = new Set<string>();
   private requiredBackgroundKeys: ReadonlySet<string> = new Set();
 
   async mount(container: HTMLElement, callbacks: MapCallbacks): Promise<void> {
@@ -156,6 +168,7 @@ export class PixiMapAdapter {
   update(model: MapRenderModel): void {
     this.model = model;
     this.preview = undefined;
+    this.backgroundPreview = undefined;
     this.render();
   }
 
@@ -257,9 +270,11 @@ export class PixiMapAdapter {
     this.backgroundSprites.clear();
     this.backgroundTextures.clear();
     this.backgroundUrls.clear();
+    this.backgroundLoadingKeys.clear();
     this.requiredBackgroundKeys = new Set();
     this.callbacks = undefined;
     this.operation = undefined;
+    this.backgroundPreview = undefined;
   }
 
   private readonly localPoint = (event: PointerEvent | WheelEvent): MapPoint => {
@@ -280,10 +295,37 @@ export class PixiMapAdapter {
     if (this.mode === 'transformBackground') {
       const background = this.model.background;
       if (background !== undefined) {
+        const resizeHandle = backgroundLocalToMap(
+          { x: background.width, y: background.height },
+          background,
+        );
+        const rotationHandle = backgroundLocalToMap(
+          {
+            x: background.width / 2,
+            y: -28 / (background.scaleY * this.viewport.scale),
+          },
+          background,
+        );
+        const handleDistance = 12 / this.viewport.scale;
+        const near = (point: MapPoint) =>
+          Math.hypot(map.x - point.x, map.y - point.y) <= handleDistance;
+        const local = mapToBackgroundLocal(map, background);
+        const inside =
+          local.x >= 0 &&
+          local.x <= background.width &&
+          local.y >= 0 &&
+          local.y <= background.height;
+        let action: 'move' | 'resize' | 'rotate' | undefined;
+        if (near(rotationHandle)) action = 'rotate';
+        else if (near(resizeHandle)) action = 'resize';
+        else if (inside) action = 'move';
+        if (action === undefined) return;
         this.operation = {
+          action,
           kind: 'background',
-          original: { x: background.x, y: background.y },
+          original: background,
           start: map,
+          startAngle: Math.atan2(map.y - background.y, map.x - background.x),
         };
       }
       return;
@@ -391,13 +433,31 @@ export class PixiMapAdapter {
         this.preview = candidate;
       }
     } else if (this.operation.kind === 'background') {
-      this.preview = {
-        height: 0,
-        id: 'background',
-        width: 0,
-        x: this.operation.original.x + map.x - this.operation.start.x,
-        y: this.operation.original.y + map.y - this.operation.start.y,
-      };
+      const { action, original } = this.operation;
+      if (action === 'move') {
+        this.backgroundPreview = {
+          ...original,
+          x: original.x + map.x - this.operation.start.x,
+          y: original.y + map.y - this.operation.start.y,
+        };
+      } else if (action === 'resize') {
+        const local = mapToBackgroundLocal(map, original);
+        let scaleX = Math.max(0.001, (local.x / original.width) * original.scaleX);
+        let scaleY = Math.max(0.001, (local.y / original.height) * original.scaleY);
+        if (event.shiftKey) {
+          const factor = Math.max(scaleX / original.scaleX, scaleY / original.scaleY);
+          scaleX = original.scaleX * factor;
+          scaleY = original.scaleY * factor;
+        }
+        this.backgroundPreview = { ...original, scaleX, scaleY };
+      } else {
+        const angle = Math.atan2(map.y - original.y, map.x - original.x);
+        const delta = ((angle - this.operation.startAngle) * 180) / Math.PI;
+        this.backgroundPreview = {
+          ...original,
+          rotation: normalizeRotation(original.rotation + delta),
+        };
+      }
     } else {
       let delta = {
         x: map.x - this.operation.origin.x,
@@ -435,8 +495,8 @@ export class PixiMapAdapter {
     const operation = this.operation;
     if (operation === undefined) return;
     const map = screenToMap(this.localPoint(event), this.viewport);
-    if (operation.kind === 'background' && this.preview !== undefined) {
-      this.callbacks?.onTransformBackground(this.preview.x, this.preview.y);
+    if (operation.kind === 'background' && this.backgroundPreview !== undefined) {
+      this.callbacks?.onTransformBackground(this.backgroundPreview);
     } else if (operation.kind === 'select') {
       const selection = normalizeRect(operation.start, map);
       const ids =
@@ -468,6 +528,7 @@ export class PixiMapAdapter {
     }
     this.operation = undefined;
     this.preview = undefined;
+    this.backgroundPreview = undefined;
     this.guides = {};
     this.render();
   };
@@ -475,6 +536,7 @@ export class PixiMapAdapter {
   private readonly cancelOperation = (): void => {
     this.operation = undefined;
     this.preview = undefined;
+    this.backgroundPreview = undefined;
     this.guides = {};
     this.render();
   };
@@ -598,6 +660,7 @@ export class PixiMapAdapter {
           .stroke({ color: 0x1976d2, width: 1 / this.viewport.scale }),
       );
     }
+    this.renderBackgroundHandles();
     const width = this.application.screen.width / this.viewport.scale;
     const height = this.application.screen.height / this.viewport.scale;
     if (this.guides.x !== undefined) {
@@ -620,8 +683,9 @@ export class PixiMapAdapter {
   }
 
   private renderBackground(): void {
-    const background = this.model.background;
+    const background = this.backgroundPreview ?? this.model.background;
     if (background === undefined || this.application === undefined) {
+      this.requiredBackgroundKeys = new Set();
       this.releaseBackgroundTiles(new Set());
       return;
     }
@@ -654,17 +718,23 @@ export class PixiMapAdapter {
       Math.floor((visible.y + visible.height) / tileMapSize) + 1,
     );
     const required = new Set<string>();
+    this.requiredBackgroundKeys = required;
     for (let row = firstRow; row <= lastRow; row += 1) {
       for (let column = firstColumn; column <= lastColumn; column += 1) {
         const key = `${background.assetId}:${level}:${column}:${row}`;
         required.add(key);
-        if (!this.backgroundSprites.has(key) && !this.backgroundTextures.has(key)) {
+        if (
+          !this.backgroundSprites.has(key) &&
+          !this.backgroundTextures.has(key) &&
+          !this.backgroundLoadingKeys.has(key)
+        ) {
           const url = backgroundTileUrl(background.projectId, level, column, row);
           this.backgroundUrls.set(key, url);
+          this.backgroundLoadingKeys.add(key);
           void Assets.load<Texture>({ format: 'png', src: url })
             .then((texture) => {
               if (this.application === undefined || !this.requiredBackgroundKeys.has(key)) {
-                texture.destroy(true);
+                void Assets.unload(url).catch(() => undefined);
                 return;
               }
               const sprite = new Sprite(texture);
@@ -678,6 +748,9 @@ export class PixiMapAdapter {
             })
             .catch(() => {
               this.backgroundUrls.delete(key);
+            })
+            .finally(() => {
+              this.backgroundLoadingKeys.delete(key);
             });
         }
       }
@@ -685,8 +758,47 @@ export class PixiMapAdapter {
     this.backgroundLayer.position.set(background.x, background.y);
     this.backgroundLayer.scale.set(background.scaleX, background.scaleY);
     this.backgroundLayer.rotation = (background.rotation * Math.PI) / 180;
-    this.requiredBackgroundKeys = required;
     this.releaseBackgroundTiles(required);
+  }
+
+  private renderBackgroundHandles(): void {
+    const background = this.backgroundPreview ?? this.model.background;
+    if (this.mode !== 'transformBackground' || background === undefined) return;
+    const corners = [
+      backgroundLocalToMap({ x: 0, y: 0 }, background),
+      backgroundLocalToMap({ x: background.width, y: 0 }, background),
+      backgroundLocalToMap({ x: background.width, y: background.height }, background),
+      backgroundLocalToMap({ x: 0, y: background.height }, background),
+    ];
+    const resizeHandle = corners[2];
+    const topCenter = backgroundLocalToMap({ x: background.width / 2, y: 0 }, background);
+    const rotationHandle = backgroundLocalToMap(
+      {
+        x: background.width / 2,
+        y: -28 / (background.scaleY * this.viewport.scale),
+      },
+      background,
+    );
+    const size = 10 / this.viewport.scale;
+    const outline = new Graphics()
+      .moveTo(corners[0].x, corners[0].y)
+      .lineTo(corners[1].x, corners[1].y)
+      .lineTo(corners[2].x, corners[2].y)
+      .lineTo(corners[3].x, corners[3].y)
+      .closePath()
+      .stroke({ color: 0x1565c0, width: 2 / this.viewport.scale })
+      .moveTo(topCenter.x, topCenter.y)
+      .lineTo(rotationHandle.x, rotationHandle.y)
+      .stroke({ color: 0x1565c0, width: 1 / this.viewport.scale });
+    const resize = new Graphics()
+      .rect(resizeHandle.x - size / 2, resizeHandle.y - size / 2, size, size)
+      .fill({ color: 0xffffff })
+      .stroke({ color: 0x1565c0, width: 1 / this.viewport.scale });
+    const rotation = new Graphics()
+      .circle(rotationHandle.x, rotationHandle.y, size / 2)
+      .fill({ color: 0xffffff })
+      .stroke({ color: 0x1565c0, width: 1 / this.viewport.scale });
+    this.overlayLayer.addChild(outline, resize, rotation);
   }
 
   private releaseBackgroundTiles(required: ReadonlySet<string>): void {
@@ -695,10 +807,9 @@ export class PixiMapAdapter {
         this.backgroundLayer.removeChild(sprite);
         sprite.destroy();
         this.backgroundSprites.delete(key);
-        this.backgroundTextures.get(key)?.destroy(true);
         this.backgroundTextures.delete(key);
         const url = this.backgroundUrls.get(key);
-        if (url !== undefined) void Assets.unload(url);
+        if (url !== undefined) void Assets.unload(url).catch(() => undefined);
         this.backgroundUrls.delete(key);
       }
     });

@@ -449,19 +449,6 @@ function EditorView({ projectId }: EditorViewProps) {
           canUndo={snapshot.data.historySummary.canUndo}
           focusedGraveId={focusedGraveId ?? firstSearchGraveId}
           labelMode={labelMode}
-          onBackgroundFieldChange={(field, value) => {
-            const background = snapshot.data.background;
-            if (background !== null && background[field] !== value) {
-              mapCommand('transformBackground', {
-                rotation: background.rotation,
-                scaleX: background.scaleX,
-                scaleY: background.scaleY,
-                x: background.x,
-                y: background.y,
-                [field]: value,
-              });
-            }
-          }}
           onAreaNameChange={(areaId, name) => {
             const area = snapshot.data.areas.find((candidate) => candidate.areaId === areaId);
             if (area !== undefined) {
@@ -525,17 +512,14 @@ function EditorView({ projectId }: EditorViewProps) {
               });
             }
           }}
-          onTransformBackground={(x, y) => {
-            const background = snapshot.data.background;
-            if (background !== null) {
-              mapCommand('transformBackground', {
-                rotation: background.rotation,
-                scaleX: background.scaleX,
-                scaleY: background.scaleY,
-                x,
-                y,
-              });
-            }
+          onTransformBackground={(background) => {
+            mapCommand('transformBackground', {
+              rotation: background.rotation,
+              scaleX: background.scaleX,
+              scaleY: background.scaleY,
+              x: background.x,
+              y: background.y,
+            });
           }}
           onSelectionChange={(graveIds) => {
             if (graveIds.length <= 1) requestSelection(graveIds[0]);
