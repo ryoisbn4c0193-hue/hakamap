@@ -73,6 +73,11 @@ const AREA_COLORS: Readonly<Record<string, number>> = {
   yellow: 0xfff59d,
 };
 
+export function displayResolution(devicePixelRatio: number): number {
+  if (!Number.isFinite(devicePixelRatio)) return 1;
+  return Math.min(2, Math.max(1, devicePixelRatio));
+}
+
 export class PixiMapAdapter {
   private application?: Application;
   private callbacks?: MapCallbacks;
@@ -88,6 +93,7 @@ export class PixiMapAdapter {
   private guides: Readonly<{ x?: number; y?: number }> = {};
   private snapEnabled = true;
   private interactionEnabled = true;
+  private textResolution = 1;
   private selectedAreaId?: string;
   private viewport: Viewport = { scale: 1, x: 40, y: 40 };
   private readonly viewportContainer = new Container();
@@ -103,8 +109,15 @@ export class PixiMapAdapter {
   async mount(container: HTMLElement, callbacks: MapCallbacks): Promise<void> {
     this.destroy();
     this.callbacks = callbacks;
+    this.textResolution = displayResolution(window.devicePixelRatio);
     const application = new Application();
-    await application.init({ antialias: true, background: '#f4f2eb', resizeTo: container });
+    await application.init({
+      antialias: true,
+      autoDensity: true,
+      background: '#f4f2eb',
+      resizeTo: container,
+      resolution: this.textResolution,
+    });
     const probe = document.createElement('canvas');
     const gl = probe.getContext('webgl2') ?? probe.getContext('webgl');
     if (gl !== null && Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) < 1024) {
@@ -448,6 +461,7 @@ export class PixiMapAdapter {
             width: (selected ? 2 : 1) / this.viewport.scale,
           });
         const label = new Text({
+          resolution: this.textResolution,
           style: { fill: 0x263238, fontSize: 12 },
           text: area.name,
         });
@@ -485,6 +499,7 @@ export class PixiMapAdapter {
       ) {
         const textScale = inverseViewportScale(this.viewport.scale);
         const label = new Text({
+          resolution: this.textResolution,
           style: {
             fill: 0x263238,
             fontSize: 10,
