@@ -667,6 +667,13 @@ export class PixiMapAdapter {
     this.areaLayer.removeChildren().forEach((child) => child.destroy());
     this.graveLayer.removeChildren().forEach((child) => child.destroy());
     this.overlayLayer.removeChildren().forEach((child) => child.destroy());
+    const viewportBounds: MapRect = {
+      height: this.application.screen.height / this.viewport.scale,
+      id: 'viewport',
+      width: this.application.screen.width / this.viewport.scale,
+      x: -this.viewport.x / this.viewport.scale,
+      y: -this.viewport.y / this.viewport.scale,
+    };
     this.model.areas
       .filter(({ visible }) => visible)
       .sort(
@@ -708,14 +715,11 @@ export class PixiMapAdapter {
           this.renderRectangleHandles(area);
         }
       });
-    const viewportBounds: MapRect = {
-      height: this.application.screen.height / this.viewport.scale,
-      id: 'viewport',
-      width: this.application.screen.width / this.viewport.scale,
-      x: -this.viewport.x / this.viewport.scale,
-      y: -this.viewport.y / this.viewport.scale,
-    };
-    this.model.graves.forEach((grave) => {
+    const visibleGraves = this.model.graves.filter((grave) =>
+      intersects(rotatedRectangleBounds(grave), viewportBounds),
+    );
+    const graveGraphics = new Graphics();
+    visibleGraves.forEach((grave) => {
       const selected = this.model.selectedIds.includes(grave.id);
       const overlapping =
         this.preview?.id === grave.id &&
@@ -724,22 +728,23 @@ export class PixiMapAdapter {
             other.id !== grave.id &&
             rotatedRectanglesIntersect(this.preview as MapRect, other, false),
         );
-      const graphic = new Graphics()
-        .rect(grave.x, grave.y, grave.width, grave.height)
+      const corners = rotatedRectangleCorners(grave);
+      graveGraphics
+        .moveTo(corners[0].x, corners[0].y)
+        .lineTo(corners[1].x, corners[1].y)
+        .lineTo(corners[2].x, corners[2].y)
+        .lineTo(corners[3].x, corners[3].y)
+        .closePath()
         .fill({ color: 0xfafafa })
         .stroke({
           color: overlapping ? 0xd32f2f : selected ? 0x1565c0 : 0x455a64,
           width: (selected ? 2 : 1) / this.viewport.scale,
         });
-      graphic.pivot.set(grave.x + grave.width / 2, grave.y + grave.height / 2);
-      graphic.position.set(grave.x + grave.width / 2, grave.y + grave.height / 2);
-      graphic.rotation = (grave.rotation * Math.PI) / 180;
-      this.graveLayer.addChild(graphic);
       if (
         grave.label.length > 0 &&
         this.model.labelMode !== 'hidden' &&
         this.viewport.scale >= 0.5 &&
-        intersects(grave, viewportBounds)
+        visibleGraves.length <= 300
       ) {
         const textScale = inverseViewportScale(this.viewport.scale);
         const label = new Text({
@@ -764,6 +769,7 @@ export class PixiMapAdapter {
         this.renderRectangleHandles(grave);
       }
     });
+    this.graveLayer.addChildAt(graveGraphics, 0);
     if (this.preview !== undefined) {
       const corners = rotatedRectangleCorners(this.preview);
       this.overlayLayer.addChild(

@@ -105,6 +105,7 @@ export function placementWarningMessage(code: string, count: number): string {
 }
 
 const emptyDraft: GraveDraft = { managementNumber: '', name: '', notes: '' };
+const GRAVE_LIST_PAGE_SIZE = 200;
 
 export function createAreaPayload(rectangle: MapRect, areaCount: number, clientRef: string) {
   return {
@@ -147,6 +148,7 @@ function EditorView({ projectId }: EditorViewProps) {
   });
   const [searchInput, setSearchInput] = useState('');
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [graveListLimit, setGraveListLimit] = useState(GRAVE_LIST_PAGE_SIZE);
   const [focusedGraveId, setFocusedGraveId] = useState<string>();
   const searchResults = useInfiniteQuery<
     GraveSearchPage,
@@ -431,7 +433,7 @@ function EditorView({ projectId }: EditorViewProps) {
           </Box>
           <Divider />
           <List aria-label="墓所一覧" dense>
-            {snapshot.data.graves.map((grave) => {
+            {snapshot.data.graves.slice(0, graveListLimit).map((grave) => {
               const state = states.get(grave.graveId);
               return (
                 <ListItemButton
@@ -447,6 +449,15 @@ function EditorView({ projectId }: EditorViewProps) {
               );
             })}
           </List>
+          {graveListLimit < snapshot.data.graves.length ? (
+            <Button
+              onClick={() => setGraveListLimit((current) => current + GRAVE_LIST_PAGE_SIZE)}
+              size="small"
+            >
+              続きを表示（{Math.min(graveListLimit, snapshot.data.graves.length)}／
+              {snapshot.data.graves.length}）
+            </Button>
+          ) : null}
         </Paper>
 
         <MapCanvas
