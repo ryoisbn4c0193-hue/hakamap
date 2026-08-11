@@ -5,6 +5,7 @@ import {
   fitViewport,
   graveLabel,
   hitTest,
+  inverseViewportScale,
   intersects,
   mapToScreen,
   mapBoundsToBackgroundLocal,
@@ -29,6 +30,10 @@ describe('map geometry', () => {
     const before = { scale: 1, x: 20, y: -30 };
     const mapPoint = screenToMap(pointer, before);
     expect(mapToScreen(mapPoint, zoomAt(before, pointer, 1.2))).toEqual(pointer);
+  });
+
+  it.each([0.1, 1, 8])('keeps text at a constant screen scale at zoom %s', (scale) => {
+    expect(scale * inverseViewportScale(scale)).toBeCloseTo(1);
   });
 
   it('normalizes all rectangle drag directions and selects edge contacts', () => {

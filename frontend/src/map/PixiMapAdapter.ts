@@ -4,6 +4,7 @@ import {
   backgroundBounds,
   fitViewport,
   hitTest,
+  inverseViewportScale,
   intersects,
   mapBoundsToBackgroundLocal,
   normalizeRect,
@@ -437,6 +438,7 @@ export class PixiMapAdapter {
           first.displayOrder - second.displayOrder || first.id.localeCompare(second.id),
       )
       .forEach((area) => {
+        const textScale = inverseViewportScale(this.viewport.scale);
         const selected = area.id === this.selectedAreaId;
         const graphic = new Graphics()
           .rect(area.x, area.y, area.width, area.height)
@@ -446,9 +448,10 @@ export class PixiMapAdapter {
             width: (selected ? 2 : 1) / this.viewport.scale,
           });
         const label = new Text({
-          style: { fill: 0x263238, fontSize: 12 / this.viewport.scale },
+          style: { fill: 0x263238, fontSize: 12 },
           text: area.name,
         });
+        label.scale.set(textScale);
         label.position.set(area.x + 3 / this.viewport.scale, area.y + 2 / this.viewport.scale);
         this.areaLayer.addChild(graphic, label);
       });
@@ -480,14 +483,16 @@ export class PixiMapAdapter {
         this.viewport.scale >= 0.5 &&
         intersects(grave, viewportBounds)
       ) {
+        const textScale = inverseViewportScale(this.viewport.scale);
         const label = new Text({
           style: {
             fill: 0x263238,
-            fontSize: 10 / this.viewport.scale,
-            stroke: { color: 0xffffff, width: 2 / this.viewport.scale },
+            fontSize: 10,
+            stroke: { color: 0xffffff, width: 2 },
           },
           text: grave.label,
         });
+        label.scale.set(textScale);
         label.position.set(
           grave.x + grave.width / 2 - label.width / 2,
           grave.y + grave.height / 2 - label.height / 2,

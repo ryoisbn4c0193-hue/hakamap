@@ -56,6 +56,10 @@ export function screenToMap(point: MapPoint, viewport: Viewport): MapPoint {
   };
 }
 
+export function inverseViewportScale(viewportScale: number): number {
+  return 1 / viewportScale;
+}
+
 export function zoomAt(viewport: Viewport, screenPoint: MapPoint, factor: number): Viewport {
   const mapPoint = screenToMap(screenPoint, viewport);
   const scale = clampZoom(viewport.scale * factor);
