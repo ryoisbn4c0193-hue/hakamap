@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   backgroundTileUrl,
   displayResolution,
+  SELECTED_GRAVE_COLOR,
+  SELECTED_GRAVE_FILL_ALPHA,
   STATIC_MAP_APPLICATION_OPTIONS,
 } from './PixiMapAdapter';
 
@@ -16,6 +18,13 @@ describe('displayResolution', () => {
     [Number.NaN, 1],
   ])('端末倍率%sを描画解像度%sとして扱う', (devicePixelRatio, expected) => {
     expect(displayResolution(devicePixelRatio)).toBe(expected);
+  });
+});
+
+describe('選択墓所の表示', () => {
+  it('状態色のシアンで半透明に塗り、背景との差を視認できる', () => {
+    expect(SELECTED_GRAVE_COLOR).toBe(0x00e5ff);
+    expect(SELECTED_GRAVE_FILL_ALPHA).toBeGreaterThanOrEqual(0.4);
   });
 });
 

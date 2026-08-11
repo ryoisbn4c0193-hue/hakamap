@@ -837,6 +837,16 @@ Phase 10のデータ安全性、排他制御、アーカイブ防御、および
   エクスポート、バックアップ、操作ガイド、終了、背景操作、Undo／Redo、ズーム、
   全体表示、および印刷をMUI公式アイコンへ変更した。各アイコンには日本語の
   アクセシブルな名前とツールチップを付け、操作モードなどの文字は維持した。
+- Project追加の保存先選択だけが旧式のSwing `JFileChooser`で残っていたため、JNA経由の
+  Windows `IFileOpenDialog`へ置き換えた。修正版EXEで、Windows 11のエクスプローラー型
+  フォルダー選択、前面表示、キャンセル、および日本語パスを実機確認する必要がある。
+- 検索結果から墓所の場所を目視できるよう、選択中の墓所をシアンの半透明塗りつぶしと
+  太い枠線で強調するよう変更した。通常クリックによる選択にも同じ表示を適用する。
+- 地図の縮小下限を固定10%ではなく表示対象から算出し、背景設定時は回転・拡縮後の背景全体が
+  表示領域へ最大限収まる倍率より小さくできないよう変更した。背景未設定時はエリア・墓所全体を
+  基準とし、全体表示と縮小下限で同じ範囲計算を使用する。
+- Windowsショートカットと同じ正式アイコンPNGをViteの公開アセットとして参照し、
+  ブラウザタブのfaviconにも使用するよう変更した。
 - 再起動前の一時アセットが残るProjectで、「変更を破棄」が
   `asset-staging-cleanup-failed`となる不具合を確認した。破棄時はメモリ上の一覧だけでなく、
   対象Project専用の一時領域を再帰削除するよう修正した。削除失敗時は編集画面と
@@ -925,6 +935,13 @@ Windows側のリポジトリを更新し、`packaging/windows/README.md`に従�
 
 ## 検査結果
 
+- 選択墓所の強調表示と動的な縮小下限追加後の
+  `cd frontend && pnpm format && pnpm lint && pnpm test && pnpm build`: 成功。
+  フロントエンド60件、ESLint、Prettier、およびTypeScript本番ビルドを含む。正式アイコンPNGと
+  favicon参照がVite成果物へ含まれることも確認した。
+- Windowsネイティブフォルダー選択追加後の`cd backend && ./mvnw spotless:apply verify`と
+  `cd backend && ./mvnw verify`: 成功。フロントエンド57件、Java 140件、Checkstyle、
+  Spotless、および実行可能JAR生成を含む。Windows 11での外観と前面表示は実機確認待ち。
 - 正式アイコン組込み、MUI操作アイコン、およびUI追加改善後の
   `cd backend && ./mvnw spotless:apply verify`と`cd backend && ./mvnw verify`: 成功。
   フロントエンド57件、Java 140件、ESLint、Prettier、TypeScriptビルド、Checkstyle、

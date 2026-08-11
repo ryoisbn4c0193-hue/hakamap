@@ -110,6 +110,8 @@ const AREA_COLORS: Readonly<Record<string, number>> = {
   yellow: 0xfff59d,
 };
 const MAP_LABEL_FONT = '"Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif';
+export const SELECTED_GRAVE_COLOR = 0x00e5ff;
+export const SELECTED_GRAVE_FILL_ALPHA = 0.45;
 export const STATIC_MAP_APPLICATION_OPTIONS = Object.freeze({
   antialias: true,
   autoDensity: true,
@@ -198,6 +200,7 @@ export class PixiMapAdapter {
     this.model = model;
     this.preview = undefined;
     this.backgroundPreview = undefined;
+    this.ensureMinimumZoom();
     this.render();
   }
 
@@ -222,28 +225,25 @@ export class PixiMapAdapter {
       x: (this.application?.screen.width ?? 0) / 2,
       y: (this.application?.screen.height ?? 0) / 2,
     };
-    this.viewport = zoomAt(this.viewport, center, factor);
+    this.viewport = zoomAt(this.viewport, center, factor, this.minimumZoom());
     this.render();
   }
 
   resize(width: number, height: number): void {
     if (this.application === undefined || width <= 0 || height <= 0) return;
     this.application.renderer.resize(width, height);
+    this.ensureMinimumZoom();
     this.render();
   }
 
   fit(): void {
     if (this.application === undefined) return;
-    const background =
-      this.model.background === undefined ? [] : [backgroundBounds(this.model.background)];
     this.viewport = fitViewport(
-      [
-        ...background,
-        ...this.model.areas.filter(({ visible }) => visible).map(rotatedRectangleBounds),
-        ...this.model.graves.map(rotatedRectangleBounds),
-      ],
+      this.fitRectangles(),
       this.application.screen.width,
       this.application.screen.height,
+      this.model.background === undefined ? 40 : 0,
+      this.model.background === undefined ? 0.1 : 0.001,
     );
     this.render();
   }
@@ -659,9 +659,44 @@ export class PixiMapAdapter {
 
   private readonly handleWheel = (event: WheelEvent): void => {
     event.preventDefault();
-    this.viewport = zoomAt(this.viewport, this.localPoint(event), event.deltaY < 0 ? 1.2 : 1 / 1.2);
+    this.viewport = zoomAt(
+      this.viewport,
+      this.localPoint(event),
+      event.deltaY < 0 ? 1.2 : 1 / 1.2,
+      this.minimumZoom(),
+    );
     this.render();
   };
+
+  private fitRectangles(): MapRect[] {
+    if (this.model.background !== undefined) {
+      return [backgroundBounds(this.model.background)];
+    }
+    return [
+      ...this.model.areas.filter(({ visible }) => visible).map(rotatedRectangleBounds),
+      ...this.model.graves.map(rotatedRectangleBounds),
+    ];
+  }
+
+  private minimumZoom(): number {
+    if (this.application === undefined) return 0.1;
+    return fitViewport(
+      this.fitRectangles(),
+      this.application.screen.width,
+      this.application.screen.height,
+      this.model.background === undefined ? 40 : 0,
+      this.model.background === undefined ? 0.1 : 0.001,
+    ).scale;
+  }
+
+  private ensureMinimumZoom(): void {
+    if (this.application === undefined) return;
+    const center = {
+      x: this.application.screen.width / 2,
+      y: this.application.screen.height / 2,
+    };
+    this.viewport = zoomAt(this.viewport, center, 1, this.minimumZoom());
+  }
 
   private render(): void {
     if (this.application === undefined) return;
@@ -739,10 +774,13 @@ export class PixiMapAdapter {
         .lineTo(corners[2].x, corners[2].y)
         .lineTo(corners[3].x, corners[3].y)
         .closePath()
-        .fill({ color: 0xfafafa })
+        .fill({
+          alpha: selected ? SELECTED_GRAVE_FILL_ALPHA : 1,
+          color: selected ? SELECTED_GRAVE_COLOR : 0xfafafa,
+        })
         .stroke({
-          color: overlapping ? 0xd32f2f : selected ? 0x1565c0 : 0x455a64,
-          width: (selected ? 2 : 1) / this.viewport.scale,
+          color: overlapping ? 0xd32f2f : selected ? SELECTED_GRAVE_COLOR : 0x455a64,
+          width: (selected ? 3 : 1) / this.viewport.scale,
         });
       if (
         grave.label.length > 0 &&

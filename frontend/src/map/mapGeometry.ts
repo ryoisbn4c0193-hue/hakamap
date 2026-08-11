@@ -61,9 +61,15 @@ export function inverseViewportScale(viewportScale: number): number {
   return 1 / viewportScale;
 }
 
-export function zoomAt(viewport: Viewport, screenPoint: MapPoint, factor: number): Viewport {
+export function zoomAt(
+  viewport: Viewport,
+  screenPoint: MapPoint,
+  factor: number,
+  minimumScale = MIN_ZOOM,
+): Viewport {
   const mapPoint = screenToMap(screenPoint, viewport);
-  const scale = clampZoom(viewport.scale * factor);
+  const normalizedMinimum = Math.min(MAX_ZOOM, Math.max(Number.EPSILON, minimumScale));
+  const scale = Math.max(normalizedMinimum, Math.min(MAX_ZOOM, viewport.scale * factor));
   return {
     scale,
     x: screenPoint.x - mapPoint.x * scale,
@@ -416,6 +422,7 @@ export function fitViewport(
   width: number,
   height: number,
   padding = 40,
+  minimumScale = MIN_ZOOM,
 ): Viewport {
   if (rectangles.length === 0) {
     return { scale: 1, x: width / 2, y: height / 2 };
@@ -426,8 +433,12 @@ export function fitViewport(
   const bottom = Math.max(...rectangles.map(({ y, height: itemHeight }) => y + itemHeight));
   const contentWidth = Math.max(1, right - left);
   const contentHeight = Math.max(1, bottom - top);
-  const scale = clampZoom(
-    Math.min((width - padding * 2) / contentWidth, (height - padding * 2) / contentHeight),
+  const scale = Math.min(
+    MAX_ZOOM,
+    Math.max(
+      minimumScale,
+      Math.min((width - padding * 2) / contentWidth, (height - padding * 2) / contentHeight),
+    ),
   );
   return {
     scale,

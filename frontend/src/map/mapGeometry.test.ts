@@ -34,6 +34,21 @@ describe('map geometry', () => {
     expect(converted.y).toBeCloseTo(point.y);
   });
 
+  it('does not zoom out below the supplied content-fit scale', () => {
+    expect(zoomAt({ scale: 1, x: 0, y: 0 }, { x: 100, y: 100 }, 0.001, 0.025).scale).toBe(0.025);
+  });
+
+  it('fits a maximum-size background below the former ten-percent limit', () => {
+    const viewport = fitViewport(
+      [{ height: 30_000, id: 'background', width: 30_000, x: 0, y: 0 }],
+      1_000,
+      800,
+      0,
+      0.001,
+    );
+    expect(viewport.scale).toBeCloseTo(800 / 30_000);
+  });
+
   it('keeps the map point below the pointer while zooming', () => {
     const pointer = { x: 320, y: 180 };
     const before = { scale: 1, x: 20, y: -30 };

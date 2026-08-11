@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
@@ -46,7 +45,7 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
           try {
             result.set(
                 mode == FileSelectionMode.DIRECTORY
-                    ? chooseDirectory(owner, purpose)
+                    ? chooseDirectory(owner)
                     : showNativeFileDialog(owner, mode, purpose));
           } finally {
             owner.dispose();
@@ -157,15 +156,10 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
     }
   }
 
-  private List<Path> chooseDirectory(JFrame owner, FileSelectionPurpose purpose) {
-    JFileChooser chooser = new JFileChooser();
-    chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-    int answer =
-        purpose == FileSelectionPurpose.EXPORT_DESTINATION
-            ? chooser.showSaveDialog(owner)
-            : chooser.showOpenDialog(owner);
-    return answer == JFileChooser.APPROVE_OPTION
-        ? List.of(chooser.getSelectedFile().toPath())
-        : List.of();
+  private List<Path> chooseDirectory(JFrame owner) {
+    if (System.getProperty("os.name", "").startsWith("Windows")) {
+      return new WindowsFolderChooser().choose(owner);
+    }
+    throw new FileSelectionException("file-selection-unavailable");
   }
 }
