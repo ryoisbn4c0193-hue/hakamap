@@ -72,6 +72,7 @@ const AREA_COLORS: Readonly<Record<string, number>> = {
   red: 0xef9a9a,
   yellow: 0xfff59d,
 };
+const MAP_LABEL_FONT = '"Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif';
 
 export function displayResolution(devicePixelRatio: number): number {
   if (!Number.isFinite(devicePixelRatio)) return 1;
@@ -468,7 +469,13 @@ export class PixiMapAdapter {
           });
         const label = new Text({
           resolution: this.textResolution,
-          style: { fill: 0x263238, fontSize: 12 },
+          style: {
+            fill: 0x17212b,
+            fontFamily: MAP_LABEL_FONT,
+            fontSize: 14,
+            fontWeight: '600',
+            stroke: { color: 0xffffff, width: 3 },
+          },
           text: area.name,
         });
         label.scale.set(textScale);
@@ -507,9 +514,11 @@ export class PixiMapAdapter {
         const label = new Text({
           resolution: this.textResolution,
           style: {
-            fill: 0x263238,
-            fontSize: 10,
-            stroke: { color: 0xffffff, width: 2 },
+            fill: 0x17212b,
+            fontFamily: MAP_LABEL_FONT,
+            fontSize: 14,
+            fontWeight: '600',
+            stroke: { color: 0xffffff, width: 3 },
           },
           text: grave.label,
         });
