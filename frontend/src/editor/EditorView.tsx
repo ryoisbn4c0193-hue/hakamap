@@ -400,11 +400,6 @@ function EditorView({ projectId }: EditorViewProps) {
                 {searchResults.data?.pages.flatMap((page) =>
                   page.items.map((result) => (
                     <ListItemButton
-                      className={
-                        result.graveId === (focusedGraveId ?? firstSearchGraveId)
-                          ? 'search-result--focused'
-                          : undefined
-                      }
                       key={result.graveId}
                       onClick={() => {
                         requestSelection(result.graveId);

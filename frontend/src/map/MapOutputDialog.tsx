@@ -108,9 +108,7 @@ function MapOutputDialog({ capture, onClose, open }: Props) {
               if (image === undefined) return;
               const printWindow = window.open('', '_blank');
               if (printWindow === null) return;
-              printWindow.document.write(
-                `<style>@page{size:${paper} ${orientation};margin:0}body{margin:0}img{width:100%;display:block}</style><img alt="Hakamap地図" src="${image}">`,
-              );
+              printWindow.document.write(createPrintPreviewHtml(image, paper, orientation));
               printWindow.document.close();
               printWindow.addEventListener('load', () => printWindow.print(), { once: true });
             });
@@ -122,6 +120,68 @@ function MapOutputDialog({ capture, onClose, open }: Props) {
       </DialogActions>
     </Dialog>
   );
+}
+
+export function createPrintPreviewHtml(
+  image: string,
+  paper: 'A4' | 'A3',
+  orientation: 'landscape' | 'portrait',
+) {
+  return `<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Hakamap 印刷プレビュー</title>
+  <style>
+    @page{size:${paper} ${orientation};margin:0}
+    *{box-sizing:border-box}
+    body{margin:0;background:#dff4fc;color:#162832;font-family:"Yu Gothic UI","Yu Gothic","Meiryo UI",Meiryo,sans-serif}
+    .toolbar{align-items:center;background:#249bd3;color:#fff;display:flex;gap:8px;padding:10px 16px;position:sticky;top:0;z-index:1}
+    .toolbar strong{margin-right:auto}
+    button{background:#fff;border:0;border-radius:6px;color:#147fb5;cursor:pointer;font:inherit;font-weight:700;min-width:42px;padding:7px 12px}
+    button:hover{background:#e7f6fc}
+    #zoom-label{font-variant-numeric:tabular-nums;min-width:4.5em;text-align:center}
+    .preview{min-height:calc(100vh - 56px);overflow:auto;padding:16px}
+    img{display:block;height:auto;margin:0 auto;max-width:none;width:100%;box-shadow:0 8px 28px rgb(20 127 181 / 24%)}
+    @media print{body{background:#fff}.toolbar{display:none}.preview{min-height:0;overflow:visible;padding:0}img{box-shadow:none;width:100%!important}}
+  </style>
+</head>
+<body>
+  <nav class="toolbar" aria-label="印刷プレビュー操作">
+    <strong>Hakamap 印刷プレビュー</strong>
+    <button id="zoom-out" type="button" aria-label="縮小">−</button>
+    <span id="zoom-label">100%</span>
+    <button id="zoom-in" type="button" aria-label="拡大">＋</button>
+    <button id="zoom-fit" type="button">全体表示</button>
+    <button type="button" onclick="window.print()">印刷</button>
+  </nav>
+  <main class="preview"><img id="preview-image" alt="Hakamap地図" src="${image}"></main>
+  <script>
+    (() => {
+      const image = document.getElementById('preview-image');
+      const label = document.getElementById('zoom-label');
+      let zoom = 100;
+      const applyZoom = () => {
+        image.style.width = zoom + '%';
+        label.textContent = zoom + '%';
+      };
+      document.getElementById('zoom-out').addEventListener('click', () => {
+        zoom = Math.max(25, zoom - 25);
+        applyZoom();
+      });
+      document.getElementById('zoom-in').addEventListener('click', () => {
+        zoom = Math.min(400, zoom + 25);
+        applyZoom();
+      });
+      document.getElementById('zoom-fit').addEventListener('click', () => {
+        zoom = 100;
+        applyZoom();
+      });
+    })();
+  </script>
+</body>
+</html>`;
 }
 
 async function createPageImage(

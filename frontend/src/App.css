@@ -127,22 +127,6 @@
   padding-block: 8px;
 }
 
-.side-panel .MuiListItemButton-root.search-result--focused,
-.side-panel .MuiListItemButton-root.search-result--focused.Mui-selected {
-  background-color: #ffebee;
-  box-shadow: inset 5px 0 #d32f2f;
-  color: #8e1b1b;
-}
-
-.side-panel .MuiListItemButton-root.search-result--focused:hover,
-.side-panel .MuiListItemButton-root.search-result--focused.Mui-selected:hover {
-  background-color: #ffcdd2;
-}
-
-.side-panel .search-result--focused .MuiListItemText-secondary {
-  color: #a52a2a;
-}
-
 .property-panel {
   padding-inline: 20px;
 }
