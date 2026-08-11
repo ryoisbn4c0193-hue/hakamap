@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.JFileChooser;
+import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
 public final class SwingFileChooserGateway implements FileChooserGateway {
@@ -30,10 +31,24 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
                   ? JFileChooser.DIRECTORIES_ONLY
                   : JFileChooser.FILES_ONLY);
           chooser.setMultiSelectionEnabled(mode == FileSelectionMode.MULTIPLE_FILES);
-          int answer =
-              purpose == FileSelectionPurpose.EXPORT_DESTINATION
-                  ? chooser.showSaveDialog(null)
-                  : chooser.showOpenDialog(null);
+          JFrame owner = new JFrame();
+          owner.setAlwaysOnTop(true);
+          owner.setType(java.awt.Window.Type.UTILITY);
+          owner.setUndecorated(true);
+          owner.setSize(1, 1);
+          owner.setLocationRelativeTo(null);
+          owner.setVisible(true);
+          owner.toFront();
+          owner.requestFocus();
+          int answer;
+          try {
+            answer =
+                purpose == FileSelectionPurpose.EXPORT_DESTINATION
+                    ? chooser.showSaveDialog(owner)
+                    : chooser.showOpenDialog(owner);
+          } finally {
+            owner.dispose();
+          }
           if (answer != JFileChooser.APPROVE_OPTION) {
             return;
           }

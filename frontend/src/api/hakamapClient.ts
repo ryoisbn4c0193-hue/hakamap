@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { withFileSelectionActivity } from './fileSelectionActivity';
+
 const sessionStatusSchema = z.object({
   authenticated: z.literal(true),
 });
@@ -347,11 +349,13 @@ export async function getProjectCatalog(): Promise<ProjectCatalog> {
 export async function chooseProjectDirectory(
   purpose: 'projectCreateDirectory' | 'projectRelinkDirectory' | 'trashRestoreDirectory',
 ): Promise<{ id: string; displayName: string } | undefined> {
-  const response = await hakamapFetch('/api/v1/file-selections', {
-    body: JSON.stringify({ selectionMode: 'directory', purpose }),
-    headers: { 'Content-Type': 'application/json' },
-    method: 'POST',
-  });
+  const response = await withFileSelectionActivity(() =>
+    hakamapFetch('/api/v1/file-selections', {
+      body: JSON.stringify({ selectionMode: 'directory', purpose }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    }),
+  );
   const selected = await requireJson(response, fileSelectionSchema);
   if (selected.status === 'cancelled') {
     return undefined;
@@ -366,11 +370,13 @@ export async function chooseProjectDirectory(
 
 export async function chooseAttachmentFiles(): Promise<string[]> {
   const selected = await requireJson(
-    await hakamapFetch('/api/v1/file-selections', {
-      body: JSON.stringify({ purpose: 'attachmentImport', selectionMode: 'multipleFiles' }),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'POST',
-    }),
+    await withFileSelectionActivity(() =>
+      hakamapFetch('/api/v1/file-selections', {
+        body: JSON.stringify({ purpose: 'attachmentImport', selectionMode: 'multipleFiles' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      }),
+    ),
     fileSelectionSchema,
   );
   return selected.status === 'cancelled' ? [] : selected.fileSelectionIds;
@@ -381,11 +387,13 @@ export async function chooseTransferPath(
 ): Promise<string | undefined> {
   const selectionMode = purpose === 'importDestinationDirectory' ? 'directory' : 'singleFile';
   const selected = await requireJson(
-    await hakamapFetch('/api/v1/file-selections', {
-      body: JSON.stringify({ purpose, selectionMode }),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'POST',
-    }),
+    await withFileSelectionActivity(() =>
+      hakamapFetch('/api/v1/file-selections', {
+        body: JSON.stringify({ purpose, selectionMode }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      }),
+    ),
     fileSelectionSchema,
   );
   return selected.status === 'cancelled' ? undefined : selected.fileSelectionIds[0];

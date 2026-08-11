@@ -12,8 +12,9 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
+import { subscribeFileSelectionActivity } from './api/fileSelectionActivity';
 import {
   chooseTransferPath,
   closeProject,
@@ -41,6 +42,7 @@ function App() {
   const [saving, setSaving] = useState(false);
   const [appMessage, setAppMessage] = useState<string>();
   const [backupsOpen, setBackupsOpen] = useState(false);
+  const [fileSelectionActive, setFileSelectionActive] = useState(false);
   const backups = useQuery({
     enabled: backupsOpen && openProjectId !== undefined,
     queryFn: () => {
@@ -53,11 +55,17 @@ function App() {
   const exitApplication = async () => {
     setExitRequested(true);
     try {
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      });
       await requestApplicationExit();
+      window.close();
     } catch {
       setExitRequested(false);
     }
   };
+
+  useEffect(() => subscribeFileSelectionActivity(setFileSelectionActive), []);
 
   const leaveEditor = async (action: 'save' | 'discard') => {
     if (openProjectId !== undefined) {
@@ -69,6 +77,24 @@ function App() {
     resetEditor();
     await queryClient.invalidateQueries({ queryKey: ['projectCatalog'] });
   };
+
+  if (exitRequested) {
+    return (
+      <Box
+        component="main"
+        sx={{ alignItems: 'center', display: 'flex', minHeight: '100vh', justifyContent: 'center' }}
+      >
+        <Stack spacing={2} sx={{ maxWidth: 480, p: 3, textAlign: 'center' }}>
+          <Typography component="h1" variant="h1">
+            Hakamapを終了しました
+          </Typography>
+          <Typography>
+            このページが自動で閉じない場合は、ブラウザのタブを閉じてください。
+          </Typography>
+        </Stack>
+      </Box>
+    );
+  }
 
   return (
     <Box className="app-shell">
@@ -160,6 +186,14 @@ function App() {
           {appMessage}
         </Alert>
       )}
+
+      <Dialog open={fileSelectionActive}>
+        <DialogTitle>ファイル選択画面を表示しています</DialogTitle>
+        <DialogContent>
+          Windowsのファイル選択画面で選択またはキャンセルしてください。選択が終わるまで、
+          Hakamapの画面は操作できません。
+        </DialogContent>
+      </Dialog>
 
       {editorVisible && openProjectId !== undefined ? (
         <EditorView projectId={openProjectId} />
