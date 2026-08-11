@@ -1382,7 +1382,13 @@ public final class ProjectEditingApiService {
   }
 
   private <T> Optional<T> optional(String value, Function<String, T> constructor) {
-    return value == null ? Optional.empty() : Optional.of(constructor.apply(value));
+    if (value == null
+        || value
+            .codePoints()
+            .allMatch(point -> Character.isWhitespace(point) || Character.isSpaceChar(point))) {
+      return Optional.empty();
+    }
+    return Optional.of(constructor.apply(value));
   }
 
   private <T, I> java.util.stream.Collector<T, ?, Map<I, T>> toLinkedMap(Function<T, I> id) {

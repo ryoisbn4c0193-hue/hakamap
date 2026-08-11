@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import AppProviders from '../app/AppProviders';
 import { useUiStore } from '../state/uiStore';
 
-import EditorView from './EditorView';
+import EditorView, { createAreaPayload } from './EditorView';
 
 const projectId = '11111111-1111-4111-8111-111111111111';
 const firstGraveId = '22222222-2222-4222-8222-222222222222';
@@ -74,6 +74,25 @@ describe('EditorView', () => {
     cleanup();
     vi.unstubAllGlobals();
     useUiStore.getState().resetEditor();
+  });
+
+  it('エリア作成時は色を固定せず未使用色の選択をバックエンドへ委ねる', () => {
+    expect(
+      createAreaPayload(
+        { height: 40, id: 'preview', width: 30, x: 10, y: 20 },
+        1,
+        'area-client-ref',
+      ),
+    ).toEqual({
+      clientRef: 'area-client-ref',
+      colorPreset: null,
+      height: 40,
+      name: 'エリア 2',
+      visible: true,
+      width: 30,
+      x: 10,
+      y: 20,
+    });
   });
 
   it('三領域と四つのプロパティタブを表示する', async () => {

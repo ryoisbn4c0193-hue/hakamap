@@ -59,6 +59,19 @@ type GraveDraft = {
 
 const emptyDraft: GraveDraft = { managementNumber: '', name: '', notes: '' };
 
+export function createAreaPayload(rectangle: MapRect, areaCount: number, clientRef: string) {
+  return {
+    clientRef,
+    colorPreset: null,
+    height: rectangle.height,
+    name: `エリア ${areaCount + 1}`,
+    visible: true,
+    width: rectangle.width,
+    x: rectangle.x,
+    y: rectangle.y,
+  };
+}
+
 function draftFrom(grave?: Grave): GraveDraft {
   return grave === undefined
     ? emptyDraft
@@ -337,12 +350,10 @@ function EditorView({ projectId }: EditorViewProps) {
             }
           }}
           onCreateArea={(rectangle) =>
-            mapCommand('createArea', {
-              ...createPayload(rectangle),
-              colorPreset: 'blue',
-              name: `エリア ${snapshot.data.areas.length + 1}`,
-              visible: true,
-            })
+            mapCommand(
+              'createArea',
+              createAreaPayload(rectangle, snapshot.data.areas.length, crypto.randomUUID()),
+            )
           }
           onCreateGrave={(rectangle) => mapCommand('createGrave', createPayload(rectangle))}
           onMoveGraves={(graveIds, delta) =>

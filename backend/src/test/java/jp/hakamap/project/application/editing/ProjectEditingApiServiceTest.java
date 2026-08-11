@@ -115,6 +115,46 @@ class ProjectEditingApiServiceTest {
   }
 
   @Test
+  void updatesGraveInfoWhileTreatingBlankOptionalFieldsAsUnset() throws Exception {
+    GraveId graveId = new GraveId(UUID.fromString("8644022a-bca2-4c3e-b811-19c28b7a2d58"));
+    Grave grave =
+        new Grave(
+            graveId,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new MapRectangle(
+                java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.TEN,
+                java.math.BigDecimal.TEN),
+            RotationDegrees.ZERO,
+            NOW);
+    ProjectAggregate project =
+        new ProjectAggregate(
+            metadata(), Optional.empty(), List.of(), List.of(grave), List.of(), List.of());
+    ProjectEditingApiService service = context(project).service();
+
+    Object result =
+        service.execute(
+            PROJECT_ID,
+            "session-a",
+            0,
+            CommandType.UPDATE_GRAVE_INFO,
+            new CommandPayloads.UpdateGraveInfo(graveId.value(), "002", "テスト002", "　"));
+
+    assertThat(result).isInstanceOf(EditingApiModels.CommandResponse.class);
+    assertThat(service.snapshot(PROJECT_ID).graves())
+        .singleElement()
+        .satisfies(
+            updated -> {
+              assertThat(updated.managementNumber()).isEqualTo("002");
+              assertThat(updated.name()).isEqualTo("テスト002");
+              assertThat(updated.notes()).isNull();
+            });
+  }
+
+  @Test
   void requiresConfirmationForNewUnassignedWarningAndRejectsOldRevision() throws Exception {
     TestContext context = context(emptyProject());
     ProjectEditingApiService service = context.service();
