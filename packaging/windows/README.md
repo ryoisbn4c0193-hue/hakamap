@@ -18,8 +18,9 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 `packaging/out/Hakamap-<version>.exe`と、SHA-256を含む`manifest.json`が生成される。
 `packaging/out`と`packaging/work`はGitへ追加しない。
-アイコン未指定時は16、24、32、48、64、128、256pxを含む仮ICOを生成する。
-正式アイコンを使う場合は`-IconPath C:\path\hakamap.ico`で1か所だけ差し替える。
+アイコン未指定時は`assets/hakamap-icon.png`から16、24、32、48、64、128、256pxを含む
+正式ICOを生成する。検証などで別アイコンを使う場合は
+`-IconPath C:\path\hakamap.ico`で1か所だけ差し替える。
 
 ## 実機検証
 

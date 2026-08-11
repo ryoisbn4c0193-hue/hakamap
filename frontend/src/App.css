@@ -75,7 +75,7 @@
   padding: 22px 24px;
 }
 
-.project-catalog .MuiCard-root {
+.project-catalog .project-card {
   border-radius: 14px;
   transition:
     border-color 140ms ease,
@@ -83,10 +83,16 @@
     transform 140ms ease;
 }
 
-.project-catalog .MuiCard-root:hover {
+.project-catalog .project-card:hover {
   border-color: #a9bdb4;
   box-shadow: 0 12px 32px rgb(31 55 46 / 10%);
   transform: translateY(-1px);
+}
+
+.project-catalog .project-card--default {
+  background: #f2f8f5;
+  border-color: #6e9b8b;
+  box-shadow: 0 10px 30px rgb(40 95 79 / 12%);
 }
 
 .side-panel {

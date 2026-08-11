@@ -1,4 +1,14 @@
 import {
+  BackupOutlined,
+  FileDownloadOutlined,
+  FolderOpenOutlined,
+  HelpOutlineOutlined,
+  MapOutlined,
+  PowerSettingsNew,
+  SaveOutlined,
+  Tune,
+} from '@mui/icons-material';
+import {
   Alert,
   AppBar,
   Box,
@@ -7,8 +17,17 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
+  Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Toolbar,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -123,81 +142,125 @@ function App() {
           <Stack className="app-navigation" direction="row" spacing={0.5}>
             {editorVisible ? (
               <>
-                <Button
-                  color="inherit"
-                  disabled={saving || openProjectId === undefined}
-                  onClick={() => {
-                    if (openProjectId === undefined) {
-                      return;
-                    }
-                    setSaving(true);
-                    setAppMessage(undefined);
-                    void saveProject(openProjectId)
-                      .then(() =>
-                        queryClient.invalidateQueries({
-                          queryKey: ['projectSnapshot', openProjectId],
-                        }),
-                      )
-                      .catch(() =>
-                        setAppMessage('保存できませんでした。編集内容は保持されています。'),
-                      )
-                      .finally(() => setSaving(false));
-                  }}
-                  size="small"
-                >
-                  {saving ? '保存中' : '保存'}
-                </Button>
-                <Button color="inherit" onClick={toggleLeftPanel} size="small">
-                  エリア
-                </Button>
-                <Button color="inherit" onClick={toggleRightPanel} size="small">
-                  プロパティ
-                </Button>
-                <Button
-                  color="inherit"
-                  disabled={saving || openProjectId === undefined}
-                  onClick={() => {
-                    if (openProjectId === undefined) return;
-                    setSaving(true);
-                    void getProjectSnapshot(openProjectId)
-                      .then(async (snapshot) => {
-                        if (snapshot.dirty) {
-                          await saveProject(openProjectId);
-                        }
-                        const current = await getProjectSnapshot(openProjectId);
-                        const selection = await chooseTransferPath('exportDestination');
-                        if (selection !== undefined) {
-                          await exportProject(openProjectId, current.revision, selection);
-                        }
-                      })
-                      .catch(() => setAppMessage('エクスポートを完了できませんでした。'))
-                      .finally(() => setSaving(false));
-                  }}
-                  size="small"
-                >
-                  エクスポート
-                </Button>
-                <Button color="inherit" onClick={() => setBackupsOpen(true)} size="small">
-                  バックアップ
-                </Button>
-                <Button color="inherit" onClick={() => setCloseConfirmationOpen(true)} size="small">
-                  プロジェクト一覧
-                </Button>
+                <Tooltip title={saving ? '保存中' : '保存'}>
+                  <span>
+                    <IconButton
+                      aria-label={saving ? '保存中' : '保存'}
+                      color="inherit"
+                      disabled={saving || openProjectId === undefined}
+                      onClick={() => {
+                        if (openProjectId === undefined) return;
+                        setSaving(true);
+                        setAppMessage(undefined);
+                        void saveProject(openProjectId)
+                          .then(() =>
+                            queryClient.invalidateQueries({
+                              queryKey: ['projectSnapshot', openProjectId],
+                            }),
+                          )
+                          .catch(() =>
+                            setAppMessage('保存できませんでした。編集内容は保持されています。'),
+                          )
+                          .finally(() => setSaving(false));
+                      }}
+                      size="small"
+                    >
+                      <SaveOutlined fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="エリアパネル">
+                  <IconButton
+                    aria-label="エリアパネル"
+                    color="inherit"
+                    onClick={toggleLeftPanel}
+                    size="small"
+                  >
+                    <MapOutlined fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="プロパティパネル">
+                  <IconButton
+                    aria-label="プロパティパネル"
+                    color="inherit"
+                    onClick={toggleRightPanel}
+                    size="small"
+                  >
+                    <Tune fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="エクスポート">
+                  <span>
+                    <IconButton
+                      aria-label="エクスポート"
+                      color="inherit"
+                      disabled={saving || openProjectId === undefined}
+                      onClick={() => {
+                        if (openProjectId === undefined) return;
+                        setSaving(true);
+                        void getProjectSnapshot(openProjectId)
+                          .then(async (snapshot) => {
+                            if (snapshot.dirty) await saveProject(openProjectId);
+                            const current = await getProjectSnapshot(openProjectId);
+                            const selection = await chooseTransferPath('exportDestination');
+                            if (selection !== undefined) {
+                              await exportProject(openProjectId, current.revision, selection);
+                            }
+                          })
+                          .catch(() => setAppMessage('エクスポートを完了できませんでした。'))
+                          .finally(() => setSaving(false));
+                      }}
+                      size="small"
+                    >
+                      <FileDownloadOutlined fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="バックアップ">
+                  <IconButton
+                    aria-label="バックアップ"
+                    color="inherit"
+                    onClick={() => setBackupsOpen(true)}
+                    size="small"
+                  >
+                    <BackupOutlined fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="プロジェクト一覧">
+                  <IconButton
+                    aria-label="プロジェクト一覧"
+                    color="inherit"
+                    onClick={() => setCloseConfirmationOpen(true)}
+                    size="small"
+                  >
+                    <FolderOpenOutlined fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </>
             ) : null}
-            <Button color="inherit" onClick={() => setHelpOpen(true)} size="small">
-              操作ガイド
-            </Button>
-            <Button
-              color="inherit"
-              disabled={exitRequested}
-              onClick={() => {
-                void exitApplication();
-              }}
-              size="small"
-            >
-              Hakamapを終了
-            </Button>
+            <Tooltip title="操作ガイド">
+              <IconButton
+                aria-label="操作ガイド"
+                color="inherit"
+                onClick={() => setHelpOpen(true)}
+                size="small"
+              >
+                <HelpOutlineOutlined fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Hakamapを終了">
+              <span>
+                <IconButton
+                  aria-label="Hakamapを終了"
+                  color="inherit"
+                  disabled={exitRequested}
+                  onClick={() => void exitApplication()}
+                  size="small"
+                >
+                  <PowerSettingsNew fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
           </Stack>
         </Toolbar>
       </AppBar>
@@ -218,71 +281,102 @@ function App() {
       <Dialog fullWidth maxWidth="md" onClose={() => setHelpOpen(false)} open={helpOpen}>
         <DialogTitle>Hakamap 操作ガイド</DialogTitle>
         <DialogContent dividers>
-          <Stack spacing={3}>
-            <Box component="section">
-              <Typography component="h2" gutterBottom variant="h2">
-                元に戻す・やり直す
-              </Typography>
-              <Typography>
-                地図上部の「元に戻す」でプロジェクト全体の直前のデータ変更を取り消し、
-                「やり直す」で取り消した変更を再適用できます。墓所を選択する必要はありません。
-                ズーム、地図の表示移動、検索、選択は元に戻す対象ではありません。変更履歴は、
-                墓所を選択したときに右側へ表示される「履歴」タブで確認できます。
-              </Typography>
-            </Box>
-            <Box component="section">
-              <Typography component="h2" gutterBottom variant="h2">
-                地図の拡大・縮小・表示移動
-              </Typography>
-              <Typography>
-                「拡大」「縮小」ボタン、マウスホイール、または＋／－キーで倍率を変更します。
-                「全体表示」または0キーで全体へ戻ります。地図を上下左右へ動かすときは、
-                マウスの中ボタンを押しながらドラッグするか、Spaceキーを押しながら 左ドラッグします。
-              </Typography>
-            </Box>
-            <Box component="section">
-              <Typography component="h2" gutterBottom variant="h2">
-                背景画像の配置調整
-              </Typography>
-              <Typography>
-                「背景移動」を選び、画像内をドラッグすると移動できます。右下の四角いハンドルを
-                ドラッグすると縦横を拡縮し、Shiftキーを押しながら操作すると縦横比を維持します。
-                「縦横比を戻す」で元画像の比率へ戻せます。上辺中央の丸いハンドルをドラッグすると、
-                画像中心を基準に時計回り・反時計回りに回転し、90度単位の近くでは吸着します。
-              </Typography>
-            </Box>
-            <Box component="section">
-              <Typography component="h2" gutterBottom variant="h2">
-                墓所の選択・移動
-              </Typography>
-              <Typography>
-                クリックで1件選択、Ctrl＋クリックで選択の追加・解除ができます。空白から
-                ドラッグすると矩形内の墓所を選択し、Ctrl＋ドラッグで現在の選択へ追加します。
-                選択した墓所はドラッグ、矢印キーで1単位、Shift＋矢印キーで10単位移動できます。
-              </Typography>
-            </Box>
-            <Box component="section">
-              <Typography component="h2" gutterBottom variant="h2">
-                編集モードと保存
-              </Typography>
-              <Typography>
-                地図上部の「墓所編集」「エリア編集」「墓所作成」「エリア作成」から操作を選びます。
-                プロパティの入力は「適用」で編集状態へ反映し、上部の「保存」でファイルへ
-                保存します。保存後も、プロジェクトを開いている間は履歴を元に戻せます。
-              </Typography>
-            </Box>
-            <Box component="section">
-              <Typography component="h2" gutterBottom variant="h2">
-                ファイル選択・終了・再表示
-              </Typography>
-              <Typography>
-                Windowsのファイル選択画面が開いている間はHakamap画面を操作できません。
-                アプリを終了するときは「Hakamapを終了」を使用します。ブラウザのタブだけを
-                閉じた場合は、デスクトップまたはスタートメニューのHakamapショートカットから
-                画面を開き直せます。
-              </Typography>
-            </Box>
-          </Stack>
+          <TableContainer component={Paper} variant="outlined">
+            <Table aria-label="Hakamapの操作方法">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, width: '28%' }}>操作</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>方法</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                <TableRow>
+                  <TableCell component="th" scope="row">
+                    元に戻す・やり直す
+                  </TableCell>
+                  <TableCell>
+                    地図上部の「元に戻す」「やり直す」を使用します。墓所の選択は不要です。ズーム、表示移動、検索、選択は対象外です。
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell component="th" scope="row">
+                    拡大・縮小
+                  </TableCell>
+                  <TableCell>
+                    「拡大」「縮小」、マウスホイール、または＋／－キーを使用します。
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell component="th" scope="row">
+                    全体表示
+                  </TableCell>
+                  <TableCell>「全体表示」または0キーで地図全体へ戻ります。</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell component="th" scope="row">
+                    地図の表示移動
+                  </TableCell>
+                  <TableCell>
+                    マウスの中ボタンを押しながらドラッグするか、Spaceキーを押しながら左ドラッグします。
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell component="th" scope="row">
+                    背景画像の移動
+                  </TableCell>
+                  <TableCell>「背景移動」を選び、画像内をドラッグします。</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell component="th" scope="row">
+                    背景画像の拡縮・回転
+                  </TableCell>
+                  <TableCell>
+                    右下の四角で拡縮し、Shiftキーで縦横比を維持します。上辺中央の丸で中心を基準に回転し、90度単位の近くでは吸着します。
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell component="th" scope="row">
+                    墓所の選択
+                  </TableCell>
+                  <TableCell>
+                    クリックで1件、Ctrl＋クリックで追加・解除します。空白からのドラッグで矩形選択し、Ctrl＋ドラッグで現在の選択へ追加します。
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell component="th" scope="row">
+                    墓所の移動
+                  </TableCell>
+                  <TableCell>
+                    ドラッグまたは矢印キーで1単位移動します。Shift＋矢印キーでは10単位移動します。
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell component="th" scope="row">
+                    編集・保存
+                  </TableCell>
+                  <TableCell>
+                    地図上部で編集モードを選びます。プロパティの「適用」で編集へ反映し、上部の「保存」でファイルへ保存します。
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell component="th" scope="row">
+                    ファイル選択
+                  </TableCell>
+                  <TableCell>
+                    Windowsのファイル選択画面で選択またはキャンセルします。表示中はHakamap画面を操作できません。
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell component="th" scope="row">
+                    終了・再表示
+                  </TableCell>
+                  <TableCell>
+                    終了は「Hakamapを終了」を使用します。タブだけを閉じた場合は、Hakamapのショートカットから再表示できます。
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setHelpOpen(false)} variant="contained">

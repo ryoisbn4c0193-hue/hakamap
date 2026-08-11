@@ -1,4 +1,15 @@
 import {
+  AspectRatio,
+  DeleteOutlineOutlined,
+  FitScreen,
+  ImageOutlined,
+  PrintOutlined,
+  Redo,
+  Remove,
+  Undo,
+  ZoomIn,
+} from '@mui/icons-material';
+import {
   Box,
   Button,
   Dialog,
@@ -6,11 +17,13 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  IconButton,
   Stack,
   Switch,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -234,50 +247,95 @@ function MapCanvas({
             背景移動
           </ToggleButton>
         </ToggleButtonGroup>
-        <Button disabled={busy} onClick={onChooseBackground} size="small">
-          {snapshot.background === null ? '背景を追加' : '背景を差し替え'}
-        </Button>
-        <Button
-          color="error"
-          disabled={busy || snapshot.background === null}
-          onClick={() => setRemoveBackgroundOpen(true)}
-          size="small"
-        >
-          背景を削除
-        </Button>
-        <Button
-          disabled={
-            busy ||
-            snapshot.background === null ||
-            snapshot.background.scaleX === snapshot.background.scaleY
-          }
-          onClick={() => {
-            if (model.background !== undefined) {
-              onTransformBackground(resetBackgroundAspectRatio(model.background));
-            }
-          }}
-          size="small"
-        >
-          縦横比を戻す
-        </Button>
-        <Button disabled={busy || !canUndo} onClick={() => onHistoryChange('undo')} size="small">
-          元に戻す
-        </Button>
-        <Button disabled={busy || !canRedo} onClick={() => onHistoryChange('redo')} size="small">
-          やり直す
-        </Button>
-        <Button onClick={() => adapter.current?.zoom(1.2)} size="small">
-          拡大
-        </Button>
-        <Button onClick={() => adapter.current?.zoom(1 / 1.2)} size="small">
-          縮小
-        </Button>
-        <Button onClick={() => adapter.current?.fit()} size="small">
-          全体表示
-        </Button>
-        <Button onClick={() => setOutputOpen(true)} size="small">
-          印刷・出力
-        </Button>
+        <Tooltip title={snapshot.background === null ? '背景を追加' : '背景を差し替え'}>
+          <span>
+            <IconButton
+              aria-label={snapshot.background === null ? '背景を追加' : '背景を差し替え'}
+              disabled={busy}
+              onClick={onChooseBackground}
+              size="small"
+            >
+              <ImageOutlined fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="背景を削除">
+          <span>
+            <IconButton
+              aria-label="背景を削除"
+              color="error"
+              disabled={busy || snapshot.background === null}
+              onClick={() => setRemoveBackgroundOpen(true)}
+              size="small"
+            >
+              <DeleteOutlineOutlined fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="背景の縦横比を戻す">
+          <span>
+            <IconButton
+              aria-label="背景の縦横比を戻す"
+              disabled={
+                busy ||
+                snapshot.background === null ||
+                snapshot.background.scaleX === snapshot.background.scaleY
+              }
+              onClick={() => {
+                if (model.background !== undefined) {
+                  onTransformBackground(resetBackgroundAspectRatio(model.background));
+                }
+              }}
+              size="small"
+            >
+              <AspectRatio fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="元に戻す">
+          <span>
+            <IconButton
+              aria-label="元に戻す"
+              disabled={busy || !canUndo}
+              onClick={() => onHistoryChange('undo')}
+              size="small"
+            >
+              <Undo fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="やり直す">
+          <span>
+            <IconButton
+              aria-label="やり直す"
+              disabled={busy || !canRedo}
+              onClick={() => onHistoryChange('redo')}
+              size="small"
+            >
+              <Redo fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="拡大">
+          <IconButton aria-label="拡大" onClick={() => adapter.current?.zoom(1.2)} size="small">
+            <ZoomIn fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="縮小">
+          <IconButton aria-label="縮小" onClick={() => adapter.current?.zoom(1 / 1.2)} size="small">
+            <Remove fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="全体表示">
+          <IconButton aria-label="全体表示" onClick={() => adapter.current?.fit()} size="small">
+            <FitScreen fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="印刷・出力">
+          <IconButton aria-label="印刷・出力" onClick={() => setOutputOpen(true)} size="small">
+            <PrintOutlined fontSize="small" />
+          </IconButton>
+        </Tooltip>
         <FormControlLabel
           control={
             <Switch checked={snap} onChange={(_, checked) => setSnap(checked)} size="small" />

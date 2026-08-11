@@ -24,11 +24,12 @@ class WindowsPackagingConfigurationTest {
         .contains("java --version")
         .doesNotContain("java -version 2>&1")
         .contains("--java-options '-Xmx512m'")
-        .contains("create-placeholder-icon.ps1")
+        .contains("create-app-icon.ps1")
+        .contains("assets/hakamap-icon.png")
         .contains("Hakamap-$Version.exe")
         .doesNotContain("--win-console");
     assertThat(content.indexOf("Remove-Item $Work"))
-        .isLessThan(content.indexOf("create-placeholder-icon.ps1"));
+        .isLessThan(content.indexOf("create-app-icon.ps1"));
   }
 
   @Test
@@ -46,6 +47,21 @@ class WindowsPackagingConfigurationTest {
         .contains("Remove-Item $Probe")
         .contains("storageType = $StorageType")
         .doesNotContain("directory = $Root");
+  }
+
+  @Test
+  void createsMultiResolutionWindowsIconFromBundledOfficialSource() throws Exception {
+    Path source =
+        Path.of("../packaging/windows/assets/hakamap-icon.png").toAbsolutePath().normalize();
+    Path script = Path.of("../packaging/windows/create-app-icon.ps1").toAbsolutePath().normalize();
+    String content = Files.readString(script);
+
+    assertThat(Files.size(source)).isGreaterThan(0);
+    assertThat(content)
+        .contains("@(16, 24, 32, 48, 64, 128, 256)")
+        .contains("Format32bppArgb")
+        .contains("HighQualityBicubic")
+        .contains("ImageFormat]::Png");
   }
 
   @Test

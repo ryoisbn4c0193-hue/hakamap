@@ -49,10 +49,13 @@ New-Item $InputDirectory -ItemType Directory -Force | Out-Null
 New-Item $Output -ItemType Directory -Force | Out-Null
 
 if ([string]::IsNullOrWhiteSpace($IconPath)) {
-    $IconPath = Join-Path $Work 'hakamap-placeholder.ico'
-    & (Join-Path $PSScriptRoot 'create-placeholder-icon.ps1') -OutputPath $IconPath
+    $IconPath = Join-Path $Work 'hakamap.ico'
+    $IconSource = Join-Path $PSScriptRoot 'assets/hakamap-icon.png'
+    & (Join-Path $PSScriptRoot 'create-app-icon.ps1') `
+        -SourcePath $IconSource `
+        -OutputPath $IconPath
     if (-not $?) {
-        throw '仮アイコン生成に失敗しました。'
+        throw '正式アイコン生成に失敗しました。'
     }
 }
 $ResolvedIcon = (Resolve-Path $IconPath).Path

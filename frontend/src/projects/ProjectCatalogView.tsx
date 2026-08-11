@@ -5,6 +5,7 @@ import {
   Card,
   CardActions,
   CardContent,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -308,13 +309,21 @@ function ProjectCard({
   onDelete,
 }: ProjectCardProps) {
   return (
-    <Card variant="outlined">
+    <Card
+      className={project.defaultProject ? 'project-card project-card--default' : 'project-card'}
+      variant="outlined"
+    >
       <CardContent>
-        <Typography component="h3" variant="h2">
-          {project.name}
-          {project.defaultProject ? '（デフォルト）' : ''}
-        </Typography>
-        <Typography color="text.secondary">保存場所: {project.locationLabel}</Typography>
+        <Stack
+          direction="row"
+          spacing={2}
+          sx={{ alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <Typography component="h3" variant="h2">
+            {project.name}
+          </Typography>
+          {project.defaultProject ? <Chip color="primary" label="デフォルト" size="small" /> : null}
+        </Stack>
         {project.recoveryCandidate ? (
           <Typography color="warning.main">未保存の復旧候補があります</Typography>
         ) : null}
@@ -330,7 +339,7 @@ function ProjectCard({
             開く
           </Button>
         )}
-        {onDefault === undefined ? null : (
+        {onDefault === undefined || project.defaultProject ? null : (
           <Button disabled={busy || !project.available} onClick={() => void onDefault()}>
             デフォルトにする
           </Button>

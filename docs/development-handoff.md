@@ -827,6 +827,16 @@ Phase 10のデータ安全性、排他制御、アーカイブ防御、および
   選択状態を共通テーマへ反映し、上部ナビゲーション、左右パネル、地図ツールバー、
   フォーム、一覧、およびプロジェクトカードの第一段階を更新した。フロントエンドの
   Prettier、ESLint、56件のテスト、および本番ビルドは成功した。
+- UI改善の追加要望として、プロジェクト一覧から内部の保存場所を非表示にし、デフォルトを
+  淡い緑の背景、濃い枠線、およびラベルで強調した。操作ガイドは「操作／方法」の表形式へ
+  再構成した。
+- 正式なアプリアイコンは、深緑の地図、角ばった黒い和型墓石1基、抽象的な地図要素、
+  ミント色の選択地点を組み合わせたデザインでユーザーが確定した。透過PNGを正本として
+  同梱し、Windowsビルド時に16～256pxを含むICOへ自動変換して使用する。
+- 文字中心だった上部ナビゲーションと地図ツールバーのうち、保存、パネル表示、
+  エクスポート、バックアップ、操作ガイド、終了、背景操作、Undo／Redo、ズーム、
+  全体表示、および印刷をMUI公式アイコンへ変更した。各アイコンには日本語の
+  アクセシブルな名前とツールチップを付け、操作モードなどの文字は維持した。
 - 再起動前の一時アセットが残るProjectで、「変更を破棄」が
   `asset-staging-cleanup-failed`となる不具合を確認した。破棄時はメモリ上の一覧だけでなく、
   対象Project専用の一時領域を再帰削除するよう修正した。削除失敗時は編集画面と
@@ -908,9 +918,18 @@ Windows側のリポジトリを更新し、`packaging/windows/README.md`に従�
 - `docs/requirements/output.md`
 - `docs/requirements/product-requirements.md`
 - `docs/requirements/project-management.md`
+- `packaging/windows/assets/hakamap-icon.png`
+- `packaging/windows/create-app-icon.ps1`
+- `packaging/windows/build.ps1`
+- `packaging/windows/README.md`
 
 ## 検査結果
 
+- 正式アイコン組込み、MUI操作アイコン、およびUI追加改善後の
+  `cd backend && ./mvnw spotless:apply verify`と`cd backend && ./mvnw verify`: 成功。
+  フロントエンド57件、Java 140件、ESLint、Prettier、TypeScriptビルド、Checkstyle、
+  Spotless、および実行可能JAR生成を含む。サンドボックス内ではローカルHTTP待受が
+  `Operation not permitted`となるため、統合テストを実行可能な環境で再実行して成功した。
 - 5,000墓所メモリ削減後の`cd backend && ./mvnw spotless:apply verify`: 成功。
   フロントエンド56件、Java 139件、Checkstyle、Spotless、および実行可能JAR生成を含む。
 - 一時アセット破棄修正後の`cd backend && ./mvnw spotless:apply verify`: 成功。
