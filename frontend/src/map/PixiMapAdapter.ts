@@ -123,7 +123,7 @@ export const STATIC_MAP_APPLICATION_OPTIONS = Object.freeze({
   antialias: true,
   autoDensity: true,
   autoStart: false,
-  background: '#f4f2eb',
+  background: '#dff4fc',
 });
 
 export function displayResolution(devicePixelRatio: number): number {

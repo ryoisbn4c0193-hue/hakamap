@@ -4,22 +4,22 @@ export const appTheme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      dark: '#183f34',
-      light: '#5e8b7b',
-      main: '#285f4f',
+      dark: '#147fb5',
+      light: '#dff4fc',
+      main: '#249bd3',
       contrastText: '#ffffff',
     },
     secondary: {
-      main: '#8a6048',
+      main: '#147fb5',
     },
     background: {
-      default: '#f5f7f5',
+      default: '#dff4fc',
       paper: '#ffffff',
     },
-    divider: '#dce3df',
+    divider: '#b9deef',
     text: {
-      primary: '#17211d',
-      secondary: '#5e6d66',
+      primary: '#162832',
+      secondary: '#5b6f7a',
     },
   },
   shape: {
@@ -77,15 +77,15 @@ export const appTheme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          borderColor: '#dce3df',
-          boxShadow: '0 8px 24px rgb(31 55 46 / 7%)',
+          borderColor: '#b9deef',
+          boxShadow: '0 8px 24px rgb(20 127 181 / 9%)',
         },
       },
     },
     MuiChip: {
       styleOverrides: {
         root: {
-          backgroundColor: '#edf2ef',
+          backgroundColor: '#e7f6fc',
           borderRadius: 8,
           fontWeight: 600,
         },
@@ -94,8 +94,8 @@ export const appTheme = createTheme({
     MuiDialog: {
       styleOverrides: {
         paper: {
-          border: '1px solid #dce3df',
-          boxShadow: '0 24px 64px rgb(20 42 34 / 20%)',
+          border: '1px solid #b9deef',
+          boxShadow: '0 24px 64px rgb(20 127 181 / 20%)',
         },
       },
     },
@@ -105,10 +105,10 @@ export const appTheme = createTheme({
           borderRadius: 8,
           marginBlock: 2,
           '&.Mui-selected': {
-            backgroundColor: '#e2eee9',
+            backgroundColor: '#dff4fc',
           },
           '&.Mui-selected:hover': {
-            backgroundColor: '#d8e8e1',
+            backgroundColor: '#ccecf9',
           },
         },
       },
@@ -118,11 +118,11 @@ export const appTheme = createTheme({
         root: {
           backgroundColor: '#ffffff',
           '&:hover .MuiOutlinedInput-notchedOutline': {
-            borderColor: '#78988c',
+            borderColor: '#249bd3',
           },
         },
         notchedOutline: {
-          borderColor: '#cbd5d0',
+          borderColor: '#aed5e8',
         },
       },
     },

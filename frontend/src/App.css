@@ -1,5 +1,5 @@
 .app-shell {
-  background: #f5f7f5;
+  background: #dff4fc;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -58,7 +58,7 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  background: #dce3df;
+  background: #b9deef;
   transition: grid-template-columns 160ms ease;
 }
 
@@ -76,9 +76,9 @@
 .project-catalog > .MuiStack-root:first-child {
   align-items: center;
   background: #fff;
-  border: 1px solid #e0e6e2;
+  border: 1px solid #b9deef;
   border-radius: 14px;
-  box-shadow: 0 10px 30px rgb(31 55 46 / 6%);
+  box-shadow: 0 10px 30px rgb(20 127 181 / 8%);
   padding: 22px 24px;
 }
 
@@ -91,15 +91,15 @@
 }
 
 .project-catalog .project-card:hover {
-  border-color: #a9bdb4;
-  box-shadow: 0 12px 32px rgb(31 55 46 / 10%);
+  border-color: #78bad9;
+  box-shadow: 0 12px 32px rgb(20 127 181 / 12%);
   transform: translateY(-1px);
 }
 
 .project-catalog .project-card--default {
-  background: #f2f8f5;
-  border-color: #6e9b8b;
-  box-shadow: 0 10px 30px rgb(40 95 79 / 12%);
+  background: #dff4fc;
+  border-color: #249bd3;
+  box-shadow: 0 10px 30px rgb(20 127 181 / 14%);
 }
 
 .side-panel {
@@ -127,12 +127,28 @@
   padding-block: 8px;
 }
 
+.side-panel .MuiListItemButton-root.search-result--focused,
+.side-panel .MuiListItemButton-root.search-result--focused.Mui-selected {
+  background-color: #ffebee;
+  box-shadow: inset 5px 0 #d32f2f;
+  color: #8e1b1b;
+}
+
+.side-panel .MuiListItemButton-root.search-result--focused:hover,
+.side-panel .MuiListItemButton-root.search-result--focused.Mui-selected:hover {
+  background-color: #ffcdd2;
+}
+
+.side-panel .search-result--focused .MuiListItemText-secondary {
+  color: #a52a2a;
+}
+
 .property-panel {
   padding-inline: 20px;
 }
 
 .property-panel .MuiTabs-root {
-  border-bottom: 1px solid #e2e7e4;
+  border-bottom: 1px solid #c7e3f0;
 }
 
 .side-panel[aria-hidden='true'] {
@@ -141,7 +157,7 @@
 }
 
 .map-workspace {
-  background-color: #eef1ee;
+  background-color: #dff4fc;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -154,9 +170,9 @@
 .map-toolbar {
   align-items: center;
   background: rgb(255 255 255 / 94%);
-  border: 1px solid rgb(201 213 207 / 88%);
+  border: 1px solid rgb(185 222 239 / 92%);
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgb(30 54 45 / 12%);
+  box-shadow: 0 8px 24px rgb(20 127 181 / 14%);
   column-gap: 4px;
   flex-wrap: wrap;
   left: 12px;
@@ -173,7 +189,7 @@
 }
 
 .map-toolbar .MuiButtonGroup-root {
-  background: #f4f6f5;
+  background: #e8f6fc;
   border-radius: 8px;
 }
 
