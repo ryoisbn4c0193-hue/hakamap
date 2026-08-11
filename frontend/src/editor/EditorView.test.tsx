@@ -93,6 +93,8 @@ describe('EditorView', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'エリアと管理状態' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '元に戻す' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'やり直す' })).toBeDisabled();
     fireEvent.click(screen.getByText(/第一墓所/));
     expect(screen.getByRole('tab', { name: '基本情報' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '人物' })).toBeInTheDocument();

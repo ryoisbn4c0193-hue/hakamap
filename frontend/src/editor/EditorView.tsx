@@ -151,6 +151,14 @@ function EditorView({ projectId }: EditorViewProps) {
       await refreshProject();
     },
   });
+  const historyChange = useMutation({
+    mutationFn: async (action: 'undo' | 'redo') => {
+      if (snapshot.data === undefined) throw new Error('snapshot-unavailable');
+      await changeHistory(projectId, action, snapshot.data.revision);
+    },
+    onError: () => setMessage('履歴操作を完了できませんでした。最新の状態を確認してください。'),
+    onSuccess: refreshProject,
+  });
 
   const requestSelection = (graveId?: string) => {
     if (graveId === selectedGraveId) {
@@ -188,10 +196,11 @@ function EditorView({ projectId }: EditorViewProps) {
   const incomplete = snapshot.data.graveStates.filter(
     (state) => state.completionStatus !== 'complete',
   ).length;
+  const editingBusy = command.isPending || historyChange.isPending;
 
   return (
     <>
-      {command.isPending ? <LinearProgress aria-label="操作を処理中" /> : null}
+      {editingBusy ? <LinearProgress aria-label="操作を処理中" /> : null}
       {message === undefined ? null : (
         <Alert onClose={() => setMessage(undefined)} severity="info">
           {message}
@@ -308,7 +317,9 @@ function EditorView({ projectId }: EditorViewProps) {
         </Paper>
 
         <MapCanvas
-          busy={command.isPending}
+          busy={editingBusy}
+          canRedo={snapshot.data.historySummary.canRedo}
+          canUndo={snapshot.data.historySummary.canUndo}
           focusedGraveId={focusedGraveId ?? firstSearchGraveId}
           labelMode={labelMode}
           onBackgroundFieldChange={(field, value) => {
@@ -340,6 +351,7 @@ function EditorView({ projectId }: EditorViewProps) {
               graveIds,
             })
           }
+          onHistoryChange={(action) => historyChange.mutate(action)}
           onNudgeGraves={(graveIds, delta) =>
             mapCommand('moveGraves', {
               deltaX: delta.x,
@@ -407,7 +419,7 @@ function EditorView({ projectId }: EditorViewProps) {
               <Typography>{selectedMapIds.length}件の墓所を選択中</Typography>
               <Button
                 color="error"
-                disabled={command.isPending}
+                disabled={editingBusy}
                 onClick={() => mapCommand('deleteGraves', { graveIds: selectedMapIds })}
                 variant="outlined"
               >
@@ -432,7 +444,7 @@ function EditorView({ projectId }: EditorViewProps) {
               </Tabs>
               {tab === 'basic' ? (
                 <BasicTab
-                  busy={command.isPending}
+                  busy={editingBusy}
                   draft={draft}
                   onChange={setDraft}
                   onReset={() => setDraft(draftFrom(selectedGrave))}
@@ -446,7 +458,7 @@ function EditorView({ projectId }: EditorViewProps) {
               ) : null}
               {tab === 'people' ? (
                 <PeopleTab
-                  busy={command.isPending}
+                  busy={editingBusy}
                   graveId={selectedGrave.graveId}
                   onCommand={(commandType, payload) => command.mutate({ commandType, payload })}
                   projectId={projectId}
@@ -457,22 +469,13 @@ function EditorView({ projectId }: EditorViewProps) {
                   assets={snapshot.data.assets
                     .filter((asset) => asset.graveId === selectedGrave.graveId)
                     .sort((left, right) => (left.displayOrder ?? 0) - (right.displayOrder ?? 0))}
-                  busy={command.isPending}
+                  busy={editingBusy}
                   graveId={selectedGrave.graveId}
                   projectId={projectId}
                   onCommand={(commandType, payload) => command.mutate({ commandType, payload })}
                 />
               ) : null}
-              {tab === 'history' ? (
-                <HistoryTab
-                  busy={command.isPending}
-                  onChange={async (action) => {
-                    await changeHistory(projectId, action, snapshot.data.revision);
-                    await refreshProject();
-                  }}
-                  projectId={projectId}
-                />
-              ) : null}
+              {tab === 'history' ? <HistoryTab projectId={projectId} /> : null}
             </>
           )}
         </Paper>
@@ -825,35 +828,13 @@ function AssetsTab({
   );
 }
 
-function HistoryTab({
-  busy,
-  onChange,
-  projectId,
-}: {
-  busy: boolean;
-  onChange: (action: 'undo' | 'redo') => Promise<void>;
-  projectId: string;
-}) {
+function HistoryTab({ projectId }: { projectId: string }) {
   const history = useQuery({
     queryFn: () => getProjectHistory(projectId),
     queryKey: ['projectHistory', projectId],
   });
   return (
     <Stack spacing={2}>
-      <Stack direction="row" spacing={1}>
-        <Button
-          disabled={busy || !history.data?.historySummary.canUndo}
-          onClick={() => void onChange('undo')}
-        >
-          元に戻す
-        </Button>
-        <Button
-          disabled={busy || !history.data?.historySummary.canRedo}
-          onClick={() => void onChange('redo')}
-        >
-          やり直す
-        </Button>
-      </Stack>
       {history.data?.items.map((item) => (
         <Box key={item.commandId}>
           <Typography>{item.commandType}</Typography>

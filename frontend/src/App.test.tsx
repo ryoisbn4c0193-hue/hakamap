@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { withFileSelectionActivity } from './api/fileSelectionActivity';
@@ -60,5 +60,29 @@ describe('App', () => {
     );
     complete?.();
     await selection;
+  });
+
+  it('共通メニューから操作ガイドを表示する', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ openProjectId: null, projects: [] }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      ),
+    );
+    render(
+      <AppProviders>
+        <App />
+      </AppProviders>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '操作ガイド' }));
+
+    const guide = await screen.findByRole('dialog', { name: 'Hakamap 操作ガイド' });
+    expect(guide).toHaveTextContent('元に戻す・やり直す');
+    expect(guide).toHaveTextContent('マウスの中ボタン');
+    expect(guide).toHaveTextContent('Ctrl＋クリック');
   });
 });

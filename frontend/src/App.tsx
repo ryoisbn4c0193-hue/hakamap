@@ -42,6 +42,7 @@ function App() {
   const [saving, setSaving] = useState(false);
   const [appMessage, setAppMessage] = useState<string>();
   const [backupsOpen, setBackupsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [fileSelectionActive, setFileSelectionActive] = useState(false);
   const backups = useQuery({
     enabled: backupsOpen && openProjectId !== undefined,
@@ -168,6 +169,9 @@ function App() {
                 </Button>
               </>
             ) : null}
+            <Button color="inherit" onClick={() => setHelpOpen(true)} size="small">
+              操作ガイド
+            </Button>
             <Button
               color="inherit"
               disabled={exitRequested}
@@ -193,6 +197,71 @@ function App() {
           Windowsのファイル選択画面で選択またはキャンセルしてください。選択が終わるまで、
           Hakamapの画面は操作できません。
         </DialogContent>
+      </Dialog>
+
+      <Dialog fullWidth maxWidth="md" onClose={() => setHelpOpen(false)} open={helpOpen}>
+        <DialogTitle>Hakamap 操作ガイド</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={3}>
+            <Box component="section">
+              <Typography component="h2" gutterBottom variant="h2">
+                元に戻す・やり直す
+              </Typography>
+              <Typography>
+                地図上部の「元に戻す」でプロジェクト全体の直前のデータ変更を取り消し、
+                「やり直す」で取り消した変更を再適用できます。墓所を選択する必要はありません。
+                ズーム、地図の表示移動、検索、選択は元に戻す対象ではありません。変更履歴は、
+                墓所を選択したときに右側へ表示される「履歴」タブで確認できます。
+              </Typography>
+            </Box>
+            <Box component="section">
+              <Typography component="h2" gutterBottom variant="h2">
+                地図の拡大・縮小・表示移動
+              </Typography>
+              <Typography>
+                「拡大」「縮小」ボタン、マウスホイール、または＋／－キーで倍率を変更します。
+                「全体表示」または0キーで全体へ戻ります。地図を上下左右へ動かすときは、
+                マウスの中ボタンを押しながらドラッグするか、Spaceキーを押しながら 左ドラッグします。
+              </Typography>
+            </Box>
+            <Box component="section">
+              <Typography component="h2" gutterBottom variant="h2">
+                墓所の選択・移動
+              </Typography>
+              <Typography>
+                クリックで1件選択、Ctrl＋クリックで選択の追加・解除ができます。空白から
+                ドラッグすると矩形内の墓所を選択し、Ctrl＋ドラッグで現在の選択へ追加します。
+                選択した墓所はドラッグ、矢印キーで1単位、Shift＋矢印キーで10単位移動できます。
+              </Typography>
+            </Box>
+            <Box component="section">
+              <Typography component="h2" gutterBottom variant="h2">
+                編集モードと保存
+              </Typography>
+              <Typography>
+                地図上部の「選択」「エリア編集」「墓所作成」「エリア作成」から操作を選びます。
+                プロパティの入力は「適用」で編集状態へ反映し、上部の「保存」でファイルへ
+                保存します。保存後も、プロジェクトを開いている間は履歴を元に戻せます。
+              </Typography>
+            </Box>
+            <Box component="section">
+              <Typography component="h2" gutterBottom variant="h2">
+                ファイル選択・終了・再表示
+              </Typography>
+              <Typography>
+                Windowsのファイル選択画面が開いている間はHakamap画面を操作できません。
+                アプリを終了するときは「Hakamapを終了」を使用します。ブラウザのタブだけを
+                閉じた場合は、デスクトップまたはスタートメニューのHakamapショートカットから
+                画面を開き直せます。
+              </Typography>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setHelpOpen(false)} variant="contained">
+            閉じる
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {editorVisible && openProjectId !== undefined ? (

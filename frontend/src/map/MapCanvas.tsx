@@ -19,6 +19,8 @@ import { PixiMapAdapter, type MapMode, type MapRenderModel } from './PixiMapAdap
 
 type MapCanvasProps = {
   busy: boolean;
+  canRedo: boolean;
+  canUndo: boolean;
   labelMode: GraveLabelMode;
   onCreateArea: (rectangle: MapRect) => void;
   onBackgroundFieldChange: (
@@ -27,6 +29,7 @@ type MapCanvasProps = {
   ) => void;
   onCreateGrave: (rectangle: MapRect) => void;
   onMoveGraves: (graveIds: readonly string[], delta: MapPoint) => void;
+  onHistoryChange: (action: 'undo' | 'redo') => void;
   onNudgeGraves: (graveIds: readonly string[], delta: MapPoint) => void;
   onResizeGrave: (rectangle: MapRect) => void;
   onUpdateArea: (rectangle: MapRect) => void;
@@ -40,11 +43,14 @@ type MapCanvasProps = {
 
 function MapCanvas({
   busy,
+  canRedo,
+  canUndo,
   labelMode,
   onBackgroundFieldChange,
   onCreateArea,
   onCreateGrave,
   onMoveGraves,
+  onHistoryChange,
   onNudgeGraves,
   onResizeGrave,
   onUpdateArea,
@@ -186,6 +192,12 @@ function MapCanvas({
             背景移動
           </ToggleButton>
         </ToggleButtonGroup>
+        <Button disabled={busy || !canUndo} onClick={() => onHistoryChange('undo')} size="small">
+          元に戻す
+        </Button>
+        <Button disabled={busy || !canRedo} onClick={() => onHistoryChange('redo')} size="small">
+          やり直す
+        </Button>
         <Button onClick={() => adapter.current?.zoom(1.2)} size="small">
           拡大
         </Button>
