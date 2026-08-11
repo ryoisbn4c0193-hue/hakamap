@@ -1,10 +1,11 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { HakamapApiError } from '../api/hakamapClient';
 import AppProviders from '../app/AppProviders';
 import { useUiStore } from '../state/uiStore';
 
-import EditorView, { createAreaPayload } from './EditorView';
+import EditorView, { createAreaPayload, editingErrorMessage } from './EditorView';
 
 const projectId = '11111111-1111-4111-8111-111111111111';
 const firstGraveId = '22222222-2222-4222-8222-222222222222';
@@ -93,6 +94,13 @@ describe('EditorView', () => {
       x: 10,
       y: 20,
     });
+  });
+
+  it('業務エラーコードを具体的な日本語メッセージへ変換する', () => {
+    expect(editingErrorMessage(new HakamapApiError(422, 'area-overlap'))).toBe(
+      'エリア同士は重ねられません。位置またはサイズを調整してください。',
+    );
+    expect(editingErrorMessage(new HakamapApiError(422, 'unknown-code'))).toContain('unknown-code');
   });
 
   it('三領域と四つのプロパティタブを表示する', async () => {

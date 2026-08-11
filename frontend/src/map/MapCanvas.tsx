@@ -1,6 +1,10 @@
 import {
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
   Stack,
   Switch,
@@ -22,6 +26,8 @@ type MapCanvasProps = {
   canRedo: boolean;
   canUndo: boolean;
   labelMode: GraveLabelMode;
+  onAreaNameChange: (areaId: string, name: string) => void;
+  onChooseBackground: () => void;
   onCreateArea: (rectangle: MapRect) => void;
   onBackgroundFieldChange: (
     field: 'x' | 'y' | 'rotation' | 'scaleX' | 'scaleY',
@@ -31,6 +37,7 @@ type MapCanvasProps = {
   onMoveGraves: (graveIds: readonly string[], delta: MapPoint) => void;
   onHistoryChange: (action: 'undo' | 'redo') => void;
   onNudgeGraves: (graveIds: readonly string[], delta: MapPoint) => void;
+  onRemoveBackground: () => void;
   onResizeGrave: (rectangle: MapRect) => void;
   onUpdateArea: (rectangle: MapRect) => void;
   onTransformBackground: (x: number, y: number) => void;
@@ -46,12 +53,15 @@ function MapCanvas({
   canRedo,
   canUndo,
   labelMode,
+  onAreaNameChange,
   onBackgroundFieldChange,
+  onChooseBackground,
   onCreateArea,
   onCreateGrave,
   onMoveGraves,
   onHistoryChange,
   onNudgeGraves,
+  onRemoveBackground,
   onResizeGrave,
   onUpdateArea,
   onTransformBackground,
@@ -61,9 +71,11 @@ function MapCanvas({
   focusedGraveId,
   snapshot,
 }: MapCanvasProps) {
+  const [selectedAreaId, setSelectedAreaId] = useState<string>();
   const host = useRef<HTMLDivElement>(null);
   const adapter = useRef<PixiMapAdapter | undefined>(undefined);
   const callbacks = useRef({
+    onAreaSelectionChange: (areaId?: string) => setSelectedAreaId(areaId),
     onCreateArea,
     onCreateGrave,
     onMoveGraves,
@@ -74,6 +86,7 @@ function MapCanvas({
   });
   useEffect(() => {
     callbacks.current = {
+      onAreaSelectionChange: (areaId?: string) => setSelectedAreaId(areaId),
       onCreateArea,
       onCreateGrave,
       onMoveGraves,
@@ -94,6 +107,7 @@ function MapCanvas({
   const [mode, setMode] = useState<MapMode>('select');
   const [snap, setSnap] = useState(true);
   const [outputOpen, setOutputOpen] = useState(false);
+  const [removeBackgroundOpen, setRemoveBackgroundOpen] = useState(false);
   const backgroundManifest = useQuery({
     enabled: snapshot.background !== null,
     queryFn: () => getBackgroundTileManifest(snapshot.projectId),
@@ -155,6 +169,7 @@ function MapCanvas({
     observer.observe(element);
     void next
       .mount(element, {
+        onAreaSelectionChange: (areaId) => callbacks.current.onAreaSelectionChange(areaId),
         onCreateArea: (rectangle) => callbacks.current.onCreateArea(rectangle),
         onCreateGrave: (rectangle) => callbacks.current.onCreateGrave(rectangle),
         onMoveGraves: (ids, delta) => callbacks.current.onMoveGraves(ids, delta),
@@ -199,6 +214,17 @@ function MapCanvas({
             背景移動
           </ToggleButton>
         </ToggleButtonGroup>
+        <Button disabled={busy} onClick={onChooseBackground} size="small">
+          {snapshot.background === null ? '背景を追加' : '背景を差し替え'}
+        </Button>
+        <Button
+          color="error"
+          disabled={busy || snapshot.background === null}
+          onClick={() => setRemoveBackgroundOpen(true)}
+          size="small"
+        >
+          背景を削除
+        </Button>
         <Button disabled={busy || !canUndo} onClick={() => onHistoryChange('undo')} size="small">
           元に戻す
         </Button>
@@ -262,6 +288,22 @@ function MapCanvas({
                 type="number"
               />
             ))}
+        {mode === 'editArea' && selectedAreaId !== undefined ? (
+          <TextField
+            defaultValue={
+              snapshot.areas.find(({ areaId }) => areaId === selectedAreaId)?.name ?? ''
+            }
+            disabled={busy}
+            key={`${selectedAreaId}-${snapshot.revision}`}
+            label="エリア名"
+            onBlur={(event) => {
+              const name = event.target.value;
+              const current = snapshot.areas.find(({ areaId }) => areaId === selectedAreaId)?.name;
+              if (name !== current) onAreaNameChange(selectedAreaId, name);
+            }}
+            size="small"
+          />
+        ) : null}
       </Stack>
       <Box
         aria-label="墓地地図キャンバス"
@@ -302,6 +344,25 @@ function MapCanvas({
         onClose={() => setOutputOpen(false)}
         open={outputOpen}
       />
+      <Dialog onClose={() => setRemoveBackgroundOpen(false)} open={removeBackgroundOpen}>
+        <DialogTitle>背景を削除しますか</DialogTitle>
+        <DialogContent>
+          エリアと墓所の位置は変わりません。削除後も「元に戻す」で復元できます。
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRemoveBackgroundOpen(false)}>キャンセル</Button>
+          <Button
+            color="error"
+            onClick={() => {
+              setRemoveBackgroundOpen(false);
+              onRemoveBackground();
+            }}
+            variant="contained"
+          >
+            削除
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

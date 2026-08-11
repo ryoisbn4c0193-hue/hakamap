@@ -142,7 +142,7 @@ const projectSnapshotSchema = z.object({
 });
 
 const commandResponseSchema = z.object({
-  status: z.string(),
+  status: z.enum(['applied', 'noChange']),
   revision: z.number().int().nonnegative(),
   dirty: z.boolean(),
   upsertedAreas: z.array(z.unknown()),
@@ -157,6 +157,16 @@ const commandResponseSchema = z.object({
   historySummary: historySummarySchema,
   result: z.unknown(),
 });
+
+const confirmationRequiredSchema = z.object({
+  status: z.literal('confirmationRequired'),
+  revision: z.number().int().nonnegative(),
+  confirmationToken: z.string(),
+  expiresAt: z.iso.datetime(),
+  warnings: z.array(z.object({ code: z.string(), count: z.number().int().positive() })),
+});
+
+const commandExecutionResponseSchema = z.union([commandResponseSchema, confirmationRequiredSchema]);
 
 const personSchema = z.object({
   personId: z.uuid(),
@@ -322,9 +332,28 @@ export async function requestApplicationExit(): Promise<void> {
 
 async function requireJson<T>(response: Response, schema: z.ZodType<T>): Promise<T> {
   if (!response.ok) {
-    throw new Error(`api-request-failed-${response.status}`);
+    let code: string | undefined;
+    try {
+      const problem = z.object({ code: z.string() }).safeParse(await response.clone().json());
+      if (problem.success) code = problem.data.code;
+    } catch {
+      // Problem Detailsを読めない場合もHTTP状態を使って安全に通知する。
+    }
+    throw new HakamapApiError(response.status, code);
   }
   return schema.parse(await response.json());
+}
+
+export class HakamapApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(status: number, code?: string) {
+    super(code ?? `api-request-failed-${status}`);
+    this.name = 'HakamapApiError';
+    this.status = status;
+    this.code = code;
+  }
 }
 
 async function changeProject(
@@ -380,6 +409,20 @@ export async function chooseAttachmentFiles(): Promise<string[]> {
     fileSelectionSchema,
   );
   return selected.status === 'cancelled' ? [] : selected.fileSelectionIds;
+}
+
+export async function chooseBackgroundFile(): Promise<string | undefined> {
+  const selected = await requireJson(
+    await withFileSelectionActivity(() =>
+      hakamapFetch('/api/v1/file-selections', {
+        body: JSON.stringify({ purpose: 'backgroundImport', selectionMode: 'singleFile' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      }),
+    ),
+    fileSelectionSchema,
+  );
+  return selected.status === 'cancelled' ? undefined : selected.fileSelectionIds[0];
 }
 
 export async function chooseTransferPath(
@@ -567,13 +610,31 @@ export async function executeProjectCommand(
   expectedRevision: number,
   commandType: string,
   payload: unknown,
-): Promise<z.infer<typeof commandResponseSchema>> {
+): Promise<z.infer<typeof commandExecutionResponseSchema>> {
   return requireJson(
     await hakamapFetch(`/api/v1/projects/${projectId}/commands`, {
       body: JSON.stringify({ commandType, expectedRevision, payload }),
       headers: { 'Content-Type': 'application/json' },
       method: 'POST',
     }),
+    commandExecutionResponseSchema,
+  );
+}
+
+export async function confirmProjectCommand(
+  projectId: string,
+  confirmationToken: string,
+  expectedRevision: number,
+): Promise<z.infer<typeof commandResponseSchema>> {
+  return requireJson(
+    await hakamapFetch(
+      `/api/v1/projects/${projectId}/command-confirmations/${encodeURIComponent(confirmationToken)}`,
+      {
+        body: JSON.stringify({ expectedRevision }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      },
+    ),
     commandResponseSchema,
   );
 }

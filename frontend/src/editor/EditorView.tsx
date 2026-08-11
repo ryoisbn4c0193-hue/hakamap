@@ -15,6 +15,7 @@ import {
   ListItemText,
   Paper,
   Stack,
+  Snackbar,
   Tab,
   Tabs,
   TextField,
@@ -32,10 +33,13 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   changeHistory,
   chooseAttachmentFiles,
+  chooseBackgroundFile,
+  confirmProjectCommand,
   executeProjectCommand,
   getGravePeople,
   getProjectHistory,
   getProjectSnapshot,
+  HakamapApiError,
   searchGraves,
   type Grave,
   type GraveSearchPage,
@@ -56,6 +60,41 @@ type GraveDraft = {
   name: string;
   notes: string;
 };
+
+type Notification = Readonly<{ message: string; severity: 'error' | 'info' | 'success' }>;
+
+const errorMessages: Readonly<Record<string, string>> = {
+  'area-color-in-use': '選択した色は別のエリアで使用されています。',
+  'area-limit-exceeded': '登録できるエリア数の上限に達しています。',
+  'area-name-duplicate': '同じ名前のエリアが既に存在します。別の名前を入力してください。',
+  'area-overlap': 'エリア同士は重ねられません。位置またはサイズを調整してください。',
+  'asset-count-exceeded': 'この墓所へ追加できる添付ファイル数の上限に達しています。',
+  'asset-dimensions-exceeded': '画像の縦横サイズが上限を超えています。',
+  'asset-format-unsupported': '対応していないファイル形式です。',
+  'asset-size-exceeded': 'ファイル容量が上限を超えています。',
+  'grave-business-key-duplicate':
+    '同じエリア内で管理番号が重複しています。別の管理番号を入力してください。',
+  'grave-overlap': '墓所同士は重ねられません。位置またはサイズを調整してください。',
+  'invalid-area-name': 'エリア名を1～25文字で入力してください。',
+  'invalid-grave-name': '墓所名は50文字以内で入力してください。',
+  'invalid-grave-notes': '備考は1,000文字以内で入力してください。',
+  'invalid-management-number': '管理番号は25文字以内で入力してください。',
+  'invalid-map-rectangle': '作成範囲またはサイズが不正です。',
+  'invalid-map-size': '幅と高さは0より大きい値にしてください。',
+  'project-busy': 'プロジェクトは別の処理で使用中です。処理完了後に再試行してください。',
+  'project-revision-conflict': '別の変更が反映されています。最新情報を読み込んでください。',
+  'request-field-invalid': '入力値または操作内容が不正です。入力内容を確認してください。',
+};
+
+export function editingErrorMessage(error: unknown): string {
+  if (error instanceof HakamapApiError) {
+    if (error.code !== undefined) {
+      return errorMessages[error.code] ?? `操作に失敗しました（${error.code}）。`;
+    }
+    return `サーバーが操作を受け付けませんでした（HTTP ${error.status}）。`;
+  }
+  return '操作中に予期しないエラーが発生しました。入力内容は保持されています。';
+}
 
 const emptyDraft: GraveDraft = { managementNumber: '', name: '', notes: '' };
 
@@ -119,8 +158,13 @@ function EditorView({ projectId }: EditorViewProps) {
   const [draft, setDraft] = useState<GraveDraft>(emptyDraft);
   const [draftSourceId, setDraftSourceId] = useState<string>();
   const [pendingSelection, setPendingSelection] = useState<string>();
-  const [message, setMessage] = useState<string>();
+  const [notification, setNotification] = useState<Notification>();
   const [conflict, setConflict] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState<{
+    confirmationToken: string;
+    revision: number;
+    warnings: readonly { code: string; count: number }[];
+  }>();
 
   if (selectedGrave?.graveId !== draftSourceId) {
     setDraft(draftFrom(selectedGrave));
@@ -153,14 +197,41 @@ function EditorView({ projectId }: EditorViewProps) {
     },
     onError: (error) => {
       void queryClient.invalidateQueries({ queryKey: ['projectSnapshot', projectId] });
-      if (error instanceof Error && error.message === 'api-request-failed-409') {
+      if (error instanceof HakamapApiError && error.status === 409) {
         setConflict(true);
+        setNotification({ message: editingErrorMessage(error), severity: 'error' });
       } else {
-        setMessage('操作を完了できませんでした。入力内容を保持しています。');
+        setNotification({ message: editingErrorMessage(error), severity: 'error' });
       }
     },
+    onSuccess: async (response) => {
+      if (response.status === 'confirmationRequired') {
+        setPendingConfirmation(response);
+        return;
+      }
+      setNotification({ message: '変更を適用しました。', severity: 'success' });
+      await refreshProject();
+    },
+  });
+  const confirmation = useMutation({
+    mutationFn: async () => {
+      if (pendingConfirmation === undefined) throw new Error('confirmation-unavailable');
+      return confirmProjectCommand(
+        projectId,
+        pendingConfirmation.confirmationToken,
+        pendingConfirmation.revision,
+      );
+    },
+    onError: (error) => {
+      setPendingConfirmation(undefined);
+      setNotification({
+        message: editingErrorMessage(error),
+        severity: 'error',
+      });
+    },
     onSuccess: async () => {
-      setMessage('変更を適用しました。');
+      setPendingConfirmation(undefined);
+      setNotification({ message: '変更を適用しました。', severity: 'success' });
       await refreshProject();
     },
   });
@@ -169,7 +240,7 @@ function EditorView({ projectId }: EditorViewProps) {
       if (snapshot.data === undefined) throw new Error('snapshot-unavailable');
       await changeHistory(projectId, action, snapshot.data.revision);
     },
-    onError: () => setMessage('履歴操作を完了できませんでした。最新の状態を確認してください。'),
+    onError: (error) => setNotification({ message: editingErrorMessage(error), severity: 'error' }),
     onSuccess: refreshProject,
   });
 
@@ -187,6 +258,27 @@ function EditorView({ projectId }: EditorViewProps) {
 
   const mapCommand = (commandType: string, payload: unknown) => {
     command.mutate({ commandType, payload });
+  };
+
+  const chooseBackground = async () => {
+    try {
+      const fileSelectionId = await chooseBackgroundFile();
+      if (fileSelectionId === undefined) return;
+      const background = snapshot.data?.background;
+      command.mutate({
+        commandType: 'setBackground',
+        payload: {
+          fileSelectionId,
+          rotation: background?.rotation ?? 0,
+          scaleX: background?.scaleX ?? 1,
+          scaleY: background?.scaleY ?? 1,
+          x: background?.x ?? 0,
+          y: background?.y ?? 0,
+        },
+      });
+    } catch (error) {
+      setNotification({ message: editingErrorMessage(error), severity: 'error' });
+    }
   };
 
   const createPayload = (rectangle: MapRect) => ({
@@ -210,16 +302,27 @@ function EditorView({ projectId }: EditorViewProps) {
   const incomplete = snapshot.data.graveStates.filter(
     (state) => state.completionStatus !== 'complete',
   ).length;
-  const editingBusy = command.isPending || historyChange.isPending;
+  const editingBusy = command.isPending || confirmation.isPending || historyChange.isPending;
 
   return (
     <>
       {editingBusy ? <LinearProgress aria-label="操作を処理中" /> : null}
-      {message === undefined ? null : (
-        <Alert onClose={() => setMessage(undefined)} severity="info">
-          {message}
+      <Snackbar
+        anchorOrigin={{ horizontal: 'center', vertical: 'top' }}
+        autoHideDuration={5_000}
+        onClose={(_, reason) => {
+          if (reason !== 'clickaway') setNotification(undefined);
+        }}
+        open={notification !== undefined}
+      >
+        <Alert
+          onClose={() => setNotification(undefined)}
+          severity={notification?.severity ?? 'info'}
+          variant="filled"
+        >
+          {notification?.message}
         </Alert>
-      )}
+      </Snackbar>
       <Box
         className="editor-layout"
         component="main"
@@ -349,6 +452,22 @@ function EditorView({ projectId }: EditorViewProps) {
               });
             }
           }}
+          onAreaNameChange={(areaId, name) => {
+            const area = snapshot.data.areas.find((candidate) => candidate.areaId === areaId);
+            if (area !== undefined) {
+              mapCommand('updateArea', {
+                areaId,
+                colorPreset: area.colorPreset,
+                height: area.height,
+                name,
+                visible: area.visible,
+                width: area.width,
+                x: area.x,
+                y: area.y,
+              });
+            }
+          }}
+          onChooseBackground={() => void chooseBackground()}
           onCreateArea={(rectangle) =>
             mapCommand(
               'createArea',
@@ -364,6 +483,7 @@ function EditorView({ projectId }: EditorViewProps) {
             })
           }
           onHistoryChange={(action) => historyChange.mutate(action)}
+          onRemoveBackground={() => mapCommand('removeBackground', {})}
           onNudgeGraves={(graveIds, delta) =>
             mapCommand('moveGraves', {
               deltaX: delta.x,
@@ -524,6 +644,36 @@ function EditorView({ projectId }: EditorViewProps) {
             variant="contained"
           >
             最新情報を読み込む
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={pendingConfirmation !== undefined}>
+        <DialogTitle>配置に関する警告があります</DialogTitle>
+        <DialogContent>
+          {pendingConfirmation?.warnings.map((warning) => (
+            <Typography key={warning.code}>
+              {warning.code === 'outsideAreaBounds'
+                ? `エリア範囲外の墓所が${warning.count}件あります。`
+                : warning.code === 'unassigned'
+                  ? `所属エリアのない墓所が${warning.count}件あります。`
+                  : `${warning.code}: ${warning.count}件`}
+            </Typography>
+          ))}
+          警告を確認したうえで配置できます。
+        </DialogContent>
+        <DialogActions>
+          <Button
+            disabled={confirmation.isPending}
+            onClick={() => setPendingConfirmation(undefined)}
+          >
+            キャンセル
+          </Button>
+          <Button
+            disabled={confirmation.isPending}
+            onClick={() => confirmation.mutate()}
+            variant="contained"
+          >
+            このまま配置
           </Button>
         </DialogActions>
       </Dialog>

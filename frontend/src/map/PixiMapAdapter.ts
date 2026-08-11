@@ -6,6 +6,7 @@ import {
   hitTest,
   inverseViewportScale,
   intersects,
+  keepSnappedRectangleInsideArea,
   mapBoundsToBackgroundLocal,
   normalizeRect,
   screenToMap,
@@ -41,6 +42,7 @@ export type MapRenderModel = Readonly<{
 }>;
 export type MapMode = 'select' | 'editArea' | 'createGrave' | 'createArea' | 'transformBackground';
 export type MapCallbacks = Readonly<{
+  onAreaSelectionChange: (areaId?: string) => void;
   onCreateArea: (rectangle: MapRect) => void;
   onCreateGrave: (rectangle: MapRect) => void;
   onMoveGraves: (graveIds: readonly string[], delta: MapPoint) => void;
@@ -60,7 +62,7 @@ type PointerOperation =
       rectangles: readonly MapRect[];
     }>
   | Readonly<{ kind: 'resize'; original: MapRect; start: MapPoint }>
-  | Readonly<{ kind: 'area'; original: MapRect; start: MapPoint }>
+  | Readonly<{ kind: 'area'; original: MapRect; resizing: boolean; start: MapPoint }>
   | Readonly<{ kind: 'background'; original: MapPoint; start: MapPoint }>
   | Readonly<{ kind: 'create'; start: MapPoint }>;
 
@@ -281,8 +283,15 @@ export class PixiMapAdapter {
       const visibleAreas = this.model.areas.filter(({ visible }) => visible);
       const areaId = hitTest(visibleAreas, map);
       this.selectedAreaId = areaId;
+      this.callbacks?.onAreaSelectionChange(areaId);
       const area = visibleAreas.find(({ id }) => id === areaId);
-      if (area !== undefined) this.operation = { kind: 'area', original: area, start: map };
+      if (area !== undefined) {
+        const handleDistance = 8 / this.viewport.scale;
+        const resizing =
+          Math.abs(map.x - (area.x + area.width)) <= handleDistance &&
+          Math.abs(map.y - (area.y + area.height)) <= handleDistance;
+        this.operation = { kind: 'area', original: area, resizing, start: map };
+      }
       this.render();
       return;
     }
@@ -347,11 +356,31 @@ export class PixiMapAdapter {
       }
       this.preview = { ...this.operation.original, width, height };
     } else if (this.operation.kind === 'area') {
-      this.preview = {
-        ...this.operation.original,
-        x: this.operation.original.x + map.x - this.operation.start.x,
-        y: this.operation.original.y + map.y - this.operation.start.y,
-      };
+      const delta = { x: map.x - this.operation.start.x, y: map.y - this.operation.start.y };
+      if (this.operation.resizing) {
+        this.preview = {
+          ...this.operation.original,
+          height: Math.max(1, this.operation.original.height + delta.y),
+          width: Math.max(1, this.operation.original.width + delta.x),
+        };
+      } else {
+        let candidate = {
+          ...this.operation.original,
+          x: this.operation.original.x + delta.x,
+          y: this.operation.original.y + delta.y,
+        };
+        if (this.snapEnabled) {
+          const movingAreaId = this.operation.original.id;
+          const targets = [
+            ...this.model.areas.filter(({ id, visible }) => visible && id !== movingAreaId),
+            ...this.model.graves,
+          ];
+          const snapped = snapRectangle(candidate, targets, this.viewport.scale);
+          candidate = snapped.rectangle;
+          this.guides = { x: snapped.guideX, y: snapped.guideY };
+        }
+        this.preview = candidate;
+      }
     } else if (this.operation.kind === 'background') {
       this.preview = {
         height: 0,
@@ -379,7 +408,11 @@ export class PixiMapAdapter {
             ...this.model.areas.filter(({ visible }) => visible),
           ];
           const snapped = snapRectangle(candidate, targets, this.viewport.scale);
-          candidate = snapped.rectangle;
+          candidate = keepSnappedRectangleInsideArea(
+            candidate,
+            snapped.rectangle,
+            this.model.areas.filter(({ visible }) => visible),
+          );
           this.guides = { x: snapped.guideX, y: snapped.guideY };
           delta = { x: candidate.x - base.x, y: candidate.y - base.y };
         }
@@ -481,6 +514,15 @@ export class PixiMapAdapter {
         label.scale.set(textScale);
         label.position.set(area.x + 3 / this.viewport.scale, area.y + 2 / this.viewport.scale);
         this.areaLayer.addChild(graphic, label);
+        if (selected && this.mode === 'editArea') {
+          const size = 8 / this.viewport.scale;
+          this.overlayLayer.addChild(
+            new Graphics()
+              .rect(area.x + area.width - size / 2, area.y + area.height - size / 2, size, size)
+              .fill({ color: 0xffffff })
+              .stroke({ color: 0x1565c0, width: 1 / this.viewport.scale }),
+          );
+        }
       });
     const viewportBounds: MapRect = {
       height: this.application.screen.height / this.viewport.scale,

@@ -7,6 +7,7 @@ import {
   hitTest,
   inverseViewportScale,
   intersects,
+  keepSnappedRectangleInsideArea,
   mapToScreen,
   mapBoundsToBackgroundLocal,
   normalizeRect,
@@ -76,6 +77,16 @@ describe('map geometry', () => {
       scale,
     );
     expect(result.rectangle.x).toBe(10);
+  });
+
+  it('keeps a grave whose dragged center is inside an area on the closed inner edge', () => {
+    const original = { height: 10, id: 'grave', width: 10, x: 91, y: 20 };
+    const snapped = { ...original, x: 100 };
+    expect(
+      keepSnappedRectangleInsideArea(original, snapped, [
+        { height: 100, id: 'area', width: 100, x: 0, y: 0 },
+      ]),
+    ).toEqual({ ...original, x: 90 });
   });
 
   it('fits five thousand graves within the viewport in well under one second', () => {

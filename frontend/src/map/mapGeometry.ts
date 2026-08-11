@@ -241,6 +241,26 @@ export function snapRectangle(
   };
 }
 
+export function keepSnappedRectangleInsideArea(
+  original: MapRect,
+  snapped: MapRect,
+  areas: readonly MapRect[],
+): MapRect {
+  const center = { x: original.x + original.width / 2, y: original.y + original.height / 2 };
+  const area = areas.find(
+    (candidate) =>
+      contains(candidate, center) &&
+      original.width <= candidate.width &&
+      original.height <= candidate.height,
+  );
+  if (area === undefined) return snapped;
+  return {
+    ...snapped,
+    x: Math.min(Math.max(snapped.x, area.x), area.x + area.width - snapped.width),
+    y: Math.min(Math.max(snapped.y, area.y), area.y + area.height - snapped.height),
+  };
+}
+
 export function fitViewport(
   rectangles: readonly MapRect[],
   width: number,
