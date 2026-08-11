@@ -923,6 +923,8 @@ Windows側のリポジトリを更新し、`packaging/windows/README.md`に従�
 
 ## 注意事項
 
+- PixiJSの手動描画化と配布JVMのG1定期GCを含む5,000墓所メモリ再試験基準コミットは
+  `a377db1`であり、`origin/main`へ反映済みである。
 - 再起動後の一時アセット破棄、失敗時の編集状態保持、および回帰テストを含む
   作業再開基準コミットは`2135d4a12272f0fbf4ecdf0043fb475b3a575dbc`であり、
   `origin/main`へ反映済みである。
