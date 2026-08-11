@@ -130,7 +130,7 @@ function App() {
   }
 
   return (
-    <Box className="app-shell">
+    <Box className={`app-shell${editorVisible ? ' app-shell--editor' : ''}`}>
       <AppBar className="app-header" color="primary" elevation={0} position="static">
         <Toolbar className="app-header__toolbar">
           <Box className="app-brand">

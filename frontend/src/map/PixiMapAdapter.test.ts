@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   backgroundTileUrl,
   displayResolution,
+  mapModelForOutput,
+  SEARCH_RESULT_GRAVE_COLOR,
+  SEARCH_RESULT_GRAVE_FILL_ALPHA,
   SELECTED_GRAVE_COLOR,
   SELECTED_GRAVE_FILL_ALPHA,
   STATIC_MAP_APPLICATION_OPTIONS,
@@ -25,6 +28,25 @@ describe('選択墓所の表示', () => {
   it('状態色のシアンで半透明に塗り、背景との差を視認できる', () => {
     expect(SELECTED_GRAVE_COLOR).toBe(0x00e5ff);
     expect(SELECTED_GRAVE_FILL_ALPHA).toBeGreaterThanOrEqual(0.4);
+  });
+});
+
+describe('検索結果の表示', () => {
+  it('赤で半透明に塗り、通常選択と区別する', () => {
+    expect(SEARCH_RESULT_GRAVE_COLOR).toBe(0xd32f2f);
+    expect(SEARCH_RESULT_GRAVE_FILL_ALPHA).toBeGreaterThanOrEqual(0.4);
+  });
+
+  it('印刷用モデルでは編集選択を除外し、検索結果の強調を維持する', () => {
+    const output = mapModelForOutput({
+      areas: [],
+      graves: [],
+      labelMode: 'both',
+      searchHighlightedGraveId: 'searched-grave',
+      selectedIds: ['selected-grave'],
+    });
+    expect(output.selectedIds).toEqual([]);
+    expect(output.searchHighlightedGraveId).toBe('searched-grave');
   });
 });
 

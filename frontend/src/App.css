@@ -5,6 +5,12 @@
   min-height: 100vh;
 }
 
+.app-shell--editor {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .app-header {
   border-bottom: 1px solid rgb(255 255 255 / 12%);
 }
@@ -49,6 +55,7 @@
   gap: 1px;
   display: grid;
   flex: 1;
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   background: #dce3df;
@@ -101,6 +108,8 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
   overflow: hidden auto;
   padding: 20px 16px;
@@ -135,6 +144,8 @@
   background-color: #eef1ee;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
   overflow: hidden;
   position: relative;

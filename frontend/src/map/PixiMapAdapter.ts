@@ -42,6 +42,7 @@ export type MapRenderModel = Readonly<{
   areas: readonly MapArea[];
   graves: readonly MapGrave[];
   labelMode: 'managementNumber' | 'name' | 'both' | 'hidden';
+  searchHighlightedGraveId?: string;
   selectedIds: readonly string[];
 }>;
 export type MapBackground = Readonly<{
@@ -112,6 +113,12 @@ const AREA_COLORS: Readonly<Record<string, number>> = {
 const MAP_LABEL_FONT = '"Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif';
 export const SELECTED_GRAVE_COLOR = 0x00e5ff;
 export const SELECTED_GRAVE_FILL_ALPHA = 0.45;
+export const SEARCH_RESULT_GRAVE_COLOR = 0xd32f2f;
+export const SEARCH_RESULT_GRAVE_FILL_ALPHA = 0.45;
+
+export function mapModelForOutput(model: MapRenderModel): MapRenderModel {
+  return { ...model, selectedIds: [] };
+}
 export const STATIC_MAP_APPLICATION_OPTIONS = Object.freeze({
   antialias: true,
   autoDensity: true,
@@ -274,7 +281,7 @@ export class PixiMapAdapter {
       );
     }
     const selectedIds = this.model.selectedIds;
-    this.model = { ...this.model, selectedIds: [] };
+    this.model = mapModelForOutput(this.model);
     this.overlayLayer.visible = false;
     this.render();
     const image = this.application.canvas.toDataURL('image/png');
@@ -760,6 +767,7 @@ export class PixiMapAdapter {
     const graveGraphics = new Graphics();
     visibleGraves.forEach((grave) => {
       const selected = this.model.selectedIds.includes(grave.id);
+      const searchHighlighted = this.model.searchHighlightedGraveId === grave.id;
       const overlapping =
         this.preview?.id === grave.id &&
         this.model.graves.some(
@@ -775,12 +783,26 @@ export class PixiMapAdapter {
         .lineTo(corners[3].x, corners[3].y)
         .closePath()
         .fill({
-          alpha: selected ? SELECTED_GRAVE_FILL_ALPHA : 1,
-          color: selected ? SELECTED_GRAVE_COLOR : 0xfafafa,
+          alpha: searchHighlighted
+            ? SEARCH_RESULT_GRAVE_FILL_ALPHA
+            : selected
+              ? SELECTED_GRAVE_FILL_ALPHA
+              : 1,
+          color: searchHighlighted
+            ? SEARCH_RESULT_GRAVE_COLOR
+            : selected
+              ? SELECTED_GRAVE_COLOR
+              : 0xfafafa,
         })
         .stroke({
-          color: overlapping ? 0xd32f2f : selected ? SELECTED_GRAVE_COLOR : 0x455a64,
-          width: (selected ? 3 : 1) / this.viewport.scale,
+          color: overlapping
+            ? 0xd32f2f
+            : searchHighlighted
+              ? SEARCH_RESULT_GRAVE_COLOR
+              : selected
+                ? SELECTED_GRAVE_COLOR
+                : 0x455a64,
+          width: (searchHighlighted || selected ? 3 : 1) / this.viewport.scale,
         });
       if (
         grave.label.length > 0 &&

@@ -364,6 +364,7 @@ function EditorView({ projectId }: EditorViewProps) {
             component="form"
             onSubmit={(event) => {
               event.preventDefault();
+              setFocusedGraveId(undefined);
               setSearchKeyword(searchInput);
             }}
             spacing={1}
@@ -546,6 +547,9 @@ function EditorView({ projectId }: EditorViewProps) {
             else if (!draftDirty) selectMapIds(graveIds);
           }}
           onLabelModeChange={setLabelMode}
+          searchHighlightedGraveId={
+            searchKeyword.length === 0 ? undefined : (focusedGraveId ?? firstSearchGraveId)
+          }
           selectedIds={selectedMapIds}
           snapshot={snapshot.data}
         />

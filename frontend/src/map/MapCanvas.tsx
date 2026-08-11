@@ -5,9 +5,9 @@ import {
   ImageOutlined,
   PrintOutlined,
   Redo,
-  Remove,
   Undo,
   ZoomIn,
+  ZoomOut,
 } from '@mui/icons-material';
 import {
   Box,
@@ -64,6 +64,7 @@ type MapCanvasProps = {
   onSelectionChange: (graveIds: readonly string[]) => void;
   onLabelModeChange: (mode: MapCanvasProps['labelMode']) => void;
   selectedIds: readonly string[];
+  searchHighlightedGraveId?: string;
   focusedGraveId?: string;
   snapshot: ProjectSnapshot;
 };
@@ -87,6 +88,7 @@ function MapCanvas({
   onSelectionChange,
   onLabelModeChange,
   selectedIds,
+  searchHighlightedGraveId,
   focusedGraveId,
   snapshot,
 }: MapCanvasProps) {
@@ -166,11 +168,13 @@ function MapCanvas({
         y: grave.y,
       })),
       labelMode,
+      searchHighlightedGraveId,
       selectedIds,
     }),
     [
       backgroundManifest.data,
       labelMode,
+      searchHighlightedGraveId,
       selectedIds,
       snapshot.areas,
       snapshot.background,
@@ -323,7 +327,7 @@ function MapCanvas({
         </Tooltip>
         <Tooltip title="縮小">
           <IconButton aria-label="縮小" onClick={() => adapter.current?.zoom(1 / 1.2)} size="small">
-            <Remove fontSize="small" />
+            <ZoomOut fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title="全体表示">
