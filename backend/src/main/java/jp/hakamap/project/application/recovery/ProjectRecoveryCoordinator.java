@@ -1,5 +1,6 @@
 package jp.hakamap.project.application.recovery;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,6 +40,10 @@ public final class ProjectRecoveryCoordinator {
       UUID projectId, Path projectRoot, ProjectAggregate formalProject) {
     return snapshots.inspect(
         snapshots.recoveryFile(projectId), projectRoot.resolve("project.json"), formalProject);
+  }
+
+  public boolean hasCandidateFile(UUID projectId) {
+    return Files.isRegularFile(snapshots.recoveryFile(projectId));
   }
 
   public synchronized RecoveryResult apply(UUID projectId) {

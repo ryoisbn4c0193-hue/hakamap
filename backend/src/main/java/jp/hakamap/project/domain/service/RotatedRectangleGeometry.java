@@ -47,6 +47,15 @@ public final class RotatedRectangleGeometry {
     return axes.stream().noneMatch(axis -> separated(firstCorners, secondCorners, axis));
   }
 
+  Bounds bounds(MapRectangle rectangle, RotationDegrees rotation) {
+    List<Point> points = corners(rectangle, rotation);
+    return new Bounds(
+        points.stream().mapToDouble(Point::x).min().orElseThrow(),
+        points.stream().mapToDouble(Point::y).min().orElseThrow(),
+        points.stream().mapToDouble(Point::x).max().orElseThrow(),
+        points.stream().mapToDouble(Point::y).max().orElseThrow());
+  }
+
   private boolean separated(List<Point> first, List<Point> second, Point axis) {
     Projection firstProjection = project(first, axis);
     Projection secondProjection = project(second, axis);
@@ -127,4 +136,6 @@ public final class RotatedRectangleGeometry {
   private record Point(double x, double y) {}
 
   private record Projection(double minimum, double maximum) {}
+
+  record Bounds(double minimumX, double minimumY, double maximumX, double maximumY) {}
 }

@@ -460,7 +460,8 @@ public final class ProjectCatalogService {
 
   private boolean hasRecoveryCandidate(CatalogProjectV1 project, Path root) {
     if (!(project instanceof ActiveCatalogProjectV1)
-        || !Files.isRegularFile(root.resolve("project.json"))) {
+        || !Files.isRegularFile(root.resolve("project.json"))
+        || !recovery.hasCandidateFile(project.projectId())) {
       return false;
     }
     try {

@@ -2,10 +2,13 @@ package jp.hakamap.project.domain.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -118,6 +121,22 @@ class DomainServiceTest {
                         new NumberingRequest("", BigInteger.ZERO, 1, "")))
         .isInstanceOf(ProjectInvariantException.class)
         .hasMessage("grave-number-already-set");
+  }
+
+  @Test
+  void validatesFiveThousandSeparatedRectanglesWithoutQuadraticScan() {
+    List<MapRectangle> rectangles = new ArrayList<>(5_000);
+    for (int row = 0; row < 50; row++) {
+      for (int column = 0; column < 100; column++) {
+        rectangles.add(rectangle(String.valueOf(column * 10), String.valueOf(row * 14), "8", "12"));
+      }
+    }
+
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(2),
+        () ->
+            new GeometryConstraintService()
+                .requireNoAreaOverlap(rectangles, value -> value, "grave-overlap"));
   }
 
   private Area area(int id, String name, String x, int order, boolean visible) {
