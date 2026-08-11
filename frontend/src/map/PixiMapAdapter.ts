@@ -81,6 +81,15 @@ export function displayResolution(devicePixelRatio: number): number {
   return Math.min(2, Math.max(1, devicePixelRatio));
 }
 
+export function backgroundTileUrl(
+  projectId: string,
+  level: number,
+  column: number,
+  row: number,
+): string {
+  return `/api/v1/projects/${projectId}/background/tiles/${level}/${column}/${row}.png`;
+}
+
 export class PixiMapAdapter {
   private application?: Application;
   private callbacks?: MapCallbacks;
@@ -650,22 +659,26 @@ export class PixiMapAdapter {
         const key = `${background.assetId}:${level}:${column}:${row}`;
         required.add(key);
         if (!this.backgroundSprites.has(key) && !this.backgroundTextures.has(key)) {
-          const url = `/api/v1/projects/${background.projectId}/background/tiles/${level}/${column}/${row}`;
+          const url = backgroundTileUrl(background.projectId, level, column, row);
           this.backgroundUrls.set(key, url);
-          void Assets.load<Texture>(url).then((texture) => {
-            if (this.application === undefined || !this.requiredBackgroundKeys.has(key)) {
-              texture.destroy(true);
-              return;
-            }
-            const sprite = new Sprite(texture);
-            sprite.position.set(column * tileMapSize, row * tileMapSize);
-            sprite.width = Math.min(tileMapSize, background.width - column * tileMapSize);
-            sprite.height = Math.min(tileMapSize, background.height - row * tileMapSize);
-            this.backgroundTextures.set(key, texture);
-            this.backgroundSprites.set(key, sprite);
-            this.backgroundLayer.addChild(sprite);
-            this.application?.render();
-          });
+          void Assets.load<Texture>({ format: 'png', src: url })
+            .then((texture) => {
+              if (this.application === undefined || !this.requiredBackgroundKeys.has(key)) {
+                texture.destroy(true);
+                return;
+              }
+              const sprite = new Sprite(texture);
+              sprite.position.set(column * tileMapSize, row * tileMapSize);
+              sprite.width = Math.min(tileMapSize, background.width - column * tileMapSize);
+              sprite.height = Math.min(tileMapSize, background.height - row * tileMapSize);
+              this.backgroundTextures.set(key, texture);
+              this.backgroundSprites.set(key, sprite);
+              this.backgroundLayer.addChild(sprite);
+              this.application?.render();
+            })
+            .catch(() => {
+              this.backgroundUrls.delete(key);
+            });
         }
       }
     }

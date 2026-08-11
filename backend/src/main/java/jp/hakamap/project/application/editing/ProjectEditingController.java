@@ -89,7 +89,7 @@ public class ProjectEditingController {
     return backgroundTiles.manifest(editing.assetContent(projectId, background.assetId()));
   }
 
-  @GetMapping("/background/tiles/{level}/{column}/{row}")
+  @GetMapping("/background/tiles/{level}/{column}/{row}.png")
   ResponseEntity<byte[]> backgroundTile(
       @PathVariable UUID projectId,
       @PathVariable int level,

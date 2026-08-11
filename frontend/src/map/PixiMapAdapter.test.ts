@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { displayResolution } from './PixiMapAdapter';
+import { backgroundTileUrl, displayResolution } from './PixiMapAdapter';
 
 describe('displayResolution', () => {
   it.each([
@@ -12,5 +12,13 @@ describe('displayResolution', () => {
     [Number.NaN, 1],
   ])('端末倍率%sを描画解像度%sとして扱う', (devicePixelRatio, expected) => {
     expect(displayResolution(devicePixelRatio)).toBe(expected);
+  });
+});
+
+describe('backgroundTileUrl', () => {
+  it('画像ローダーがPNGと判定できる拡張子付きURLを返す', () => {
+    expect(backgroundTileUrl('project-id', 2, 3, 4)).toBe(
+      '/api/v1/projects/project-id/background/tiles/2/3/4.png',
+    );
   });
 });

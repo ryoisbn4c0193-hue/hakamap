@@ -337,7 +337,7 @@ POST /api/v1/projects/{projectId}/search
 GET /api/v1/projects/{projectId}/assets/{assetId}/content
 GET /api/v1/projects/{projectId}/assets/{assetId}/thumbnail
 GET /api/v1/projects/{projectId}/background/tiles/manifest
-GET /api/v1/projects/{projectId}/background/tiles/{level}/{column}/{row}
+GET /api/v1/projects/{projectId}/background/tiles/{level}/{column}/{row}.png
 ```
 
 - Project集約から参照され、現在のセッションで表示可能なアセットだけを返す。
