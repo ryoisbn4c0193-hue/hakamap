@@ -7,6 +7,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -22,6 +24,9 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
   public List<Path> choose(FileSelectionMode mode, FileSelectionPurpose purpose) {
     if (GraphicsEnvironment.isHeadless()) {
       throw new FileSelectionException("file-selection-unavailable");
+    }
+    if (mode != FileSelectionMode.DIRECTORY && !SwingUtilities.isEventDispatchThread()) {
+      return chooseNativeFiles(mode, purpose);
     }
     AtomicReference<List<Path>> result = new AtomicReference<>(List.of());
     Runnable dialog =
@@ -39,7 +44,7 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
             result.set(
                 mode == FileSelectionMode.DIRECTORY
                     ? chooseDirectory(owner, purpose)
-                    : chooseNativeFiles(owner, mode, purpose));
+                    : showNativeFileDialog(owner, mode, purpose));
           } finally {
             owner.dispose();
           }
@@ -59,7 +64,44 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
     }
   }
 
-  private List<Path> chooseNativeFiles(
+  private List<Path> chooseNativeFiles(FileSelectionMode mode, FileSelectionPurpose purpose) {
+    AtomicReference<JFrame> owner = new AtomicReference<>();
+    AtomicReference<List<Path>> result = new AtomicReference<>(List.of());
+    CountDownLatch focused = new CountDownLatch(1);
+    invokeAndWait(
+        () -> {
+          JFrame frame = createOwner();
+          frame.addWindowFocusListener(
+              new java.awt.event.WindowAdapter() {
+                @Override
+                public void windowGainedFocus(java.awt.event.WindowEvent event) {
+                  focused.countDown();
+                }
+              });
+          owner.set(frame);
+          frame.setVisible(true);
+          frame.toFront();
+          frame.requestFocus();
+        });
+    try {
+      focused.await(1, TimeUnit.SECONDS);
+      invokeAndWait(
+          () -> {
+            JFrame frame = owner.get();
+            frame.toFront();
+            frame.requestFocus();
+            result.set(showNativeFileDialog(frame, mode, purpose));
+          });
+      return result.get();
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw new FileSelectionException("file-selection-failed");
+    } finally {
+      invokeAndWait(() -> owner.get().dispose());
+    }
+  }
+
+  private List<Path> showNativeFileDialog(
       JFrame owner, FileSelectionMode mode, FileSelectionPurpose purpose) {
     int dialogMode =
         purpose == FileSelectionPurpose.EXPORT_DESTINATION ? FileDialog.SAVE : FileDialog.LOAD;
@@ -71,6 +113,27 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
     File[] selected = chooser.getFiles();
     chooser.dispose();
     return Arrays.stream(selected).map(File::toPath).toList();
+  }
+
+  private JFrame createOwner() {
+    JFrame owner = new JFrame();
+    owner.setAlwaysOnTop(true);
+    owner.setType(java.awt.Window.Type.UTILITY);
+    owner.setUndecorated(true);
+    owner.setSize(1, 1);
+    owner.setLocationRelativeTo(null);
+    return owner;
+  }
+
+  private void invokeAndWait(Runnable action) {
+    try {
+      SwingUtilities.invokeAndWait(action);
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw new FileSelectionException("file-selection-failed");
+    } catch (InvocationTargetException exception) {
+      throw new FileSelectionException("file-selection-failed");
+    }
   }
 
   private List<Path> chooseDirectory(JFrame owner, FileSelectionPurpose purpose) {
