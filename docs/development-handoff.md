@@ -808,10 +808,17 @@ Phase 10のデータ安全性、排他制御、アーカイブ防御、および
   候補が存在するProjectだけを詳細検証するよう変更した。
 - 5,000墓所Projectの再測定では、`GET /api/v1/catalog/projects` 61ms、`POST .../open` 6ms、
   `GET .../snapshot` 193msとなり、Project読込の5秒基準に合格した。
+- 5,000墓所Projectの部分一致検索は23msで、1秒基準に合格した。結果一覧の維持、
+  先頭結果への移動、墓所選択、およびプロパティ表示も確認した。
+- Chromeを完全終了した基準0MiBから5,000墓所Projectを開き30秒後に測定した結果、
+  Hakamap 451.0MiB、Chrome 947.2MiB、合計1,398.2MiBとなり、1GiB基準に不合格となった。
+  手動GC後はHakamapが259.7MiBまで下がったが、再増加後および2分アイドル後の合計も
+  1,135.8MiBと1,100.2MiBで基準を超過した。配布JVMに30秒間隔のG1定期GCを追加し、
+  PixiJSの不要な毎フレーム描画を停止した。修正版EXEで同一条件の再測定が必要である。
 - 再起動前の一時アセットが残るProjectで、「変更を破棄」が
   `asset-staging-cleanup-failed`となる不具合を確認した。破棄時はメモリ上の一覧だけでなく、
   対象Project専用の一時領域を再帰削除するよう修正した。削除失敗時は編集画面と
-  入力を維持し、原因と再試行方法を通知する。Windows実機で対象Projectの破棄の再検証が必要である。
+  入力を維持し、原因と再試行方法を通知する。Windows実機で対象Projectの破棄を再検証し、合格した。
 - 0.1.5のアンインストールではアプリ本体とショートカットだけが削除され、分離後のCatalogと
   Project本体は維持された。再インストール後は再登録なしで一覧とProject内容を再利用でき、
   0.1.6への更新後も維持された。
@@ -892,6 +899,8 @@ Windows側のリポジトリを更新し、`packaging/windows/README.md`に従�
 
 ## 検査結果
 
+- 5,000墓所メモリ削減後の`cd backend && ./mvnw spotless:apply verify`: 成功。
+  フロントエンド56件、Java 139件、Checkstyle、Spotless、および実行可能JAR生成を含む。
 - 一時アセット破棄修正後の`cd backend && ./mvnw spotless:apply verify`: 成功。
   フロントエンド55件、Java 139件、Checkstyle、Spotless、および実行可能JAR生成を含む。
 - 今回の5,000墓所読込最適化後の`cd backend && ./mvnw verify`: 成功。

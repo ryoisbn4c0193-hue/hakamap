@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { backgroundTileUrl, displayResolution } from './PixiMapAdapter';
+import {
+  backgroundTileUrl,
+  displayResolution,
+  STATIC_MAP_APPLICATION_OPTIONS,
+} from './PixiMapAdapter';
 
 describe('displayResolution', () => {
   it.each([
@@ -20,5 +24,11 @@ describe('backgroundTileUrl', () => {
     expect(backgroundTileUrl('project-id', 2, 3, 4)).toBe(
       '/api/v1/projects/project-id/background/tiles/2/3/4.png',
     );
+  });
+});
+
+describe('STATIC_MAP_APPLICATION_OPTIONS', () => {
+  it('状態変更時だけ手動描画する', () => {
+    expect(STATIC_MAP_APPLICATION_OPTIONS.autoStart).toBe(false);
   });
 });

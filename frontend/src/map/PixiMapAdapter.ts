@@ -110,6 +110,12 @@ const AREA_COLORS: Readonly<Record<string, number>> = {
   yellow: 0xfff59d,
 };
 const MAP_LABEL_FONT = '"Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif';
+export const STATIC_MAP_APPLICATION_OPTIONS = Object.freeze({
+  antialias: true,
+  autoDensity: true,
+  autoStart: false,
+  background: '#f4f2eb',
+});
 
 export function displayResolution(devicePixelRatio: number): number {
   if (!Number.isFinite(devicePixelRatio)) return 1;
@@ -161,9 +167,7 @@ export class PixiMapAdapter {
     this.textResolution = displayResolution(window.devicePixelRatio);
     const application = new Application();
     await application.init({
-      antialias: true,
-      autoDensity: true,
-      background: '#f4f2eb',
+      ...STATIC_MAP_APPLICATION_OPTIONS,
       resizeTo: container,
       resolution: this.textResolution,
     });
