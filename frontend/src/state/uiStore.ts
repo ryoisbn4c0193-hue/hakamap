@@ -23,15 +23,17 @@ export const useUiStore = create<UiState>((set) => ({
   propertyTab: 'basic',
   selectedMapIds: [],
   selectGrave: (selectedGraveId) =>
-    set({
+    set((state) => ({
+      rightPanelCollapsed: selectedGraveId === undefined ? state.rightPanelCollapsed : false,
       selectedGraveId,
       selectedMapIds: selectedGraveId === undefined ? [] : [selectedGraveId],
-    }),
+    })),
   selectMapIds: (selectedMapIds) =>
-    set({
+    set((state) => ({
+      rightPanelCollapsed: selectedMapIds.length === 0 ? state.rightPanelCollapsed : false,
       selectedGraveId: selectedMapIds.length === 1 ? selectedMapIds[0] : undefined,
       selectedMapIds,
-    }),
+    })),
   setLabelMode: (labelMode) => set({ labelMode }),
   setPropertyTab: (propertyTab) => set({ propertyTab }),
   resetEditor: () =>

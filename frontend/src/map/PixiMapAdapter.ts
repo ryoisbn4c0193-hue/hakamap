@@ -172,6 +172,12 @@ export class PixiMapAdapter {
     this.render();
   }
 
+  resize(width: number, height: number): void {
+    if (this.application === undefined || width <= 0 || height <= 0) return;
+    this.application.renderer.resize(width, height);
+    this.render();
+  }
+
   fit(): void {
     if (this.application === undefined) return;
     const background =

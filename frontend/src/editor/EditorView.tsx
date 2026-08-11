@@ -162,6 +162,7 @@ function EditorView({ projectId }: EditorViewProps) {
 
   const requestSelection = (graveId?: string) => {
     if (graveId === selectedGraveId) {
+      selectGrave(graveId);
       return;
     }
     if (draftDirty) {

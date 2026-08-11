@@ -125,4 +125,29 @@ describe('EditorView', () => {
     expect(screen.getByRole('dialog', { name: '入力中の変更を破棄しますか' })).toBeInTheDocument();
     expect(screen.getByLabelText('墓所名')).toHaveValue('入力途中');
   });
+
+  it('閉じたプロパティパネルは墓所選択時に再表示する', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(snapshot), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      ),
+    );
+    useUiStore.setState({ rightPanelCollapsed: true });
+    render(
+      <AppProviders>
+        <EditorView projectId={projectId} />
+      </AppProviders>,
+    );
+
+    fireEvent.click(await screen.findByText(/第一墓所/));
+
+    expect(screen.getByRole('heading', { name: 'プロパティ' }).closest('aside')).toHaveAttribute(
+      'aria-hidden',
+      'false',
+    );
+  });
 });

@@ -149,16 +149,23 @@ function MapCanvas({
     if (element === null || import.meta.env.MODE === 'test') return undefined;
     const next = new PixiMapAdapter();
     adapter.current = next;
-    void next.mount(element, {
-      onCreateArea: (rectangle) => callbacks.current.onCreateArea(rectangle),
-      onCreateGrave: (rectangle) => callbacks.current.onCreateGrave(rectangle),
-      onMoveGraves: (ids, delta) => callbacks.current.onMoveGraves(ids, delta),
-      onResizeGrave: (rectangle) => callbacks.current.onResizeGrave(rectangle),
-      onUpdateArea: (rectangle) => callbacks.current.onUpdateArea(rectangle),
-      onTransformBackground: (x, y) => callbacks.current.onTransformBackground(x, y),
-      onSelectionChange: (ids) => callbacks.current.onSelectionChange(ids),
+    const observer = new ResizeObserver(() => {
+      next.resize(element.clientWidth, element.clientHeight);
     });
+    observer.observe(element);
+    void next
+      .mount(element, {
+        onCreateArea: (rectangle) => callbacks.current.onCreateArea(rectangle),
+        onCreateGrave: (rectangle) => callbacks.current.onCreateGrave(rectangle),
+        onMoveGraves: (ids, delta) => callbacks.current.onMoveGraves(ids, delta),
+        onResizeGrave: (rectangle) => callbacks.current.onResizeGrave(rectangle),
+        onUpdateArea: (rectangle) => callbacks.current.onUpdateArea(rectangle),
+        onTransformBackground: (x, y) => callbacks.current.onTransformBackground(x, y),
+        onSelectionChange: (ids) => callbacks.current.onSelectionChange(ids),
+      })
+      .then(() => next.resize(element.clientWidth, element.clientHeight));
     return () => {
+      observer.disconnect();
       next.destroy();
       adapter.current = undefined;
     };
