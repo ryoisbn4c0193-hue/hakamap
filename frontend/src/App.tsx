@@ -112,12 +112,15 @@ function App() {
 
   return (
     <Box className="app-shell">
-      <AppBar color="primary" elevation={1} position="static">
-        <Toolbar variant="dense">
-          <Typography component="h1" sx={{ flexGrow: 1 }} variant="h1">
-            Hakamap
-          </Typography>
-          <Stack direction="row" spacing={1}>
+      <AppBar className="app-header" color="primary" elevation={0} position="static">
+        <Toolbar className="app-header__toolbar">
+          <Box className="app-brand">
+            <Typography component="h1" variant="h1">
+              Hakamap
+            </Typography>
+            <Typography className="app-brand__caption">墓地管理</Typography>
+          </Box>
+          <Stack className="app-navigation" direction="row" spacing={0.5}>
             {editorVisible ? (
               <>
                 <Button

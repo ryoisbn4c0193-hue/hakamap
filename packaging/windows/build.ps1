@@ -111,9 +111,6 @@ if ($LASTEXITCODE -ne 0) {
     --win-shortcut `
     --win-upgrade-uuid $UpgradeUuid `
     --java-options '-Dfile.encoding=UTF-8' `
-    --java-options '-XX:+UseG1GC' `
-    --java-options '-XX:G1PeriodicGCInterval=30000' `
-    --java-options '-XX:G1PeriodicGCSystemLoadThreshold=0' `
     --java-options '-Xmx512m'
 if ($LASTEXITCODE -ne 0) {
     throw 'jpackage EXE作成に失敗しました。'
