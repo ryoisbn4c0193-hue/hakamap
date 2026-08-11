@@ -1,8 +1,11 @@
 package jp.hakamap.project.application.editing;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -132,21 +135,34 @@ public final class ProjectAssetStaging {
   }
 
   public synchronized void discardStrict(UUID projectId) {
-    Map<AssetId, StagedAsset> staged = stagedByProject.get(projectId);
-    if (staged != null) {
-      for (StagedAsset asset : staged.values()) {
-        try {
-          Files.deleteIfExists(asset.source());
-        } catch (IOException exception) {
-          throw new EditingApiException("asset-staging-cleanup-failed", exception);
-        }
-      }
-    }
-    stagedByProject.remove(projectId);
     Path projectRoot = root.resolve(projectId.toString()).normalize();
+    if (!projectRoot.startsWith(root) || Files.isSymbolicLink(projectRoot)) {
+      throw new EditingApiException("asset-staging-cleanup-failed");
+    }
     try {
-      Files.deleteIfExists(projectRoot.resolve("conversion"));
-      Files.deleteIfExists(projectRoot);
+      if (Files.exists(projectRoot)) {
+        Files.walkFileTree(
+            projectRoot,
+            new SimpleFileVisitor<>() {
+              @Override
+              public FileVisitResult visitFile(Path file, BasicFileAttributes attributes)
+                  throws IOException {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+              }
+
+              @Override
+              public FileVisitResult postVisitDirectory(Path directory, IOException exception)
+                  throws IOException {
+                if (exception != null) {
+                  throw exception;
+                }
+                Files.delete(directory);
+                return FileVisitResult.CONTINUE;
+              }
+            });
+      }
+      stagedByProject.remove(projectId);
     } catch (IOException exception) {
       throw new EditingApiException("asset-staging-cleanup-failed", exception);
     }

@@ -3,8 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   chooseBackgroundFile,
   clearSessionForTest,
+  closeProject,
   exchangeBootstrapToken,
   executeProjectCommand,
+  HakamapApiError,
   hakamapFetch,
   initializeSession,
 } from './hakamapClient';
@@ -140,5 +142,32 @@ describe('hakamapClient', () => {
       confirmationToken: 'confirmation-token',
       status: 'confirmationRequired',
     });
+  });
+
+  it('プロジェクトを閉じる際のProblem Detailsコードを保持する', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ authenticated: true }), {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Hakamap-CSRF-Token': 'csrf-token',
+          },
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 'asset-staging-cleanup-failed' }), {
+          headers: { 'Content-Type': 'application/problem+json' },
+          status: 422,
+        }),
+      );
+
+    await initializeSession();
+
+    const closing = closeProject('5eb6a4a6-d8e5-4571-ba7f-c20f8fea0bba', 'discard');
+    await expect(closing).rejects.toMatchObject({
+      code: 'asset-staging-cleanup-failed',
+      status: 422,
+    } satisfies Partial<HakamapApiError>);
   });
 });

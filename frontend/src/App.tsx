@@ -24,6 +24,7 @@ import {
   requestApplicationExit,
   restoreBackup,
   saveProject,
+  HakamapApiError,
 } from './api/hakamapClient';
 import EditorView from './editor/EditorView';
 import ProjectCatalogView from './projects/ProjectCatalogView';
@@ -69,14 +70,26 @@ function App() {
   useEffect(() => subscribeFileSelectionActivity(setFileSelectionActive), []);
 
   const leaveEditor = async (action: 'save' | 'discard') => {
-    if (openProjectId !== undefined) {
-      await closeProject(openProjectId, action);
+    setSaving(true);
+    setAppMessage(undefined);
+    try {
+      if (openProjectId !== undefined) {
+        await closeProject(openProjectId, action);
+      }
+      setCloseConfirmationOpen(false);
+      setEditorVisible(false);
+      setOpenProjectId(undefined);
+      resetEditor();
+      await queryClient.invalidateQueries({ queryKey: ['projectCatalog'] });
+    } catch (error) {
+      setAppMessage(
+        error instanceof HakamapApiError && error.code === 'asset-staging-cleanup-failed'
+          ? '一時ファイルを削除できないため、プロジェクトを閉じられませんでした。ファイルを使用中のアプリを閉じて再試行してください。'
+          : 'プロジェクトを閉じられませんでした。編集内容は保持されています。',
+      );
+    } finally {
+      setSaving(false);
     }
-    setCloseConfirmationOpen(false);
-    setEditorVisible(false);
-    setOpenProjectId(undefined);
-    resetEditor();
-    await queryClient.invalidateQueries({ queryKey: ['projectCatalog'] });
   };
 
   if (exitRequested) {
@@ -292,22 +305,26 @@ function App() {
           未保存の変更がある場合は、保存するか破棄するかを選択してください。
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCloseConfirmationOpen(false)}>キャンセル</Button>
+          <Button disabled={saving} onClick={() => setCloseConfirmationOpen(false)}>
+            キャンセル
+          </Button>
           <Button
             color="error"
+            disabled={saving}
             onClick={() => {
               void leaveEditor('discard');
             }}
           >
-            変更を破棄
+            {saving ? '処理中' : '変更を破棄'}
           </Button>
           <Button
+            disabled={saving}
             onClick={() => {
               void leaveEditor('save');
             }}
             variant="contained"
           >
-            保存して閉じる
+            {saving ? '処理中' : '保存して閉じる'}
           </Button>
         </DialogActions>
       </Dialog>

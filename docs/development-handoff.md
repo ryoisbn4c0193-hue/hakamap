@@ -802,10 +802,16 @@ Phase 10のデータ安全性、排他制御、アーカイブ防御、および
 - 描画軽量化後は拡大・縮小、パン、墓所選択、およびプロパティ表示が合格したが、
   `open`は8.05秒で5秒基準を超過した。読込時の重なり検証を全組合せから、回転後の
   外接範囲をX座標順に走査して近接候補だけ精密判定する方式へ変更し、5,000件を2秒以内で
-  検証する自動テストを追加した。Windows実機での`open`再測定待ちである。
+  検証する自動テストを追加した。
 - 同じ起動で`GET /api/v1/catalog/projects`も6.65秒を要した。復旧ファイルが存在しない
   Projectまで復旧候補判定のため本体を読み直していたため、復旧ファイルの存在確認を先に行い、
-  候補が存在するProjectだけを詳細検証するよう変更した。`projects`も実機再測定待ちである。
+  候補が存在するProjectだけを詳細検証するよう変更した。
+- 5,000墓所Projectの再測定では、`GET /api/v1/catalog/projects` 61ms、`POST .../open` 6ms、
+  `GET .../snapshot` 193msとなり、Project読込の5秒基準に合格した。
+- 再起動前の一時アセットが残るProjectで、「変更を破棄」が
+  `asset-staging-cleanup-failed`となる不具合を確認した。破棄時はメモリ上の一覧だけでなく、
+  対象Project専用の一時領域を再帰削除するよう修正した。削除失敗時は編集画面と
+  入力を維持し、原因と再試行方法を通知する。Windows実機で対象Projectの破棄の再検証が必要である。
 - 0.1.5のアンインストールではアプリ本体とショートカットだけが削除され、分離後のCatalogと
   Project本体は維持された。再インストール後は再登録なしで一覧とProject内容を再利用でき、
   0.1.6への更新後も維持された。
@@ -886,6 +892,8 @@ Windows側のリポジトリを更新し、`packaging/windows/README.md`に従�
 
 ## 検査結果
 
+- 一時アセット破棄修正後の`cd backend && ./mvnw spotless:apply verify`: 成功。
+  フロントエンド55件、Java 139件、Checkstyle、Spotless、および実行可能JAR生成を含む。
 - 今回の5,000墓所読込最適化後の`cd backend && ./mvnw verify`: 成功。
   フロントエンド54件、Java 138件、Checkstyle、Spotless、および実行可能JAR生成を含む。
 - 背景・エリア・墓所回転対応後の`cd backend && ./mvnw verify`: 成功。

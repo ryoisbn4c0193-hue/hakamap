@@ -368,7 +368,14 @@ async function changeProject(
     method,
   });
   if (!response.ok) {
-    throw new Error(`project-operation-failed-${response.status}`);
+    let code: string | undefined;
+    try {
+      const problem = z.object({ code: z.string() }).safeParse(await response.clone().json());
+      if (problem.success) code = problem.data.code;
+    } catch {
+      // Problem Detailsを読めない場合もHTTP状態を使って安全に通知する。
+    }
+    throw new HakamapApiError(response.status, code);
   }
 }
 
