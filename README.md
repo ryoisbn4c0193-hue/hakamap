@@ -125,6 +125,7 @@ cd backend
 - [コマンドとUndo／Redo差分](docs/design/commands-and-history.md)
 - [保存・バックアップ・復旧トランザクション](docs/design/storage-transactions.md)
 - [ローカルAPI・DTO・エラーコード](docs/design/local-api.md)
+- [UIデザイン・配色・アイコン規約](docs/design/frontend-ui.md)
 - [フロントエンド状態管理](docs/design/frontend-state-management.md)
 - [PixiJS描画・座標変換・当たり判定](docs/design/pixi-map-interaction.md)
 - [テスト・テストデータ・Windows検証](docs/design/test-strategy.md)
