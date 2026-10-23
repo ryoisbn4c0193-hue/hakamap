@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { withFileSelectionActivity } from './api/fileSelectionActivity';
@@ -7,6 +7,7 @@ import AppProviders from './app/AppProviders';
 
 describe('App', () => {
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
   });
 
@@ -115,12 +116,35 @@ describe('App', () => {
       </AppProviders>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '操作ガイド' }));
+    fireEvent.click(await screen.findByRole('button', { name: '操作ガイド' }));
 
     const guide = await screen.findByRole('dialog', { name: 'Hakamap 操作ガイド' });
     expect(screen.getByRole('table', { name: 'Hakamapの操作方法' })).toBeInTheDocument();
     expect(guide).toHaveTextContent('元に戻す・やり直す');
     expect(guide).toHaveTextContent('マウスの中ボタン');
     expect(guide).toHaveTextContent('Ctrl＋クリック');
+    expect(screen.getByRole('tab', { name: 'Windows版の操作' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(
+      screen.queryByRole('table', { name: 'WindowsからiPhoneへデータを取り込む' }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'iPhoneへの取り込み' }));
+    const importTable = screen.getByRole('table', { name: 'WindowsからiPhoneへデータを取り込む' });
+    expect(importTable).toHaveTextContent('.hakamap');
+    expect(importTable).toHaveTextContent('置き換える');
+    expect(within(importTable).getByRole('columnheader', { name: '操作' })).toBeInTheDocument();
+    expect(within(importTable).getByRole('columnheader', { name: '方法' })).toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: 'Hakamapの操作方法' })).not.toBeInTheDocument();
+
+    fireEvent.click(within(guide).getByRole('button', { name: '閉じる' }));
+    fireEvent.click(await screen.findByRole('button', { name: '操作ガイド' }));
+    expect(screen.getByRole('tab', { name: 'Windows版の操作' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByRole('table', { name: 'Hakamapの操作方法' })).toBeInTheDocument();
   });
 });

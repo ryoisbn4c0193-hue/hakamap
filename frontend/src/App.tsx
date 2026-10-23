@@ -20,6 +20,8 @@ import {
   IconButton,
   Paper,
   Stack,
+  Tab,
+  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -65,6 +67,7 @@ function App() {
   const [appMessage, setAppMessage] = useState<string>();
   const [backupsOpen, setBackupsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [helpTab, setHelpTab] = useState<'windows' | 'iphone'>('windows');
   const [fileSelectionActive, setFileSelectionActive] = useState(false);
   const backups = useQuery({
     enabled: backupsOpen && openProjectId !== undefined,
@@ -244,7 +247,10 @@ function App() {
               <IconButton
                 aria-label="操作ガイド"
                 color="inherit"
-                onClick={() => setHelpOpen(true)}
+                onClick={() => {
+                  setHelpTab('windows');
+                  setHelpOpen(true);
+                }}
                 size="small"
               >
                 <HelpOutlineOutlined fontSize="small" />
@@ -282,159 +288,199 @@ function App() {
 
       <Dialog fullWidth maxWidth="md" onClose={() => setHelpOpen(false)} open={helpOpen}>
         <DialogTitle>Hakamap 操作ガイド</DialogTitle>
-        <DialogContent dividers>
-          <Box component="section" aria-label={iphoneImportGuide.title} sx={{ mb: 3 }}>
-            <Typography component="h2" variant="h6" gutterBottom>
-              {iphoneImportGuide.title}
-            </Typography>
-            <Typography sx={{ mb: 2 }}>{iphoneImportGuide.introduction}</Typography>
-            {iphoneImportGuide.steps.map((step, index) => (
-              <Box key={step.title} sx={{ mb: 2 }}>
-                <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>
-                  {index + 1}. {step.title}
-                </Typography>
-                <Box component="ul" sx={{ pl: 3, my: 1 }}>
-                  {step.instructions.map((instruction) => (
-                    <Typography component="li" key={instruction}>
-                      {instruction}
-                    </Typography>
-                  ))}
-                </Box>
-              </Box>
-            ))}
-            <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>
-              ご利用上の注意
-            </Typography>
-            <Box component="ul" sx={{ pl: 3, my: 1 }}>
-              {iphoneImportGuide.notes.map((note) => (
-                <Typography component="li" key={note}>
-                  {note}
-                </Typography>
-              ))}
-            </Box>
-            <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>
-              うまく取り込めないとき
-            </Typography>
-            <Box component="ul" sx={{ pl: 3, my: 1 }}>
-              {iphoneImportGuide.troubleshooting.map((note) => (
-                <Typography component="li" key={note}>
-                  {note}
-                </Typography>
-              ))}
-            </Box>
+        <Tabs
+          aria-label="操作ガイドの種類"
+          value={helpTab}
+          onChange={(_event, value: 'windows' | 'iphone') => setHelpTab(value)}
+          sx={{ px: 3 }}
+        >
+          <Tab
+            id="help-tab-windows"
+            aria-controls="help-panel-windows"
+            label="Windows版の操作"
+            value="windows"
+          />
+          <Tab
+            id="help-tab-iphone"
+            aria-controls="help-panel-iphone"
+            label="iPhoneへの取り込み"
+            value="iphone"
+          />
+        </Tabs>
+        <DialogContent key={helpTab} dividers>
+          <Box role="tabpanel" id={`help-panel-${helpTab}`} aria-labelledby={`help-tab-${helpTab}`}>
+            {helpTab === 'windows' ? (
+              <TableContainer component={Paper} variant="outlined">
+                <Table aria-label="Hakamapの操作方法">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700, width: '28%' }}>操作</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>方法</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        元に戻す・やり直す
+                      </TableCell>
+                      <TableCell>
+                        地図上部の「元に戻す」「やり直す」を使用します。墓所の選択は不要です。ズーム、表示移動、検索、選択は対象外です。
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        拡大・縮小
+                      </TableCell>
+                      <TableCell>
+                        「拡大」「縮小」、マウスホイール、または＋／－キーを使用します。
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        全体表示
+                      </TableCell>
+                      <TableCell>「全体表示」または0キーで地図全体へ戻ります。</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        地図の表示移動
+                      </TableCell>
+                      <TableCell>
+                        マウスの中ボタンを押しながらドラッグするか、Spaceキーを押しながら左ドラッグします。
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        エリアと墓所の移動
+                      </TableCell>
+                      <TableCell>
+                        「エリア編集」で「所属墓所も一緒に移動・回転」をONにし、エリアをドラッグします。回転ハンドルを使うと所属墓所も一緒に回転します。初期状態はOFFです。
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        複数墓所の回転
+                      </TableCell>
+                      <TableCell>
+                        墓所を複数選択し、選択枠の上の丸をドラッグすると配置ごと回転します。プロパティの左右90度回転ボタンも使えます。
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        背景画像の移動
+                      </TableCell>
+                      <TableCell>「背景移動」を選び、画像内をドラッグします。</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        背景画像の拡縮・回転
+                      </TableCell>
+                      <TableCell>
+                        右下の四角で拡縮し、Shiftキーで縦横比を維持します。上辺中央の丸で中心を基準に回転し、90度単位の近くでは吸着します。
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        墓所の選択
+                      </TableCell>
+                      <TableCell>
+                        クリックで1件、Ctrl＋クリックで追加・解除します。空白からのドラッグで矩形選択し、Ctrl＋ドラッグで現在の選択へ追加します。
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        墓所の移動
+                      </TableCell>
+                      <TableCell>
+                        ドラッグまたは矢印キーで1単位移動します。Shift＋矢印キーでは10単位移動します。
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        編集・保存
+                      </TableCell>
+                      <TableCell>
+                        地図上部で編集モードを選びます。プロパティの「適用」で編集へ反映し、上部の「保存」でファイルへ保存します。
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        ファイル選択
+                      </TableCell>
+                      <TableCell>
+                        Windowsのファイル選択画面で選択またはキャンセルします。表示中はHakamap画面を操作できません。
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        終了・再表示
+                      </TableCell>
+                      <TableCell>
+                        終了は「Hakamapを終了」を使用します。タブだけを閉じた場合は、Hakamapのショートカットから再表示できます。
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <TableContainer component={Paper} variant="outlined">
+                <Table aria-label={iphoneImportGuide.title}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700, width: '28%' }}>操作</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>方法</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        概要
+                      </TableCell>
+                      <TableCell>{iphoneImportGuide.introduction}</TableCell>
+                    </TableRow>
+                    {iphoneImportGuide.steps.map((step, index) => (
+                      <TableRow key={step.title}>
+                        <TableCell component="th" scope="row">
+                          {index + 1}. {step.title}
+                        </TableCell>
+                        <TableCell>
+                          {step.instructions.map((instruction) => (
+                            <Box component="p" sx={{ m: 0, '& + p': { mt: 1 } }} key={instruction}>
+                              {instruction}
+                            </Box>
+                          ))}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        ご利用上の注意
+                      </TableCell>
+                      <TableCell>
+                        {iphoneImportGuide.notes.map((note) => (
+                          <Box component="p" sx={{ m: 0, '& + p': { mt: 1 } }} key={note}>
+                            {note}
+                          </Box>
+                        ))}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        うまく取り込めないとき
+                      </TableCell>
+                      <TableCell>
+                        {iphoneImportGuide.troubleshooting.map((note) => (
+                          <Box component="p" sx={{ m: 0, '& + p': { mt: 1 } }} key={note}>
+                            {note}
+                          </Box>
+                        ))}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </Box>
-          <TableContainer component={Paper} variant="outlined">
-            <Table aria-label="Hakamapの操作方法">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700, width: '28%' }}>操作</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>方法</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow>
-                  <TableCell component="th" scope="row">
-                    元に戻す・やり直す
-                  </TableCell>
-                  <TableCell>
-                    地図上部の「元に戻す」「やり直す」を使用します。墓所の選択は不要です。ズーム、表示移動、検索、選択は対象外です。
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell component="th" scope="row">
-                    拡大・縮小
-                  </TableCell>
-                  <TableCell>
-                    「拡大」「縮小」、マウスホイール、または＋／－キーを使用します。
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell component="th" scope="row">
-                    全体表示
-                  </TableCell>
-                  <TableCell>「全体表示」または0キーで地図全体へ戻ります。</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell component="th" scope="row">
-                    地図の表示移動
-                  </TableCell>
-                  <TableCell>
-                    マウスの中ボタンを押しながらドラッグするか、Spaceキーを押しながら左ドラッグします。
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell component="th" scope="row">
-                    エリアと墓所の移動
-                  </TableCell>
-                  <TableCell>
-                    「エリア編集」で「所属墓所も一緒に移動・回転」をONにし、エリアをドラッグします。回転ハンドルを使うと所属墓所も一緒に回転します。初期状態はOFFです。
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell component="th" scope="row">
-                    複数墓所の回転
-                  </TableCell>
-                  <TableCell>
-                    墓所を複数選択し、選択枠の上の丸をドラッグすると配置ごと回転します。プロパティの左右90度回転ボタンも使えます。
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell component="th" scope="row">
-                    背景画像の移動
-                  </TableCell>
-                  <TableCell>「背景移動」を選び、画像内をドラッグします。</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell component="th" scope="row">
-                    背景画像の拡縮・回転
-                  </TableCell>
-                  <TableCell>
-                    右下の四角で拡縮し、Shiftキーで縦横比を維持します。上辺中央の丸で中心を基準に回転し、90度単位の近くでは吸着します。
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell component="th" scope="row">
-                    墓所の選択
-                  </TableCell>
-                  <TableCell>
-                    クリックで1件、Ctrl＋クリックで追加・解除します。空白からのドラッグで矩形選択し、Ctrl＋ドラッグで現在の選択へ追加します。
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell component="th" scope="row">
-                    墓所の移動
-                  </TableCell>
-                  <TableCell>
-                    ドラッグまたは矢印キーで1単位移動します。Shift＋矢印キーでは10単位移動します。
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell component="th" scope="row">
-                    編集・保存
-                  </TableCell>
-                  <TableCell>
-                    地図上部で編集モードを選びます。プロパティの「適用」で編集へ反映し、上部の「保存」でファイルへ保存します。
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell component="th" scope="row">
-                    ファイル選択
-                  </TableCell>
-                  <TableCell>
-                    Windowsのファイル選択画面で選択またはキャンセルします。表示中はHakamap画面を操作できません。
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell component="th" scope="row">
-                    終了・再表示
-                  </TableCell>
-                  <TableCell>
-                    終了は「Hakamapを終了」を使用します。タブだけを閉じた場合は、Hakamapのショートカットから再表示できます。
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setHelpOpen(false)} variant="contained">
