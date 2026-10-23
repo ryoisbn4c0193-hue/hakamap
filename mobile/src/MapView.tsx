@@ -3,23 +3,28 @@ import { PanResponder, View, StyleSheet } from 'react-native';
 import Svg, { G, Rect, Text, Image } from 'react-native-svg';
 import { bounds, type Box } from './model';
 import type { SavedMap } from './archive';
+import { hitGrave, MapTap, type Camera } from './mapInteraction';
 
-type Camera = { x: number; y: number; scale: number };
 export function MapView({
   data,
   matches,
   showNames,
   fitRequest,
   zoom,
+  onGravePress,
 }: {
   data: SavedMap;
   matches: string[];
   showNames: boolean;
   fitRequest: number;
   zoom: number;
+  onGravePress: (id: string) => void;
 }) {
   const canvasRef = useRef<ComponentRef<typeof View>>(null);
   const canvasOrigin = useRef({ x: 0, y: 0 });
+  const tap = useRef(new MapTap());
+  const latest = useRef({ data, onGravePress });
+  latest.current = { data, onGravePress };
   const [size, setSize] = useState({ width: 1, height: 1 });
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, scale: 1 });
   const current = useRef(camera);
@@ -79,7 +84,11 @@ export function MapView({
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: () => {
+        onPanResponderGrant: (event) => {
+          tap.current.begin(
+            { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY },
+            event.nativeEvent.touches.length,
+          );
           canvasRef.current?.measureInWindow((x, y) => {
             canvasOrigin.current = { x, y };
           });
@@ -87,7 +96,17 @@ export function MapView({
           touchStart.current = null;
           dragOffset.current = { x: 0, y: 0 };
         },
+        onPanResponderStart: (event) => {
+          tap.current.move(
+            { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY },
+            event.nativeEvent.touches.length,
+          );
+        },
         onPanResponderMove: (event, gesture) => {
+          tap.current.move(
+            { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY },
+            event.nativeEvent.touches.length,
+          );
           const touches = event.nativeEvent.touches;
           const a = touches[0],
             b = touches[1];
@@ -118,6 +137,19 @@ export function MapView({
               y: start.current.y + gesture.dy - dragOffset.current.y,
             });
         },
+        onPanResponderRelease: (event) => {
+          const point = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY };
+          if (!tap.current.end(point)) return;
+          const camera = current.current;
+          const source = latest.current.data;
+          canvasRef.current?.measureInWindow((x, y) => {
+            // 非同期の計測中に地図データが切り替わった場合は古い墓所を開かない。
+            if (source !== latest.current.data) return;
+            const id = hitGrave(source.map.graves, { x: point.x - x, y: point.y - y }, camera);
+            if (id) latest.current.onGravePress(id);
+          });
+        },
+        onPanResponderTerminate: () => tap.current.cancel(),
       }),
     [],
   );
@@ -127,7 +159,7 @@ export function MapView({
       style={styles.canvas}
       onLayout={(event) => setSize(event.nativeEvent.layout)}
       {...responder.panHandlers}
-      accessibilityLabel="墓地配置図。指で移動、2本指で拡大・縮小できます"
+      accessibilityLabel="墓地配置図。お墓をタップすると墓所情報が開きます。指で移動、2本指で拡大・縮小できます"
     >
       <Svg width="100%" height="100%">
         <G transform={`translate(${camera.x},${camera.y}) scale(${camera.scale})`}>
