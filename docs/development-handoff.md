@@ -22,8 +22,9 @@
 - [基本設計](design/iphone-architecture.md)、[画面設計](design/iphone-ui.md)、
   [製造・検査状況](design/iphone-implementation.md)、[実機テスト](verification/iphone.md)、
   [起動手順](../mobile/README.md)を参照。
-- 作業再開基準コミット: `99713860671f2ccc7a5e5fe0f38938f1e07594da`（直前の`origin/main`）。
-  今回の製造成果をコミットしてプッシュする際に更新する。
+- 製造成果の作業再開基準コミット: `d197a09616748d0e29bc9251957c2d18354ab7c6`。
+  `origin/main`へプッシュ済みで、プッシュ直後にHEADとの一致を確認した。
+  この基準IDを記録する引継ぎメモのみの後続コミットは製造成果の基準を変更しない。
 
 この見出しより下は既存Windows版の引継ぎ記録である。
 
