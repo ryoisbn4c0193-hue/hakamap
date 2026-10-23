@@ -192,7 +192,12 @@ function Screen() {
                     onText={async (value) => {
                       setQuery(value);
                     }}
-                    dom={{ style: { height: 46 }, scrollEnabled: false }}
+                    dom={{
+                      // Expo GoのDomWebViewで発生するネイティブビュー参照エラーを避ける。
+                      useExpoDOMWebView: false,
+                      style: { height: 46 },
+                      scrollEnabled: false,
+                    }}
                   />
                 </View>
               </View>
