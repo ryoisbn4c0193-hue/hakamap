@@ -22,6 +22,7 @@ import { loadMap, loadNames, saveMap, saveNames } from './src/storage';
 import { normalize, search, targets, type SearchTarget } from './src/model';
 import { MapView } from './src/MapView';
 import SearchInput from './src/SearchInput';
+import { GraveDetails } from './src/GraveDetails';
 
 function Button({
   label,
@@ -57,6 +58,8 @@ function Screen() {
   const [fit, setFit] = useState(0),
     [zoom, setZoom] = useState(0),
     [loadFailed, setLoadFailed] = useState(false);
+  const [selectedGraveId, setSelectedGraveId] = useState<string | null>(null);
+  const selectedGrave = data?.map.graves.find((grave) => grave.id === selectedGraveId) ?? null;
   const importLock = useRef(false);
   const [inputVersion, setInputVersion] = useState(0);
   useEffect(() => {
@@ -126,6 +129,7 @@ function Screen() {
           if (!approved) return;
         }
         await saveMap(candidate);
+        setSelectedGraveId(null);
         setData(candidate);
         setInputVersion((value) => value + 1);
         setQuery('');
@@ -214,7 +218,14 @@ function Screen() {
               <Button label="−" onPress={() => setZoom((v) => Math.max(-20, v - 1))} />
               <Button label="＋" onPress={() => setZoom((v) => Math.min(20, v + 1))} />
             </View>
-            <MapView data={data} matches={matches} showNames={names} fitRequest={fit} zoom={zoom} />
+            <MapView
+              data={data}
+              matches={matches}
+              showNames={names}
+              fitRequest={fit}
+              zoom={zoom}
+              onGravePress={setSelectedGraveId}
+            />
             <Text style={styles.footer}>
               データ作成：{new Date(data.createdAt).toLocaleString('ja-JP')}
             </Text>
@@ -237,6 +248,12 @@ function Screen() {
           </View>
         )}
       </KeyboardAvoidingView>
+      <GraveDetails
+        grave={selectedGrave}
+        query={committed}
+        target={target}
+        onClose={() => setSelectedGraveId(null)}
+      />
       <Modal
         visible={selector}
         transparent
