@@ -1,5 +1,25 @@
 # 開発引き継ぎメモ
 
+## iPhone版0.2.0：PWAへ切り替え（2026-10-23）
+
+- Apple有料加入なしで進める利用者の指定により、配布の主方式をPWAへ変更（ADR 0005）。
+- React Native Webで画面・SVG・検索・墓所詳細を再利用。WebのFile API・IndexedDBを追加。
+- 既存.hakamapを検証し必要情報だけ端末内へ保存。単一トランザクションで置換し、名前設定は別保存。
+- 全静的ファイルを事前保存するService Worker、マニフェスト、アイコン、更新適用案内を追加。
+- 更新は取り込み中を避けて利用者が適用。第三者ライセンスも配布生成物へ同梱。
+- Windows・iPhone共通マニュアルにホーム画面への追加・再取り込み・保存消失時の復元を追記。
+- 型・Lint・整形・45検査、/hakamap/へのPWA生成、Chromiumモバイル・タッチ設定の2ブラウザー検査が成功。
+- ブラウザーの通信遮断後に再読み込み・新規画面起動・背景・検索・タップ詳細・名前設定・ガイドを確認。
+  置き換えの承認・キャンセル・破損入力時の旧データ保持も確認済み。
+- 共通本文変更後のWindows71検査・Lint・整形・ビルド、ネイティブiOSのJS/Hermes・DOM生成も成功。
+- GitHub ActionsでPWA検査とArtifact生成。Pages公開はmain上の手動実行でpublishを有効にした場合だけ。
+- 公開・iPhoneのSafari/ホーム画面追加・機内モード試験は未実施。Expo Goの確認完了と区別する。
+- 接続ツールにPages設定・workflow_dispatch機能がない。利用者によるSettings→PagesのSource設定と
+  Actions→「iPhone PWAの検査・配布」→Run workflow（publish有効）が次の手順。
+- 導入・実機手順: docs/verification/iphone-pwa.md。Expo Goとは別領域なのでホーム画面から再取り込みする。
+- 作業再開基準コミット: `5ba9a9ab9f0aa77c452e7e755cb38a91869b51a4`（反映先: `origin/main`）。
+  この基準を記録する引継ぎのみの後続コミットでは基準IDを変更しない。
+
 ## iPhone単独アプリ・オフライン試験の準備（2026-10-23）
 
 - 利用者の指示でExpo Goを使わない配布とオフライン確認へ着手。
