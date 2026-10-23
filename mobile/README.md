@@ -1,6 +1,6 @@
 # Hakamap iPhone版
 
-React Native / Expoによる参照専用アプリです。初期版の製造完了後、実機テストを進めています。iPhoneの縦向きに対応します。
+React Native / Expoによる参照専用アプリです。0.1.2でExpo Go上の基本動作確認が完了しています。iPhoneの縦向きに対応します。
 Windows版とは独立して起動し、通常の参照ではネットワークを使用しません。
 
 ## 起動
