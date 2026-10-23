@@ -182,6 +182,10 @@ public final class ProjectCatalogService {
     return toView(entry, catalog.defaultProjectId());
   }
 
+  public synchronized void validateImportDestination(UUID projectId, Path root) {
+    requireNoDuplicate(readCatalog(), projectId, root);
+  }
+
   public synchronized OpenProjectView registerImported(Path root) {
     if (openProjects.currentProjectId().isPresent()) {
       throw new ProjectCatalogException("project-busy");

@@ -42,6 +42,7 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
           owner.setVisible(true);
           owner.toFront();
           owner.requestFocus();
+          WindowsDialogForeground.activate(owner);
           try {
             result.set(
                 mode == FileSelectionMode.DIRECTORY
@@ -84,6 +85,7 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
           frame.setVisible(true);
           frame.toFront();
           frame.requestFocus();
+          WindowsDialogForeground.activate(frame);
         });
     try {
       focused.await(1, TimeUnit.SECONDS);
@@ -92,6 +94,7 @@ public final class SwingFileChooserGateway implements FileChooserGateway {
             JFrame frame = owner.get();
             frame.toFront();
             frame.requestFocus();
+            WindowsDialogForeground.activate(frame);
             result.set(showNativeFileDialog(frame, mode, purpose));
           });
       return result.get();

@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { HakamapApiError } from '../api/hakamapClient';
+import { executeProjectCommand, HakamapApiError } from '../api/hakamapClient';
 import AppProviders from '../app/AppProviders';
 import { useUiStore } from '../state/uiStore';
 
@@ -10,6 +10,11 @@ import EditorView, {
   editingErrorMessage,
   placementWarningMessage,
 } from './EditorView';
+
+vi.mock('../api/hakamapClient', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../api/hakamapClient')>()),
+  executeProjectCommand: vi.fn().mockResolvedValue({ status: 'applied' }),
+}));
 
 const projectId = '11111111-1111-4111-8111-111111111111';
 const firstGraveId = '22222222-2222-4222-8222-222222222222';
@@ -77,8 +82,59 @@ const snapshot = {
 describe('EditorView', () => {
   afterEach(() => {
     cleanup();
+    vi.clearAllMocks();
     vi.unstubAllGlobals();
     useUiStore.getState().resetEditor();
+  });
+
+  it('エリアと所属墓所の同時移動は初期OFFで切り替えられる', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(
+        async () =>
+          new Response(JSON.stringify(snapshot), {
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    );
+    render(
+      <AppProviders>
+        <EditorView projectId={projectId} />
+      </AppProviders>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'エリア編集' }));
+    const toggle = screen.getByRole('switch', { name: '所属墓所も一緒に移動' });
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+    expect(toggle).toBeChecked();
+  });
+
+  it.each([
+    ['左へ90度回転', -90],
+    ['右へ90度回転', 90],
+  ])('複数選択の%sを一つのコマンドで送る', async (label, deltaDegrees) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(
+        async () =>
+          new Response(JSON.stringify(snapshot), {
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    );
+    useUiStore.getState().selectMapIds([firstGraveId, secondGraveId]);
+    render(
+      <AppProviders>
+        <EditorView projectId={projectId} />
+      </AppProviders>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: label }));
+    await waitFor(() =>
+      expect(executeProjectCommand).toHaveBeenCalledWith(projectId, 0, 'rotateGraves', {
+        graveIds: [firstGraveId, secondGraveId],
+        deltaDegrees,
+      }),
+    );
   });
 
   it('エリア作成時は色を固定せず未使用色の選択をバックエンドへ委ねる', () => {

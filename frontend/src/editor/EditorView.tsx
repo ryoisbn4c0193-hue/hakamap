@@ -507,6 +507,12 @@ function EditorView({ projectId }: EditorViewProps) {
               graveIds,
             })
           }
+          onMoveAreaWithGraves={(areaId, delta) =>
+            mapCommand('moveAreaWithGraves', { areaId, deltaX: delta.x, deltaY: delta.y })
+          }
+          onRotateGraves={(graveIds, deltaDegrees) =>
+            mapCommand('rotateGraves', { graveIds, deltaDegrees })
+          }
           onResizeGrave={(rectangle) =>
             mapCommand('resizeGrave', {
               graveId: rectangle.id,
@@ -567,6 +573,29 @@ function EditorView({ projectId }: EditorViewProps) {
           {selectedMapIds.length > 1 ? (
             <Stack spacing={2}>
               <Typography>{selectedMapIds.length}件の墓所を選択中</Typography>
+              <Typography color="text.secondary" variant="body2">
+                選択全体の上にある丸をドラッグすると、配置ごと回転できます。
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  disabled={editingBusy}
+                  onClick={() =>
+                    mapCommand('rotateGraves', { graveIds: selectedMapIds, deltaDegrees: -90 })
+                  }
+                  variant="outlined"
+                >
+                  左へ90度回転
+                </Button>
+                <Button
+                  disabled={editingBusy}
+                  onClick={() =>
+                    mapCommand('rotateGraves', { graveIds: selectedMapIds, deltaDegrees: 90 })
+                  }
+                  variant="outlined"
+                >
+                  右へ90度回転
+                </Button>
+              </Stack>
               <Button
                 color="error"
                 disabled={editingBusy}

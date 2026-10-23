@@ -446,3 +446,28 @@ export function fitViewport(
     y: (height - contentHeight * scale) / 2 - top * scale,
   };
 }
+
+export function selectionBounds(rectangles: readonly MapRect[]): MapRect {
+  if (rectangles.length === 0) return { id: 'selection', x: 0, y: 0, width: 0, height: 0 };
+  return bounds(rectangles.flatMap(rotatedRectangleCorners), 'selection');
+}
+
+/** 回転中のプレビュー用。確定値と配置の検証はバックエンドが管理する。 */
+export function rotateSelectionPreview(
+  rectangles: readonly MapRect[],
+  selection: MapRect,
+  deltaDegrees: number,
+): readonly MapRect[] {
+  const center = { x: selection.x + selection.width / 2, y: selection.y + selection.height / 2 };
+  const radians = (deltaDegrees * Math.PI) / 180;
+  return rectangles.map((rectangle) => {
+    const x = rectangle.x + rectangle.width / 2 - center.x;
+    const y = rectangle.y + rectangle.height / 2 - center.y;
+    return {
+      ...rectangle,
+      rotation: normalizeRotation((rectangle.rotation ?? 0) + deltaDegrees),
+      x: center.x + x * Math.cos(radians) - y * Math.sin(radians) - rectangle.width / 2,
+      y: center.y + x * Math.sin(radians) + y * Math.cos(radians) - rectangle.height / 2,
+    };
+  });
+}

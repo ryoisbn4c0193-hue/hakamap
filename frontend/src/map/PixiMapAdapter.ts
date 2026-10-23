@@ -14,6 +14,8 @@ import {
   normalizeRotation,
   normalizeRect,
   rotateBackgroundAroundCenter,
+  rotateSelectionPreview,
+  selectionBounds,
   rotatedRectangleCorners,
   rotatedRectangleBounds,
   rotatedRectanglesIntersect,
@@ -36,7 +38,7 @@ export type MapArea = MapRect &
     visible: boolean;
     displayOrder: number;
   }>;
-export type MapGrave = MapRect & Readonly<{ label: string; rotation: number }>;
+export type MapGrave = MapRect & Readonly<{ label: string; rotation: number; areaId?: string }>;
 export type MapRenderModel = Readonly<{
   background?: MapBackground;
   areas: readonly MapArea[];
@@ -65,6 +67,8 @@ export type MapCallbacks = Readonly<{
   onCreateGrave: (rectangle: MapRect) => void;
   onMoveGraves: (graveIds: readonly string[], delta: MapPoint) => void;
   onResizeGrave: (rectangle: MapRect) => void;
+  onRotateGraves: (graveIds: readonly string[], deltaDegrees: number) => void;
+  onMoveAreaWithGraves: (areaId: string, delta: MapPoint) => void;
   onUpdateArea: (rectangle: MapRect) => void;
   onTransformBackground: (background: MapBackground) => void;
   onSelectionChange: (graveIds: readonly string[]) => void;
@@ -98,6 +102,12 @@ type PointerOperation =
       kind: 'background';
       original: MapBackground;
       start: MapPoint;
+      startAngle: number;
+    }>
+  | Readonly<{
+      kind: 'rotateSelection';
+      rectangles: readonly MapRect[];
+      bounds: MapRect;
       startAngle: number;
     }>
   | Readonly<{ kind: 'create'; start: MapPoint }>;
@@ -152,6 +162,9 @@ export class PixiMapAdapter {
   private mode: MapMode = 'select';
   private operation?: PointerOperation;
   private preview?: MapRect;
+  private groupPreview?: readonly MapRect[];
+  private rotationDelta = 0;
+  private moveAreaWithGraves = false;
   private backgroundPreview?: MapBackground;
   private guides: Readonly<{ x?: number; y?: number }> = {};
   private snapEnabled = true;
@@ -206,6 +219,8 @@ export class PixiMapAdapter {
   update(model: MapRenderModel): void {
     this.model = model;
     this.preview = undefined;
+    this.groupPreview = undefined;
+    this.rotationDelta = 0;
     this.backgroundPreview = undefined;
     this.ensureMinimumZoom();
     this.render();
@@ -213,6 +228,11 @@ export class PixiMapAdapter {
 
   setMode(mode: MapMode): void {
     this.mode = mode;
+    this.cancelOperation();
+  }
+
+  setMoveAreaWithGraves(enabled: boolean): void {
+    this.moveAreaWithGraves = enabled;
     this.cancelOperation();
   }
 
@@ -424,6 +444,23 @@ export class PixiMapAdapter {
       this.operation = { kind: 'create', start: map };
       return;
     }
+    if (this.model.selectedIds.length > 1) {
+      const rectangles = this.model.graves.filter(({ id }) => this.model.selectedIds.includes(id));
+      const bounds = selectionBounds(rectangles);
+      if (this.rectangleHandleAction(bounds, map) === 'rotate') {
+        this.rotationDelta = 0;
+        this.operation = {
+          kind: 'rotateSelection',
+          rectangles,
+          bounds,
+          startAngle: Math.atan2(
+            map.y - (bounds.y + bounds.height / 2),
+            map.x - (bounds.x + bounds.width / 2),
+          ),
+        };
+        return;
+      }
+    }
     const selectedGrave =
       this.model.selectedIds.length === 1
         ? this.model.graves.find(({ id }) => id === this.model.selectedIds[0])
@@ -486,6 +523,14 @@ export class PixiMapAdapter {
       };
     } else if (this.operation.kind === 'select' || this.operation.kind === 'create') {
       this.preview = normalizeRect(this.operation.start, map);
+    } else if (this.operation.kind === 'rotateSelection') {
+      const { bounds, rectangles, startAngle } = this.operation;
+      const angle = Math.atan2(
+        map.y - (bounds.y + bounds.height / 2),
+        map.x - (bounds.x + bounds.width / 2),
+      );
+      this.rotationDelta = snapRotation(((angle - startAngle) * 180) / Math.PI);
+      this.groupPreview = rotateSelectionPreview(rectangles, bounds, this.rotationDelta);
     } else if (this.operation.kind === 'resize') {
       if (this.operation.action === 'rotate') {
         const center = {
@@ -543,7 +588,9 @@ export class PixiMapAdapter {
           const movingAreaId = this.operation.original.id;
           const targets = [
             ...this.model.areas.filter(({ id, visible }) => visible && id !== movingAreaId),
-            ...this.model.graves,
+            ...this.model.graves.filter(
+              ({ areaId }) => !this.moveAreaWithGraves || areaId !== movingAreaId,
+            ),
           ];
           const snapped = snapRectangle(candidate, targets, this.viewport.scale);
           candidate = { ...candidate, ...snapped.rectangle };
@@ -611,6 +658,18 @@ export class PixiMapAdapter {
         this.preview = { ...candidate, id: base.id };
       }
     }
+    if (
+      this.operation?.kind === 'area' &&
+      this.operation.action === 'move' &&
+      this.moveAreaWithGraves &&
+      this.preview !== undefined
+    ) {
+      const area = this.operation.original;
+      const delta = { x: this.preview.x - area.x, y: this.preview.y - area.y };
+      this.groupPreview = this.model.graves
+        .filter(({ areaId }) => areaId === area.id)
+        .map((grave) => ({ ...grave, x: grave.x + delta.x, y: grave.y + delta.y }));
+    }
     this.render();
   };
 
@@ -638,8 +697,23 @@ export class PixiMapAdapter {
         if (this.mode === 'createArea') this.callbacks?.onCreateArea(rectangle);
         else this.callbacks?.onCreateGrave(rectangle);
       }
+    } else if (operation.kind === 'rotateSelection' && this.groupPreview !== undefined) {
+      if (this.rotationDelta !== 0)
+        this.callbacks?.onRotateGraves(
+          operation.rectangles.map(({ id }) => id),
+          this.rotationDelta,
+        );
     } else if (operation.kind === 'area' && this.preview !== undefined) {
-      this.callbacks?.onUpdateArea(this.preview);
+      if (operation.action === 'move' && this.moveAreaWithGraves) {
+        const delta = {
+          x: this.preview.x - operation.original.x,
+          y: this.preview.y - operation.original.y,
+        };
+        if (delta.x !== 0 || delta.y !== 0)
+          this.callbacks?.onMoveAreaWithGraves(operation.original.id, delta);
+      } else {
+        this.callbacks?.onUpdateArea(this.preview);
+      }
     } else if (operation.kind === 'resize' && this.preview !== undefined) {
       this.callbacks?.onResizeGrave(this.preview);
     } else if (operation.kind === 'move' && this.preview !== undefined) {
@@ -651,6 +725,8 @@ export class PixiMapAdapter {
     }
     this.operation = undefined;
     this.preview = undefined;
+    this.groupPreview = undefined;
+    this.rotationDelta = 0;
     this.backgroundPreview = undefined;
     this.guides = {};
     this.render();
@@ -659,6 +735,8 @@ export class PixiMapAdapter {
   private readonly cancelOperation = (): void => {
     this.operation = undefined;
     this.preview = undefined;
+    this.groupPreview = undefined;
+    this.rotationDelta = 0;
     this.backgroundPreview = undefined;
     this.guides = {};
     this.render();
@@ -761,9 +839,10 @@ export class PixiMapAdapter {
           this.renderRectangleHandles(area);
         }
       });
-    const visibleGraves = this.model.graves.filter((grave) =>
-      intersects(rotatedRectangleBounds(grave), viewportBounds),
-    );
+    const previews = new Map(this.groupPreview?.map((rectangle) => [rectangle.id, rectangle]));
+    const visibleGraves = this.model.graves
+      .map((grave) => ({ ...grave, ...previews.get(grave.id) }))
+      .filter((grave) => intersects(rotatedRectangleBounds(grave), viewportBounds));
     const graveGraphics = new Graphics();
     visibleGraves.forEach((grave) => {
       const selected = this.model.selectedIds.includes(grave.id);
@@ -834,6 +913,14 @@ export class PixiMapAdapter {
       }
     });
     this.graveLayer.addChildAt(graveGraphics, 0);
+    if (this.mode === 'select' && this.model.selectedIds.length > 1) {
+      const rectangles = this.model.graves.filter(({ id }) => this.model.selectedIds.includes(id));
+      const bounds =
+        this.operation?.kind === 'rotateSelection'
+          ? { ...this.operation.bounds, rotation: this.rotationDelta }
+          : selectionBounds(rectangles);
+      this.renderRectangleHandles(bounds, false);
+    }
     if (this.preview !== undefined) {
       const corners = rotatedRectangleCorners(this.preview);
       this.overlayLayer.addChild(
@@ -988,7 +1075,7 @@ export class PixiMapAdapter {
     this.overlayLayer.addChild(outline, resize, rotation);
   }
 
-  private renderRectangleHandles(rectangle: MapRect): void {
+  private renderRectangleHandles(rectangle: MapRect, allowResize = true): void {
     const resizeHandle = rectangleLocalToMap(
       { x: rectangle.width, y: rectangle.height },
       rectangle,
@@ -999,14 +1086,26 @@ export class PixiMapAdapter {
       rectangle,
     );
     const size = 10 / this.viewport.scale;
+    if (!allowResize) {
+      const corners = rotatedRectangleCorners(rectangle);
+      this.overlayLayer.addChild(
+        new Graphics()
+          .poly(corners.flatMap(({ x, y }) => [x, y]))
+          .stroke({ color: 0x1565c0, width: 1 / this.viewport.scale }),
+      );
+    }
+    if (allowResize) {
+      this.overlayLayer.addChild(
+        new Graphics()
+          .rect(resizeHandle.x - size / 2, resizeHandle.y - size / 2, size, size)
+          .fill({ color: 0xffffff })
+          .stroke({ color: 0x1565c0, width: 1 / this.viewport.scale }),
+      );
+    }
     this.overlayLayer.addChild(
       new Graphics()
         .moveTo(topCenter.x, topCenter.y)
         .lineTo(rotationHandle.x, rotationHandle.y)
-        .stroke({ color: 0x1565c0, width: 1 / this.viewport.scale }),
-      new Graphics()
-        .rect(resizeHandle.x - size / 2, resizeHandle.y - size / 2, size, size)
-        .fill({ color: 0xffffff })
         .stroke({ color: 0x1565c0, width: 1 / this.viewport.scale }),
       new Graphics()
         .circle(rotationHandle.x, rotationHandle.y, size / 2)

@@ -17,6 +17,8 @@ import {
   normalizeRotation,
   resetBackgroundAspectRatio,
   rotateBackgroundAroundCenter,
+  rotateSelectionPreview,
+  selectionBounds,
   rotatedRectanglesIntersect,
   screenToMap,
   selectIntersecting,
@@ -236,5 +238,34 @@ describe('map geometry', () => {
     const restoredCenter = backgroundLocalToMap({ x: 100, y: 50 }, restored);
     expect(restoredCenter.x).toBeCloseTo(center.x);
     expect(restoredCenter.y).toBeCloseTo(center.y);
+  });
+});
+
+describe('複数墓所の回転プレビュー', () => {
+  it('選択全体の中心を軸に位置と向きをまとめて回転する', () => {
+    const graves = [
+      { id: 'first', x: 0, y: 0, width: 10, height: 20, rotation: 0 },
+      { id: 'second', x: 30, y: 0, width: 10, height: 20, rotation: 0 },
+    ];
+    const rotated = rotateSelectionPreview(graves, selectionBounds(graves), 90);
+    expect(rotated[0].x).toBeCloseTo(15);
+    expect(rotated[0].y).toBeCloseTo(-15);
+    expect(rotated[1].x).toBeCloseTo(15);
+    expect(rotated[1].y).toBeCloseTo(15);
+    expect(rotated.map(({ rotation }) => rotation)).toEqual([90, 90]);
+    expect(graves[0]).toMatchObject({ x: 0, y: 0, rotation: 0 });
+  });
+
+  it('既に回転した墓所の外周を選択枠へ含め、負の角度も扱う', () => {
+    const graves = [
+      { id: 'first', x: 0, y: 0, width: 10, height: 20, rotation: 90 },
+      { id: 'second', x: 30, y: 0, width: 10, height: 20, rotation: 270 },
+    ];
+    const bounds = selectionBounds(graves);
+    expect(bounds.x).toBeCloseTo(-5);
+    expect(bounds.width).toBeCloseTo(50);
+    expect(rotateSelectionPreview(graves, bounds, -90).map(({ rotation }) => rotation)).toEqual([
+      0, 180,
+    ]);
   });
 });

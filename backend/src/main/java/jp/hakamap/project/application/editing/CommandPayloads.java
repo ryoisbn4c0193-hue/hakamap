@@ -14,12 +14,14 @@ public final class CommandPayloads {
           RemoveBackground,
           CreateArea,
           UpdateArea,
+          MoveAreaWithGraves,
           DeleteArea,
           CreateGrave,
           CreateGraveGrid,
           FillGraveRange,
           UpdateGraveInfo,
           MoveGraves,
+          RotateGraves,
           ResizeGrave,
           CopyGraves,
           DeleteGraves,
@@ -72,6 +74,9 @@ public final class CommandPayloads {
       boolean visible)
       implements CommandPayload {}
 
+  public record MoveAreaWithGraves(UUID areaId, BigDecimal deltaX, BigDecimal deltaY)
+      implements CommandPayload {}
+
   public record DeleteArea(UUID areaId) implements CommandPayload {}
 
   public record CreateGrave(
@@ -108,6 +113,13 @@ public final class CommandPayloads {
   public record MoveGraves(List<UUID> graveIds, BigDecimal deltaX, BigDecimal deltaY)
       implements CommandPayload {
     public MoveGraves {
+      graveIds = List.copyOf(graveIds);
+    }
+  }
+
+  public record RotateGraves(List<UUID> graveIds, BigDecimal deltaDegrees)
+      implements CommandPayload {
+    public RotateGraves {
       graveIds = List.copyOf(graveIds);
     }
   }

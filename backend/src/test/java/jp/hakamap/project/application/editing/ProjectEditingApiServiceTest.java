@@ -65,6 +65,192 @@ class ProjectEditingApiServiceTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void movesAreaAndOnlyItsAssignedGravesAsOneUndoableCommand() throws Exception {
+    ProjectAggregate project = transformProject();
+    var area =
+        project.areas().values().stream()
+            .filter(value -> value.name().value().equals("第一"))
+            .findFirst()
+            .orElseThrow();
+    var original = context(project).service();
+    var before = original.snapshot(PROJECT_ID);
+    original.execute(
+        PROJECT_ID,
+        "session-a",
+        0,
+        CommandType.MOVE_AREA_WITH_GRAVES,
+        new CommandPayloads.MoveAreaWithGraves(
+            area.id().value(), java.math.BigDecimal.valueOf(-200), java.math.BigDecimal.TEN));
+    var moved = original.snapshot(PROJECT_ID);
+    assertThat(moved.revision()).isEqualTo(1);
+    assertThat(moved.areas().getFirst().x()).isEqualByComparingTo("-200");
+    for (var grave : moved.graves()) {
+      var old =
+          before.graves().stream()
+              .filter(value -> value.graveId().equals(grave.graveId()))
+              .findFirst()
+              .orElseThrow();
+      boolean member =
+          before.graveStates().stream()
+              .anyMatch(
+                  state ->
+                      state.graveId().equals(grave.graveId())
+                          && area.id().value().equals(state.areaId()));
+      assertThat(grave.x())
+          .isEqualByComparingTo(
+              member ? old.x().subtract(java.math.BigDecimal.valueOf(200)) : old.x());
+      assertThat(grave.y())
+          .isEqualByComparingTo(member ? old.y().add(java.math.BigDecimal.TEN) : old.y());
+      assertThat(grave.rotation()).isEqualByComparingTo(old.rotation());
+    }
+    assertThat(original.history(PROJECT_ID).items()).hasSize(1);
+    original.undo(PROJECT_ID, 1);
+    assertThat(original.snapshot(PROJECT_ID).areas()).isEqualTo(before.areas());
+    assertThat(original.snapshot(PROJECT_ID).graves()).isEqualTo(before.graves());
+    original.redo(PROJECT_ID, 2);
+    assertThat(original.snapshot(PROJECT_ID).areas()).isEqualTo(moved.areas());
+    assertThat(original.snapshot(PROJECT_ID).graves()).isEqualTo(moved.graves());
+  }
+
+  @Test
+  void rejectsOverlappingAreaMoveWithoutChangingAnyGraves() throws Exception {
+    ProjectAggregate project = transformProject();
+    var service = context(project).service();
+    var before = service.snapshot(PROJECT_ID);
+    UUID areaId = before.areas().getFirst().areaId();
+    assertThatThrownBy(
+            () ->
+                service.execute(
+                    PROJECT_ID,
+                    "session-a",
+                    0,
+                    CommandType.MOVE_AREA_WITH_GRAVES,
+                    new CommandPayloads.MoveAreaWithGraves(
+                        areaId, java.math.BigDecimal.valueOf(110), java.math.BigDecimal.ZERO)))
+        .isInstanceOf(jp.hakamap.project.domain.result.ProjectInvariantException.class);
+    assertThat(service.snapshot(PROJECT_ID)).isEqualTo(before);
+    assertThat(service.history(PROJECT_ID).items()).isEmpty();
+  }
+
+  @Test
+  void rotatesSelectionAroundItsCenterAndUndoesEntireSelection() throws Exception {
+    ProjectAggregate project = rotationProject(false);
+    var service = context(project).service();
+    var before = service.snapshot(PROJECT_ID);
+    List<UUID> ids = before.graves().stream().map(EditingApiModels.GraveResponse::graveId).toList();
+    service.execute(
+        PROJECT_ID,
+        "session-a",
+        0,
+        CommandType.ROTATE_GRAVES,
+        new CommandPayloads.RotateGraves(ids, java.math.BigDecimal.valueOf(90)));
+    var after = service.snapshot(PROJECT_ID);
+    for (var grave : after.graves()) {
+      var old =
+          before.graves().stream()
+              .filter(value -> value.graveId().equals(grave.graveId()))
+              .findFirst()
+              .orElseThrow();
+      assertThat(grave.x()).isEqualByComparingTo("15");
+      assertThat(grave.y())
+          .isEqualByComparingTo(old.x().subtract(java.math.BigDecimal.valueOf(15)));
+      assertThat(grave.rotation()).isEqualByComparingTo("90");
+      assertThat(grave.width()).isEqualByComparingTo(old.width());
+      assertThat(grave.height()).isEqualByComparingTo(old.height());
+      assertThat(grave.name()).isEqualTo(old.name());
+    }
+    assertThat(service.history(PROJECT_ID).items()).hasSize(1);
+    service.undo(PROJECT_ID, 1);
+    assertThat(service.snapshot(PROJECT_ID).graves()).isEqualTo(before.graves());
+    service.redo(PROJECT_ID, 2);
+    assertThat(service.snapshot(PROJECT_ID).graves()).isEqualTo(after.graves());
+  }
+
+  @Test
+  void rejectsGroupRotationCollidingWithUnselectedGraveWithoutPartialChange() throws Exception {
+    var service = context(rotationProject(true)).service();
+    var before = service.snapshot(PROJECT_ID);
+    List<UUID> ids =
+        before.graves().stream()
+            .filter(grave -> grave.y().signum() == 0)
+            .map(EditingApiModels.GraveResponse::graveId)
+            .toList();
+    assertThatThrownBy(
+            () ->
+                service.execute(
+                    PROJECT_ID,
+                    "session-a",
+                    0,
+                    CommandType.ROTATE_GRAVES,
+                    new CommandPayloads.RotateGraves(ids, java.math.BigDecimal.valueOf(90))))
+        .isInstanceOf(jp.hakamap.project.domain.result.ProjectInvariantException.class);
+    assertThat(service.snapshot(PROJECT_ID)).isEqualTo(before);
+    assertThat(service.history(PROJECT_ID).items()).isEmpty();
+  }
+
+  private ProjectAggregate transformProject() {
+    var firstArea =
+        new jp.hakamap.project.domain.model.Area(
+            new jp.hakamap.project.domain.value.AreaId(UUID.randomUUID()),
+            new jp.hakamap.project.domain.value.AreaName("第一"),
+            new MapRectangle(
+                java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.valueOf(100),
+                java.math.BigDecimal.valueOf(100)),
+            jp.hakamap.project.domain.value.AreaColorPreset.BLUE,
+            true,
+            new DisplayOrder(0));
+    var secondArea =
+        new jp.hakamap.project.domain.model.Area(
+            new jp.hakamap.project.domain.value.AreaId(UUID.randomUUID()),
+            new jp.hakamap.project.domain.value.AreaName("第二"),
+            new MapRectangle(
+                java.math.BigDecimal.valueOf(100),
+                java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.valueOf(100),
+                java.math.BigDecimal.valueOf(100)),
+            jp.hakamap.project.domain.value.AreaColorPreset.GREEN,
+            true,
+            new DisplayOrder(1));
+    return new ProjectAggregate(
+        emptyProject().metadata(),
+        Optional.empty(),
+        List.of(firstArea, secondArea),
+        List.of(
+            transformGrave(10, 10),
+            transformGrave(95, 40),
+            transformGrave(130, 10),
+            transformGrave(250, 10)),
+        List.of(),
+        List.of());
+  }
+
+  private ProjectAggregate rotationProject(boolean obstacle) {
+    List<Grave> graves = new ArrayList<>(List.of(transformGrave(0, 0), transformGrave(30, 0)));
+    if (obstacle) {
+      graves.add(transformGrave(15, -15));
+    }
+    return new ProjectAggregate(
+        emptyProject().metadata(), Optional.empty(), List.of(), graves, List.of(), List.of());
+  }
+
+  private Grave transformGrave(int x, int y) {
+    return new Grave(
+        new GraveId(UUID.randomUUID()),
+        Optional.empty(),
+        Optional.of(new GraveName("墓所")),
+        Optional.empty(),
+        new MapRectangle(
+            java.math.BigDecimal.valueOf(x),
+            java.math.BigDecimal.valueOf(y),
+            java.math.BigDecimal.TEN,
+            java.math.BigDecimal.valueOf(20)),
+        RotationDegrees.ZERO,
+        NOW);
+  }
+
+  @Test
   void appliesTypedCommandsReturnsConfirmedDiffAndSupportsUndoRedo() throws Exception {
     TestContext context = context(emptyProject());
     ProjectEditingApiService service = context.service();

@@ -18,6 +18,7 @@ import jp.hakamap.infrastructure.fileselection.FileSelectionPurpose;
 import jp.hakamap.infrastructure.fileselection.FileSelectionService;
 import jp.hakamap.persistence.json.repository.ProjectRepository;
 import jp.hakamap.project.application.catalog.OpenProjectManager;
+import jp.hakamap.project.application.catalog.ProjectCatalogException;
 import jp.hakamap.project.application.catalog.ProjectCatalogService;
 import jp.hakamap.project.application.history.ProjectFingerprintCalculator;
 
@@ -115,6 +116,7 @@ public final class ProjectTransferService {
       throw new ProjectTransferException("project-destination-exists");
     }
     try {
+      catalog.validateImportDestination(projectId, target);
       control.beginCommit();
       Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
       catalog.registerImported(target);
@@ -126,6 +128,9 @@ public final class ProjectTransferService {
       ProjectArchiveService.deleteTreeQuietly(temporary);
       if (exception instanceof ProjectTransferException transfer) {
         throw transfer;
+      }
+      if (exception instanceof ProjectCatalogException catalogException) {
+        throw new ProjectTransferException(catalogException.code(), exception);
       }
       throw new ProjectTransferException("import-failed", exception);
     }

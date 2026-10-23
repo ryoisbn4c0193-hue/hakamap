@@ -180,12 +180,14 @@ record CommandRequest(
 | `removeBackground` | なし | 背景アセットと配置だけを対象とする |
 | `createArea` | `clientRef`, `name`, `x`, `y`, `width`, `height`, `colorPreset?`, `visible` | 色省略時は未使用色をサーバーが割り当てる |
 | `updateArea` | `areaId`, `name`, `x`, `y`, `width`, `height`, `colorPreset`, `visible` | フォーム確定後の全値を送る |
+| `moveAreaWithGraves` | `areaId`, `deltaX`, `deltaY` | 移動前にサーバーで所属を判定し、エリアと所属墓所を一括移動する |
 | `deleteArea` | `areaId` | 所属墓所は削除せず再判定する |
 | `createGrave` | `clientRef`, `x`, `y`, `width`, `height` | 管理番号などの情報は設定しない |
 | `createGraveGrid` | `clientRefPrefix`, `x`, `y`, `rows`, `columns`, `graveWidth`, `graveHeight`, `horizontalGap`, `verticalGap` | 左上から行単位で生成する |
 | `fillGraveRange` | `clientRefPrefix`, `rangeX`, `rangeY`, `rangeWidth`, `rangeHeight`, `graveWidth`, `graveHeight`, `horizontalGap`, `verticalGap` | 範囲内へ収まる候補だけを生成する |
 | `updateGraveInfo` | `graveId`, `managementNumber`, `name`, `notes` | 任意文字列は`null`で消去する |
 | `moveGraves` | `graveIds`, `deltaX`, `deltaY` | 全対象へ同じ移動量を適用する |
+| `rotateGraves` | `graveIds`, `deltaDegrees` | 選択全体の回転後の外周を含む外接矩形の中心をサーバーで求め、配置と向きを一括回転する |
 | `resizeGrave` | `graveId`, `x`, `y`, `width`, `height` | 確定後の長方形全値を送る |
 | `copyGraves` | `graveIds`, `deltaX`, `deltaY` | 元の相対位置を維持する |
 | `deleteGraves` | `graveIds` | 人物・添付も同じコマンドで削除する |

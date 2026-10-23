@@ -32,6 +32,9 @@ import jp.hakamap.project.application.history.ProjectChangeSet;
 import jp.hakamap.project.application.history.ProjectFingerprintCalculator;
 import jp.hakamap.project.application.history.ValueDelta;
 import jp.hakamap.project.application.recovery.ProjectRecoveryCoordinator;
+import jp.hakamap.project.application.transfer.ProjectArchiveService;
+import jp.hakamap.project.application.transfer.ProjectTransferException;
+import jp.hakamap.project.application.transfer.ProjectTransferService;
 import jp.hakamap.project.domain.value.ProjectName;
 import jp.hakamap.project.infrastructure.recovery.RecoverySnapshotService;
 import jp.hakamap.project.infrastructure.storage.NioStorageFileOperations;
@@ -43,6 +46,64 @@ class ProjectCatalogServiceTest {
   private static final Instant NOW = Instant.parse("2026-07-29T01:02:03Z");
 
   @TempDir Path temporaryDirectory;
+
+  @Test
+  void rejectsImportOfRegisteredProjectBeforeCreatingDestination() throws IOException {
+    Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+    Path source = Files.createDirectory(temporaryDirectory.resolve("source"));
+    Path destination = Files.createDirectory(temporaryDirectory.resolve("destination"));
+    Path archive = temporaryDirectory.resolve("export.hakamap");
+    java.util.ArrayDeque<Path> choices =
+        new java.util.ArrayDeque<>(List.of(source, archive, destination));
+    FileSelectionService selections =
+        new FileSelectionService(ignored -> List.of(choices.removeFirst()), clock);
+    UUID projectId = UUID.randomUUID();
+    ProjectCatalogService catalog =
+        service(
+            new MemoryCatalogRepository(temporaryDirectory.resolve("catalog.json")),
+            selections,
+            () -> projectId);
+    catalog.create("session", selection(selections), "中央墓地");
+    DefensiveJsonCodec codec = new DefensiveJsonCodec(new ClasspathJsonSchemaValidator());
+    ProjectRepository projects =
+        new FileProjectRepository(
+            codec, new ProjectFileV1Mapper(), new ProjectAssetFileValidator());
+    var archives = new ProjectArchiveService(projects, clock, "test");
+    archives.exportArchive(source.resolve("hakamap-project-" + projectId), archive);
+    UUID archiveId =
+        selections
+            .start(
+                "session",
+                jp.hakamap.infrastructure.fileselection.FileSelectionMode.SINGLE_FILE,
+                FileSelectionPurpose.IMPORT_ARCHIVE)
+            .fileSelectionIds()
+            .getFirst();
+    UUID destinationId =
+        selections
+            .start(
+                "session",
+                jp.hakamap.infrastructure.fileselection.FileSelectionMode.DIRECTORY,
+                FileSelectionPurpose.IMPORT_DESTINATION_DIRECTORY)
+            .fileSelectionIds()
+            .getFirst();
+    var transfers =
+        new ProjectTransferService(
+            archives,
+            new OpenProjectManager(),
+            projects,
+            new ProjectFingerprintCalculator(codec, new ProjectFileV1Mapper()),
+            selections,
+            catalog,
+            clock);
+
+    assertThatThrownBy(() -> transfers.importArchive(archiveId, destinationId, "session"))
+        .isInstanceOf(ProjectTransferException.class)
+        .hasMessage("catalog-project-duplicate");
+    try (var files = Files.list(destination)) {
+      assertThat(files).isEmpty();
+    }
+    assertThat(catalog.list().projects()).hasSize(1);
+  }
 
   @Test
   void createsListsOpensClosesTrashesRestoresAndDeletesProject() throws IOException {

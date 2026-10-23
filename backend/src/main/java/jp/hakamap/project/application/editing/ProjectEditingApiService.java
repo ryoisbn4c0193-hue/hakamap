@@ -56,7 +56,9 @@ import jp.hakamap.project.domain.model.Person;
 import jp.hakamap.project.domain.model.ProjectAggregate;
 import jp.hakamap.project.domain.model.ProjectMetadata;
 import jp.hakamap.project.domain.result.ProjectInvariantException;
+import jp.hakamap.project.domain.service.AreaMembershipResolver;
 import jp.hakamap.project.domain.service.GraveGenerationService;
+import jp.hakamap.project.domain.service.GraveRotationService;
 import jp.hakamap.project.domain.service.NumberingAssignment;
 import jp.hakamap.project.domain.service.NumberingRequest;
 import jp.hakamap.project.domain.service.NumberingService;
@@ -370,6 +372,9 @@ public final class ProjectEditingApiService {
           removeBackground(before, require(payload, CommandPayloads.RemoveBackground.class));
       case CREATE_AREA -> createArea(before, require(payload, CommandPayloads.CreateArea.class));
       case UPDATE_AREA -> updateArea(before, require(payload, CommandPayloads.UpdateArea.class));
+      case MOVE_AREA_WITH_GRAVES ->
+          moveAreaWithGraves(
+              before, require(payload, CommandPayloads.MoveAreaWithGraves.class), timestamp);
       case DELETE_AREA -> deleteArea(before, require(payload, CommandPayloads.DeleteArea.class));
       case CREATE_GRAVE ->
           createGrave(before, require(payload, CommandPayloads.CreateGrave.class), timestamp);
@@ -383,6 +388,8 @@ public final class ProjectEditingApiService {
               before, require(payload, CommandPayloads.UpdateGraveInfo.class), timestamp);
       case MOVE_GRAVES ->
           moveGraves(before, require(payload, CommandPayloads.MoveGraves.class), timestamp);
+      case ROTATE_GRAVES ->
+          rotateGraves(before, require(payload, CommandPayloads.RotateGraves.class), timestamp);
       case RESIZE_GRAVE ->
           resizeGrave(before, require(payload, CommandPayloads.ResizeGrave.class), timestamp);
       case COPY_GRAVES ->
@@ -566,6 +573,44 @@ public final class ProjectEditingApiService {
     return mutation(withAreas(before, areas));
   }
 
+  private Mutation moveAreaWithGraves(
+      ProjectAggregate before, CommandPayloads.MoveAreaWithGraves payload, Instant timestamp) {
+    Area area = requireArea(before, new AreaId(payload.areaId()));
+    Map<AreaId, Area> areas = new LinkedHashMap<>(before.areas());
+    areas.put(
+        area.id(),
+        new Area(
+            area.id(),
+            area.name(),
+            area.rectangle().translate(payload.deltaX(), payload.deltaY()),
+            area.rotation(),
+            area.color(),
+            area.visible(),
+            area.displayOrder()));
+    AreaMembershipResolver membership = new AreaMembershipResolver();
+    Map<GraveId, Grave> graves = new LinkedHashMap<>(before.graves());
+    for (Grave grave : before.graves().values()) {
+      if (membership
+          .resolve(grave, before.areas().values())
+          .map(assigned -> assigned.id().equals(area.id()))
+          .orElse(false)) {
+        graves.put(
+            grave.id(),
+            grave.move(grave.rectangle().translate(payload.deltaX(), payload.deltaY()), timestamp));
+      }
+    }
+    // エリアと墓所の移動を一つの候補状態として検証し、一回のUndoで戻せるようにする。
+    return mutation(
+        aggregate(
+            before,
+            before.metadata(),
+            before.background(),
+            areas,
+            graves,
+            before.people(),
+            before.assets()));
+  }
+
   private Mutation deleteArea(ProjectAggregate before, CommandPayloads.DeleteArea payload) {
     AreaId id = new AreaId(payload.areaId());
     requireArea(before, id);
@@ -674,6 +719,18 @@ public final class ProjectEditingApiService {
                   old.move(
                       old.rectangle().translate(payload.deltaX(), payload.deltaY()), timestamp));
             });
+    return mutation(withGraves(before, graves));
+  }
+
+  private Mutation rotateGraves(
+      ProjectAggregate before, CommandPayloads.RotateGraves payload, Instant timestamp) {
+    requireUniqueNonEmpty(payload.graveIds());
+    List<Grave> selected =
+        payload.graveIds().stream().map(GraveId::new).map(id -> requireGrave(before, id)).toList();
+    Map<GraveId, Grave> graves = new LinkedHashMap<>(before.graves());
+    new GraveRotationService()
+        .rotate(selected, payload.deltaDegrees(), timestamp)
+        .forEach(grave -> graves.put(grave.id(), grave));
     return mutation(withGraves(before, graves));
   }
 

@@ -322,6 +322,22 @@ function App() {
                 </TableRow>
                 <TableRow>
                   <TableCell component="th" scope="row">
+                    エリアと墓所の移動
+                  </TableCell>
+                  <TableCell>
+                    「エリア編集」で「所属墓所も一緒に移動」をONにし、エリアをドラッグします。初期状態はOFFです。
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell component="th" scope="row">
+                    複数墓所の回転
+                  </TableCell>
+                  <TableCell>
+                    墓所を複数選択し、選択枠の上の丸をドラッグすると配置ごと回転します。プロパティの左右90度回転ボタンも使えます。
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell component="th" scope="row">
                     背景画像の移動
                   </TableCell>
                   <TableCell>「背景移動」を選び、画像内をドラッグします。</TableCell>

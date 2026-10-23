@@ -126,6 +126,16 @@ class ProjectEditingControllerTest {
             CommandType.MOVE_GRAVES,
             CommandPayloads.MoveGraves.class),
         command(
+            "rotateGraves",
+            "{" + graveIds + ",\"deltaDegrees\":90}",
+            CommandType.ROTATE_GRAVES,
+            CommandPayloads.RotateGraves.class),
+        command(
+            "moveAreaWithGraves",
+            "{\"areaId\":\"" + ID + "\",\"deltaX\":1,\"deltaY\":2}",
+            CommandType.MOVE_AREA_WITH_GRAVES,
+            CommandPayloads.MoveAreaWithGraves.class),
+        command(
             "resizeGrave",
             "{\"graveId\":\"" + ID + "\"," + rectangle + "}",
             CommandType.RESIZE_GRAVE,

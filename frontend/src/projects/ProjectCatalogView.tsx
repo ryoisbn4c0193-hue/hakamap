@@ -52,7 +52,20 @@ function ProjectCatalogView({ onOpened }: ProjectCatalogViewProps) {
   const refresh = async () => queryClient.invalidateQueries({ queryKey: ['projectCatalog'] });
   const operation = useMutation({
     mutationFn: async (action: () => Promise<unknown>) => action(),
-    onError: () => setError('操作を完了できませんでした。保存場所と入力内容を確認してください。'),
+    onError: (cause) => {
+      const messages: Record<string, string> = {
+        'project-destination-exists':
+          '選択した保存先には同じプロジェクトのフォルダがすでに存在するため、取り込めません。既存データの上書きを防ぐため、別の保存先を選択してください。',
+        'catalog-project-duplicate':
+          '同じプロジェクトがすでにプロジェクト一覧に登録されているため、取り込めません。一覧から既存のプロジェクトを開いてください。',
+        'import-failed':
+          'プロジェクトを取り込めませんでした。保存先の書き込み権限と空き容量を確認してください。',
+      };
+      setError(
+        messages[cause.message] ??
+          '操作を完了できませんでした。保存場所と入力内容を確認してください。',
+      );
+    },
     onSuccess: refresh,
   });
 
@@ -144,7 +157,7 @@ function ProjectCatalogView({ onOpened }: ProjectCatalogViewProps) {
         <Stack direction="row" spacing={1}>
           <Button
             onClick={() => {
-              void operation.mutateAsync(selectAndImport);
+              operation.mutate(selectAndImport);
             }}
             variant="outlined"
           >

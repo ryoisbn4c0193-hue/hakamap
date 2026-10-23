@@ -59,6 +59,8 @@ type MapCanvasProps = {
   onNudgeGraves: (graveIds: readonly string[], delta: MapPoint) => void;
   onRemoveBackground: () => void;
   onResizeGrave: (rectangle: MapRect) => void;
+  onRotateGraves: (graveIds: readonly string[], deltaDegrees: number) => void;
+  onMoveAreaWithGraves: (areaId: string, delta: MapPoint) => void;
   onUpdateArea: (rectangle: MapRect) => void;
   onTransformBackground: (background: MapBackground) => void;
   onSelectionChange: (graveIds: readonly string[]) => void;
@@ -83,6 +85,8 @@ function MapCanvas({
   onNudgeGraves,
   onRemoveBackground,
   onResizeGrave,
+  onRotateGraves,
+  onMoveAreaWithGraves,
   onUpdateArea,
   onTransformBackground,
   onSelectionChange,
@@ -102,6 +106,8 @@ function MapCanvas({
     onCreateGrave,
     onMoveGraves,
     onResizeGrave,
+    onRotateGraves,
+    onMoveAreaWithGraves,
     onUpdateArea,
     onTransformBackground,
     onSelectionChange,
@@ -113,6 +119,8 @@ function MapCanvas({
       onCreateGrave,
       onMoveGraves,
       onResizeGrave,
+      onRotateGraves,
+      onMoveAreaWithGraves,
       onUpdateArea,
       onTransformBackground,
       onSelectionChange,
@@ -122,12 +130,15 @@ function MapCanvas({
     onCreateGrave,
     onMoveGraves,
     onResizeGrave,
+    onRotateGraves,
+    onMoveAreaWithGraves,
     onSelectionChange,
     onTransformBackground,
     onUpdateArea,
   ]);
   const [mode, setMode] = useState<MapMode>('select');
   const [snap, setSnap] = useState(true);
+  const [moveAreaWithGraves, setMoveAreaWithGraves] = useState(false);
   const [outputOpen, setOutputOpen] = useState(false);
   const [removeBackgroundOpen, setRemoveBackgroundOpen] = useState(false);
   const backgroundManifest = useQuery({
@@ -135,6 +146,10 @@ function MapCanvas({
     queryFn: () => getBackgroundTileManifest(snapshot.projectId),
     queryKey: ['backgroundTileManifest', snapshot.projectId, snapshot.background?.assetId],
   });
+  const areaIdsByGrave = useMemo(
+    () => new Map(snapshot.graveStates.map(({ graveId, areaId }) => [graveId, areaId])),
+    [snapshot.graveStates],
+  );
   const model: MapRenderModel = useMemo(
     () => ({
       background:
@@ -159,6 +174,7 @@ function MapCanvas({
       })),
       graves: snapshot.graves.map((grave, displayOrder) => ({
         displayOrder,
+        areaId: areaIdsByGrave.get(grave.graveId) ?? undefined,
         height: grave.height,
         id: grave.graveId,
         label: graveLabel(grave.managementNumber, grave.name, labelMode),
@@ -179,6 +195,7 @@ function MapCanvas({
       snapshot.areas,
       snapshot.background,
       snapshot.graves,
+      areaIdsByGrave,
       snapshot.projectId,
     ],
   );
@@ -199,6 +216,8 @@ function MapCanvas({
         onCreateGrave: (rectangle) => callbacks.current.onCreateGrave(rectangle),
         onMoveGraves: (ids, delta) => callbacks.current.onMoveGraves(ids, delta),
         onResizeGrave: (rectangle) => callbacks.current.onResizeGrave(rectangle),
+        onRotateGraves: (ids, delta) => callbacks.current.onRotateGraves(ids, delta),
+        onMoveAreaWithGraves: (id, delta) => callbacks.current.onMoveAreaWithGraves(id, delta),
         onUpdateArea: (rectangle) => callbacks.current.onUpdateArea(rectangle),
         onTransformBackground: (background) => callbacks.current.onTransformBackground(background),
         onSelectionChange: (ids) => callbacks.current.onSelectionChange(ids),
@@ -226,6 +245,7 @@ function MapCanvas({
   }, [model.background?.assetId]);
   useEffect(() => adapter.current?.setMode(mode), [mode]);
   useEffect(() => adapter.current?.setSnapEnabled(snap), [snap]);
+  useEffect(() => adapter.current?.setMoveAreaWithGraves(moveAreaWithGraves), [moveAreaWithGraves]);
   useEffect(() => adapter.current?.setInteractionEnabled(!busy), [busy]);
   useEffect(() => {
     if (focusedGraveId !== undefined) adapter.current?.focusGrave(focusedGraveId);
@@ -359,6 +379,19 @@ function MapCanvas({
           <ToggleButton value="both">両方</ToggleButton>
           <ToggleButton value="hidden">非表示</ToggleButton>
         </ToggleButtonGroup>
+        {mode === 'editArea' ? (
+          <FormControlLabel
+            control={
+              <Switch
+                checked={moveAreaWithGraves}
+                disabled={busy}
+                onChange={(_, checked) => setMoveAreaWithGraves(checked)}
+                size="small"
+              />
+            }
+            label="所属墓所も一緒に移動"
+          />
+        ) : null}
         {mode === 'editArea' && selectedAreaId !== undefined ? (
           <TextField
             defaultValue={
