@@ -18,7 +18,8 @@ npm start
 macOSとXcodeのある環境で`npm run ios`を実行します。
 署名済みアプリの生成にはEASプロジェクト設定とAppleの署名設定が別途必要です。
 `app.json`のBundle Identifierは配布用アカウントで利用可能なものへ設定してからビルドします。
-TestFlightへのアップロードやApple契約・署名設定はこの実装には含みません。
+Expo Goなしで実機へ入れる手順は[単独アプリの作成とオフライン確認](../docs/verification/iphone-standalone.md)を参照してください。
+Apple契約・署名設定は利用者のアカウントで行います。
 
 PCのExpo CLIとiPhoneのExpo Goは同じExpoアカウントにログインしてください。
 Windowsでブラウザーの自動起動に失敗する場合は、`npx expo login --no-browser`で

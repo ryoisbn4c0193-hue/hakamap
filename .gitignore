@@ -43,3 +43,10 @@ mobile/coverage/
 *.hakamap
 mobile/*.db
 mobile/*.db-*
+
+# iOSの署名情報・配布生成物
+mobile/credentials.json
+*.p12
+*.p8
+*.mobileprovision
+*.ipa
