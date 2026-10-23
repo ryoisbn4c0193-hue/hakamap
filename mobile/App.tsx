@@ -275,16 +275,35 @@ function Screen() {
           <View style={styles.dialog}>
             <Text style={styles.heading}>検索対象</Text>
             {targets.map((option) => (
-              <Button
+              <Pressable
                 key={option.value}
-                label={`${target === option.value ? '✓ ' : ''}${option.label}`}
+                accessibilityRole="radio"
+                accessibilityLabel={option.label}
+                accessibilityState={{ checked: target === option.value }}
+                style={({ pressed }) => [
+                  styles.searchOption,
+                  target === option.value && styles.searchOptionSelected,
+                  pressed && { opacity: 0.7 },
+                ]}
                 onPress={() => {
                   setTarget(option.value);
                   setSelector(false);
                 }}
-              />
+              >
+                <Text style={styles.searchOptionText}>
+                  {target === option.value ? '●' : '○'} {option.label}
+                </Text>
+              </Pressable>
             ))}
-            <Button label="閉じる" onPress={() => setSelector(false)} />
+            <View style={styles.searchActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setSelector(false)}
+                style={({ pressed }) => [styles.searchClose, pressed && { opacity: 0.8 }]}
+              >
+                <Text style={styles.searchCloseText}>閉じる</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -385,4 +404,24 @@ const styles = StyleSheet.create({
   footer: { padding: 10, fontSize: 12, color: '#162832', backgroundColor: 'white' },
   overlay: { flex: 1, backgroundColor: '#00000055', justifyContent: 'center', padding: 30 },
   dialog: { backgroundColor: 'white', padding: 20, borderRadius: 8, gap: 8 },
+  searchOption: {
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#D4E0E7',
+    backgroundColor: 'white',
+  },
+  searchOptionSelected: { backgroundColor: '#EAF6FC', borderColor: '#147FB5' },
+  searchOptionText: { color: '#162832', fontSize: 16 },
+  searchActions: { borderTopWidth: 1, borderTopColor: '#D4E0E7', marginTop: 8, paddingTop: 12 },
+  searchClose: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#147FB5',
+    borderRadius: 6,
+  },
+  searchCloseText: { color: 'white', fontSize: 16, fontWeight: '600' },
 });
