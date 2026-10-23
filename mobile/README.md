@@ -18,6 +18,7 @@ node scripts/serve-pwa.mjs
 ```
 
 PCでは`http://127.0.0.1:4173/`で検査できます。実機にはHTTPSの配布サイトを使います。
+ホーム画面のアイコンはWindows版と同じ`packaging/windows/assets/hakamap-icon.png`から生成します。
 生成物は`dist-pwa/`。サブディレクトリへ配布するときはビルド時に`HAKAMAP_BASE_PATH=/hakamap`などを指定します。
 GitHub Actionsは検査とArtifact生成を行い、明示的な手動実行でのみPagesへ公開します。
 PWA保存はIndexedDB。サイトデータ削除等に備えて元の`.hakamap`を保管してください。

@@ -5,11 +5,13 @@ on:
     paths:
       - 'mobile/**'
       - 'shared/**'
+      - 'packaging/windows/assets/hakamap-icon.png'
       - '.github/workflows/pwa.yml'
   pull_request:
     paths:
       - 'mobile/**'
       - 'shared/**'
+      - 'packaging/windows/assets/hakamap-icon.png'
       - '.github/workflows/pwa.yml'
   workflow_dispatch:
     inputs:
