@@ -4,9 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Package version
-        required: true
-        default: 0.1.10
+        description: パッケージバージョン（空欄なら自動採番）
+        required: false
   pull_request:
     paths:
       - ".github/workflows/windows-package.yml"
@@ -41,8 +40,14 @@ jobs:
 
       - name: Build Windows installer
         shell: pwsh
+        env:
+          HAKAMAP_PACKAGE_VERSION: ${{ inputs.version }}
         run: |
-          $Version = if ('${{ inputs.version }}') { '${{ inputs.version }}' } else { '0.1.10' }
+          $Version = if ($env:HAKAMAP_PACKAGE_VERSION) {
+            $env:HAKAMAP_PACKAGE_VERSION
+          } else {
+            '0.1.' + (10 + [int]$env:GITHUB_RUN_NUMBER)
+          }
           .\packaging\windows\build.ps1 -Version $Version
 
       - name: Verify package manifest
