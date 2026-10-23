@@ -14,6 +14,8 @@ Windows版の既存エクスポート機能と保存形式は変更しない。
 - `mobile/`にExpo SDK 58、React Native、TypeScriptで実装する。
 - 標準UIはReact Native、配置図はReact Native SVGとPanResponderで描画・操作する。
 - 日本語変換の開始・確定を判定する検索欄はExpo DOMを使用する。
+  表示エンジンは`useExpoDOMWebView: false`で既存の`react-native-webview`を選ぶ。
+  Expo Goで報告された`DomWebView`のネイティブビュー参照エラーを回避するためである。
   HTML・JavaScriptをアプリへ同梱し、外部URL・CDNへアクセスしない。
 - ファイル選択はExpo DocumentPicker、選択ファイルの読み込み・一時コピー削除は
   Expo FileSystem、永続保存はExpo SQLiteを使用する。
