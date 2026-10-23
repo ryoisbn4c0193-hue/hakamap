@@ -168,3 +168,7 @@ Windows 11上で、Java 21ランタイムを同梱した`Hakamap-<バージョ�
 `packaging/windows/build.ps1`で作成します。
 MVPではコード署名と自動アップデートを行いません。Windows用成果物はWindows上で作成し、
 Linuxからのクロスビルドには依存しません。
+
+## iPhone PWAの導入
+
+Apple有料加入・Expo Goなしの導入は[PWAの手順](docs/verification/iphone-pwa.md)を参照してください。

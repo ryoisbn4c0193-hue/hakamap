@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -15,9 +13,10 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import * as DocumentPicker from 'expo-document-picker';
-import { File } from 'expo-file-system';
-import { ArchiveError, MAX_ARCHIVE, readArchive, type SavedMap } from './src/archive';
+import { ArchiveError, type SavedMap } from './src/archive';
+import { pickArchive } from './src/pickArchive';
+import { notify, confirmReplace } from './src/dialogs';
+import { OfflineStatus } from './src/OfflineStatus';
 import { loadMap, loadNames, saveMap, saveNames } from './src/storage';
 import { normalize, search, targets, type SearchTarget } from './src/model';
 import { MapView } from './src/MapView';
@@ -76,7 +75,7 @@ function Screen() {
       .catch(() => {
         if (active) {
           setLoadFailed(true);
-          Alert.alert(
+          notify(
             '読み込みできません',
             '保存済みデータを読み込めませんでした。アプリを再起動してください。',
           );
@@ -102,51 +101,19 @@ function Screen() {
     importLock.current = true;
     setBusy(true);
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
-        copyToCacheDirectory: true,
-        multiple: false,
-      });
-      if (result.canceled) return;
-      const asset = result.assets[0];
-      if (!asset) return;
-      const file = new File(asset.uri);
-      try {
-        if (file.size > MAX_ARCHIVE)
-          throw new ArchiveError('ファイルが大きすぎます（上限32MiB）。');
-        const candidate = readArchive(await file.bytes());
-        if (candidate.backgroundUri) await Image.getSize(candidate.backgroundUri);
-        if (data) {
-          const approved = await new Promise<boolean>((resolve) =>
-            Alert.alert(
-              'データの置き換え',
-              '現在のデータを置き換えます。よろしいですか？',
-              [
-                { text: 'キャンセル', style: 'cancel', onPress: () => resolve(false) },
-                { text: '置き換える', onPress: () => resolve(true) },
-              ],
-              { cancelable: false },
-            ),
-          );
-          if (!approved) return;
-        }
-        await saveMap(candidate);
-        setSelectedGraveId(null);
-        setData(candidate);
-        setInputVersion((value) => value + 1);
-        setQuery('');
-        setCommitted('');
-        setFit((v) => v + 1);
-        Alert.alert('取り込み完了', '配置図を更新しました。');
-      } finally {
-        try {
-          if (file.exists) file.delete();
-        } catch {
-          /* キャッシュ清掃の失敗は保存結果を変更しない。 */
-        }
-      }
+      const candidate = await pickArchive();
+      if (!candidate) return;
+      if (data && !(await confirmReplace())) return;
+      await saveMap(candidate);
+      setSelectedGraveId(null);
+      setData(candidate);
+      setInputVersion((value) => value + 1);
+      setQuery('');
+      setCommitted('');
+      setFit((v) => v + 1);
+      notify('取り込み完了', '配置図を更新しました。');
     } catch (error) {
-      Alert.alert(
+      notify(
         '取り込みできません',
         `${error instanceof ArchiveError ? error.message : 'ファイルの形式・容量・空き容量を確認してください。'}保存済みデータは変更していません。`,
       );
@@ -160,7 +127,7 @@ function Screen() {
       await saveNames(value);
       setNames(value);
     } catch {
-      Alert.alert('保存できません', '表示設定を保存できませんでした。');
+      notify('保存できません', '表示設定を保存できませんでした。');
     }
   }
   if (!ready)
@@ -179,6 +146,7 @@ function Screen() {
           <Button label="データ管理" onPress={() => setManage(true)} />
         </View>
       </View>
+      <OfflineStatus busy={busy} />
       <KeyboardAvoidingView
         style={styles.body}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

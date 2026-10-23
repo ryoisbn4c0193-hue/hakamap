@@ -2,6 +2,16 @@
 
 更新日: 2026-10-23
 
+## 0.2.0以降の配布・保存方式
+
+利用者指定によりPWAへ変更した。[ADR 0005](../adr/0005-iphone-pwa.md)を正とする。
+React Native Webで既存の画面・SVG・検索を再利用する。検索欄は共通のSearchFieldを直接描画する。
+PWAではFile API・IndexedDBを使用し、地図と背景を単一トランザクションで置換する。
+Service Workerはビルド時の静的ファイルだけを事前保存し、全件保存後に準備完了と表示する。
+更新は待機し、取り込み中を避けて利用者が適用する。個人データの送信・同期は行わない。
+以下のExpo DOM・SQLite・署名方式は残しているネイティブ版の説明であり、PWAには適用しない。
+導入と実機確認は[手順](../verification/iphone-pwa.md)を参照する。
+
 ## 適用範囲
 
 [業務要件](../requirements/iphone.md)に基づくiPhone縦向きの参照専用アプリ。

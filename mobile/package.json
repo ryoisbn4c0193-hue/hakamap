@@ -1,6 +1,6 @@
 {
   "name": "hakamap-mobile",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "private": true,
   "main": "index.ts",
   "scripts": {
@@ -10,7 +10,10 @@
     "lint": "eslint .",
     "format:check": "prettier --check . ../shared",
     "test": "vitest run",
-    "export:ios": "expo export --platform ios"
+    "export:ios": "expo export --platform ios",
+    "build:pwa": "expo export --platform web --output-dir dist-pwa && node scripts/build-pwa.mjs",
+    "start:web": "expo start --web",
+    "test:pwa": "playwright test"
   },
   "dependencies": {
     "@expo/dom-webview": "~58.0.2",
@@ -33,11 +36,13 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^24.13.2",
     "@types/react": "~19.3.0",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
+    "fake-indexeddb": "^6.2.6",
     "jsdom": "^30.1.3",
     "prettier": "^3.9.5",
     "typescript": "~6.0.3",

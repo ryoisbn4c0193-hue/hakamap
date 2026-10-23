@@ -1,0 +1,72 @@
+name: iPhone PWAの検査・配布
+
+on:
+  push:
+    paths:
+      - 'mobile/**'
+      - 'shared/**'
+      - '.github/workflows/pwa.yml'
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - 'shared/**'
+      - '.github/workflows/pwa.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: '検査成功後にGitHub Pagesへ公開する'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      CI: '1'
+      EXPO_OFFLINE: '1'
+      EXPO_NO_TELEMETRY: '1'
+      HAKAMAP_BASE_PATH: /${{ github.event.repository.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build:pwa
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:pwa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hakamap-pwa
+          path: mobile/dist-pwa/
+          include-hidden-files: true
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main'
+        with:
+          path: mobile/dist-pwa/
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment

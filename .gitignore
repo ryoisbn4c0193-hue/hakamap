@@ -50,3 +50,7 @@ mobile/credentials.json
 *.p8
 *.mobileprovision
 *.ipa
+
+# PWA配布生成物
+mobile/dist-pwa/
+mobile/test-results/

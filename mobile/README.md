@@ -1,9 +1,36 @@
 # Hakamap iPhone版
 
-React Native / Expoによる参照専用アプリです。0.1.2でExpo Go上の基本動作確認が完了しています。iPhoneの縦向きに対応します。
+React Native / Expoによる参照専用アプリです。現在の配布方式はPWA（0.2.0）です。0.1.2でExpo Go上の基本動作確認が完了しています。iPhoneの縦向きに対応します。
 Windows版とは独立して起動し、通常の参照ではネットワークを使用しません。
 
-## 起動
+## PWAの起動・配布（推奨）
+
+Apple Developer Program・Expo Go・Macは不要です。
+HTTPSの配布URLをSafariで開き、準備完了後にホーム画面へ追加します。
+ホーム画面から開いたHakamapで既存`.hakamap`を取り込みます。元データは端末内だけで扱います。
+[導入・公開・機内モード試験の手順](../docs/verification/iphone-pwa.md)を参照してください。
+
+```bash
+cd mobile
+npm ci
+npm run build:pwa
+node scripts/serve-pwa.mjs
+```
+
+PCでは`http://127.0.0.1:4173/`で検査できます。実機にはHTTPSの配布サイトを使います。
+生成物は`dist-pwa/`。サブディレクトリへ配布するときはビルド時に`HAKAMAP_BASE_PATH=/hakamap`などを指定します。
+GitHub Actionsは検査とArtifact生成を行い、明示的な手動実行でのみPagesへ公開します。
+PWA保存はIndexedDB。サイトデータ削除等に備えて元の`.hakamap`を保管してください。
+
+```bash
+npx playwright install chromium
+npm run test:pwa
+```
+
+`test:pwa`は生成済みPWAを対象に、通信オフでの再読み込み・検索・詳細・表示設定・ガイドと、
+置換キャンセル・破損入力・成功時の置換をブラウザーで検査します。iPhone実機確認とは別です。
+
+## ネイティブ版を開発用に起動
 
 Node.js 24とnpmを使用します。SDK 58の公式テンプレートに合わせた依存を
 `package-lock.json`に固定しています。
@@ -97,4 +124,4 @@ Windows版の検索対象選択は別途実装予定です。専用出力ボタ�
 
 依存のReact、React Native、Expo関連、react-native-svg、fflate、Zod、image-size、
 @noble/hashesはMITライセンスです。配布時にはロックファイルの推移的依存も含めて
-第三者ライセンス表示を整備します。
+PWAビルド時に第三者ライセンスを`third-party-notices.txt`へ同梱します。
