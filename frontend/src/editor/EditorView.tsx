@@ -510,6 +510,9 @@ function EditorView({ projectId }: EditorViewProps) {
           onMoveAreaWithGraves={(areaId, delta) =>
             mapCommand('moveAreaWithGraves', { areaId, deltaX: delta.x, deltaY: delta.y })
           }
+          onRotateAreaWithGraves={(areaId, rotation) =>
+            mapCommand('rotateAreaWithGraves', { areaId, rotation })
+          }
           onRotateGraves={(graveIds, deltaDegrees) =>
             mapCommand('rotateGraves', { graveIds, deltaDegrees })
           }

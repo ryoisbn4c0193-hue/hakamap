@@ -375,6 +375,9 @@ public final class ProjectEditingApiService {
       case MOVE_AREA_WITH_GRAVES ->
           moveAreaWithGraves(
               before, require(payload, CommandPayloads.MoveAreaWithGraves.class), timestamp);
+      case ROTATE_AREA_WITH_GRAVES ->
+          rotateAreaWithGraves(
+              before, require(payload, CommandPayloads.RotateAreaWithGraves.class), timestamp);
       case DELETE_AREA -> deleteArea(before, require(payload, CommandPayloads.DeleteArea.class));
       case CREATE_GRAVE ->
           createGrave(before, require(payload, CommandPayloads.CreateGrave.class), timestamp);
@@ -600,6 +603,53 @@ public final class ProjectEditingApiService {
       }
     }
     // エリアと墓所の移動を一つの候補状態として検証し、一回のUndoで戻せるようにする。
+    return mutation(
+        aggregate(
+            before,
+            before.metadata(),
+            before.background(),
+            areas,
+            graves,
+            before.people(),
+            before.assets()));
+  }
+
+  private Mutation rotateAreaWithGraves(
+      ProjectAggregate before, CommandPayloads.RotateAreaWithGraves payload, Instant timestamp) {
+    Area area = requireArea(before, new AreaId(payload.areaId()));
+    RotationDegrees rotation = new RotationDegrees(payload.rotation());
+    Map<AreaId, Area> areas = new LinkedHashMap<>(before.areas());
+    areas.put(
+        area.id(),
+        new Area(
+            area.id(),
+            area.name(),
+            area.rectangle(),
+            rotation,
+            area.color(),
+            area.visible(),
+            area.displayOrder()));
+    AreaMembershipResolver membership = new AreaMembershipResolver();
+    List<Grave> selected =
+        before.graves().values().stream()
+            .filter(
+                grave ->
+                    membership
+                        .resolve(grave, before.areas().values())
+                        .map(assigned -> assigned.id().equals(area.id()))
+                        .orElse(false))
+            .toList();
+    Map<GraveId, Grave> graves = new LinkedHashMap<>(before.graves());
+    new GraveRotationService()
+        .rotateAroundCenter(
+            selected,
+            rotation.value().subtract(area.rotation().value()),
+            area.rectangle().left().doubleValue()
+                + area.rectangle().size().width().doubleValue() / 2,
+            area.rectangle().top().doubleValue()
+                + area.rectangle().size().height().doubleValue() / 2,
+            timestamp)
+        .forEach(grave -> graves.put(grave.id(), grave));
     return mutation(
         aggregate(
             before,

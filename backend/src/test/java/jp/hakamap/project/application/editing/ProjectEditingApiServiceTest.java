@@ -65,6 +65,112 @@ class ProjectEditingApiServiceTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void rotatesAreaAndItsAssignedGravesAroundAreaCenterAndSupportsUndoRedo() throws Exception {
+    var service = context(transformProject()).service();
+    var before = service.snapshot(PROJECT_ID);
+    var area = before.areas().getFirst();
+    service.execute(
+        PROJECT_ID,
+        "session-a",
+        0,
+        CommandType.ROTATE_AREA_WITH_GRAVES,
+        new CommandPayloads.RotateAreaWithGraves(area.areaId(), java.math.BigDecimal.valueOf(90)));
+    var after = service.snapshot(PROJECT_ID);
+    assertThat(after.areas().getFirst().rotation()).isEqualByComparingTo("90");
+    for (var grave : after.graves()) {
+      var old =
+          before.graves().stream()
+              .filter(value -> value.graveId().equals(grave.graveId()))
+              .findFirst()
+              .orElseThrow();
+      boolean member =
+          before.graveStates().stream()
+              .anyMatch(
+                  state ->
+                      state.graveId().equals(grave.graveId())
+                          && area.areaId().equals(state.areaId()));
+      assertThat(grave.x())
+          .isEqualByComparingTo(
+              member ? java.math.BigDecimal.valueOf(85).subtract(old.y()) : old.x());
+      assertThat(grave.y())
+          .isEqualByComparingTo(
+              member ? old.x().subtract(java.math.BigDecimal.valueOf(5)) : old.y());
+      assertThat(grave.rotation())
+          .isEqualByComparingTo(member ? java.math.BigDecimal.valueOf(90) : old.rotation());
+      assertThat(grave.name()).isEqualTo(old.name());
+      assertThat(grave.width()).isEqualByComparingTo(old.width());
+      assertThat(grave.height()).isEqualByComparingTo(old.height());
+    }
+    service.undo(PROJECT_ID, 1);
+    assertThat(service.snapshot(PROJECT_ID).areas()).isEqualTo(before.areas());
+    assertThat(service.snapshot(PROJECT_ID).graves()).isEqualTo(before.graves());
+    service.redo(PROJECT_ID, 2);
+    assertThat(service.snapshot(PROJECT_ID).areas()).isEqualTo(after.areas());
+    assertThat(service.snapshot(PROJECT_ID).graves()).isEqualTo(after.graves());
+    service.execute(
+        PROJECT_ID,
+        "session-a",
+        3,
+        CommandType.ROTATE_AREA_WITH_GRAVES,
+        new CommandPayloads.RotateAreaWithGraves(area.areaId(), java.math.BigDecimal.ZERO));
+    assertThat(service.snapshot(PROJECT_ID).areas()).isEqualTo(before.areas());
+    assertThat(service.snapshot(PROJECT_ID).graves()).isEqualTo(before.graves());
+  }
+
+  @Test
+  void rejectsAreaRotationCollidingWithUnassignedGraveWithoutPartialChange() throws Exception {
+    ProjectAggregate original = transformProject();
+    List<Grave> graves = new ArrayList<>(original.graves().values());
+    graves.add(transformGrave(45, 100));
+    var project =
+        new ProjectAggregate(
+            original.metadata(),
+            Optional.empty(),
+            original.areas().values(),
+            graves,
+            List.of(),
+            List.of());
+    var service = context(project).service();
+    var before = service.snapshot(PROJECT_ID);
+    assertThatThrownBy(
+            () ->
+                service.execute(
+                    PROJECT_ID,
+                    "session-a",
+                    0,
+                    CommandType.ROTATE_AREA_WITH_GRAVES,
+                    new CommandPayloads.RotateAreaWithGraves(
+                        before.areas().getFirst().areaId(), java.math.BigDecimal.valueOf(90))))
+        .isInstanceOf(jp.hakamap.project.domain.result.ProjectInvariantException.class);
+    assertThat(service.snapshot(PROJECT_ID)).isEqualTo(before);
+    assertThat(service.history(PROJECT_ID).items()).isEmpty();
+  }
+
+  @Test
+  void rotatesEmptyAreaWithGravesCommand() throws Exception {
+    ProjectAggregate original = transformProject();
+    var project =
+        new ProjectAggregate(
+            original.metadata(),
+            Optional.empty(),
+            original.areas().values(),
+            List.of(),
+            List.of(),
+            List.of());
+    var service = context(project).service();
+    var area = service.snapshot(PROJECT_ID).areas().getFirst();
+    service.execute(
+        PROJECT_ID,
+        "session-a",
+        0,
+        CommandType.ROTATE_AREA_WITH_GRAVES,
+        new CommandPayloads.RotateAreaWithGraves(area.areaId(), java.math.BigDecimal.valueOf(270)));
+    assertThat(service.snapshot(PROJECT_ID).areas().getFirst().rotation())
+        .isEqualByComparingTo("270");
+    assertThat(service.snapshot(PROJECT_ID).graves()).isEmpty();
+  }
+
+  @Test
   void movesAreaAndOnlyItsAssignedGravesAsOneUndoableCommand() throws Exception {
     ProjectAggregate project = transformProject();
     var area =

@@ -15,6 +15,7 @@ public final class CommandPayloads {
           CreateArea,
           UpdateArea,
           MoveAreaWithGraves,
+          RotateAreaWithGraves,
           DeleteArea,
           CreateGrave,
           CreateGraveGrid,
@@ -76,6 +77,8 @@ public final class CommandPayloads {
 
   public record MoveAreaWithGraves(UUID areaId, BigDecimal deltaX, BigDecimal deltaY)
       implements CommandPayload {}
+
+  public record RotateAreaWithGraves(UUID areaId, BigDecimal rotation) implements CommandPayload {}
 
   public record DeleteArea(UUID areaId) implements CommandPayload {}
 

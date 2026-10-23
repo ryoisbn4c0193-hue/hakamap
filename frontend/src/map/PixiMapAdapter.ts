@@ -69,6 +69,7 @@ export type MapCallbacks = Readonly<{
   onResizeGrave: (rectangle: MapRect) => void;
   onRotateGraves: (graveIds: readonly string[], deltaDegrees: number) => void;
   onMoveAreaWithGraves: (areaId: string, delta: MapPoint) => void;
+  onRotateAreaWithGraves: (areaId: string, rotation: number) => void;
   onUpdateArea: (rectangle: MapRect) => void;
   onTransformBackground: (background: MapBackground) => void;
   onSelectionChange: (graveIds: readonly string[]) => void;
@@ -660,15 +661,21 @@ export class PixiMapAdapter {
     }
     if (
       this.operation?.kind === 'area' &&
-      this.operation.action === 'move' &&
+      this.operation.action !== 'resize' &&
       this.moveAreaWithGraves &&
       this.preview !== undefined
     ) {
       const area = this.operation.original;
       const delta = { x: this.preview.x - area.x, y: this.preview.y - area.y };
-      this.groupPreview = this.model.graves
-        .filter(({ areaId }) => areaId === area.id)
-        .map((grave) => ({ ...grave, x: grave.x + delta.x, y: grave.y + delta.y }));
+      const graves = this.model.graves.filter(({ areaId }) => areaId === area.id);
+      this.groupPreview =
+        this.operation.action === 'rotate'
+          ? rotateSelectionPreview(
+              graves,
+              area,
+              (this.preview.rotation ?? area.rotation) - area.rotation,
+            )
+          : graves.map((grave) => ({ ...grave, x: grave.x + delta.x, y: grave.y + delta.y }));
     }
     this.render();
   };
@@ -711,6 +718,10 @@ export class PixiMapAdapter {
         };
         if (delta.x !== 0 || delta.y !== 0)
           this.callbacks?.onMoveAreaWithGraves(operation.original.id, delta);
+      } else if (operation.action === 'rotate' && this.moveAreaWithGraves) {
+        const rotation = this.preview.rotation ?? operation.original.rotation;
+        if (rotation !== operation.original.rotation)
+          this.callbacks?.onRotateAreaWithGraves(operation.original.id, rotation);
       } else {
         this.callbacks?.onUpdateArea(this.preview);
       }

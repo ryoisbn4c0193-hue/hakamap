@@ -38,6 +38,22 @@ public final class GraveRotationService {
                     .max()
                     .orElseThrow())
             / 2;
+    return rotateAroundCenter(graves, delta, centerX, centerY, timestamp);
+  }
+
+  public List<Grave> rotateAroundCenter(
+      List<Grave> graves,
+      BigDecimal deltaDegrees,
+      double centerX,
+      double centerY,
+      Instant timestamp) {
+    if (deltaDegrees == null) {
+      throw new DomainValidationException("invalid-rotation");
+    }
+    BigDecimal delta = normalize(deltaDegrees);
+    if (delta.signum() == 0) {
+      return List.copyOf(graves);
+    }
     double radians = Math.toRadians(delta.doubleValue());
     double cosine = Math.cos(radians);
     double sine = Math.sin(radians);

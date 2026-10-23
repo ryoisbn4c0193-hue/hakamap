@@ -131,6 +131,11 @@ class ProjectEditingControllerTest {
             CommandType.ROTATE_GRAVES,
             CommandPayloads.RotateGraves.class),
         command(
+            "rotateAreaWithGraves",
+            "{\"areaId\":\"" + ID + "\",\"rotation\":90}",
+            CommandType.ROTATE_AREA_WITH_GRAVES,
+            CommandPayloads.RotateAreaWithGraves.class),
+        command(
             "moveAreaWithGraves",
             "{\"areaId\":\"" + ID + "\",\"deltaX\":1,\"deltaY\":2}",
             CommandType.MOVE_AREA_WITH_GRAVES,

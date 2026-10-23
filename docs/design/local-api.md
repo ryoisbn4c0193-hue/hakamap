@@ -181,6 +181,7 @@ record CommandRequest(
 | `createArea` | `clientRef`, `name`, `x`, `y`, `width`, `height`, `colorPreset?`, `visible` | 色省略時は未使用色をサーバーが割り当てる |
 | `updateArea` | `areaId`, `name`, `x`, `y`, `width`, `height`, `colorPreset`, `visible` | フォーム確定後の全値を送る |
 | `moveAreaWithGraves` | `areaId`, `deltaX`, `deltaY` | 移動前にサーバーで所属を判定し、エリアと所属墓所を一括移動する |
+| `rotateAreaWithGraves` | `areaId`, `rotation` | 操作前の所属墓所をエリアの中心を軸に同じ角度差だけ回転する。角度は確定後の絶対角度 |
 | `deleteArea` | `areaId` | 所属墓所は削除せず再判定する |
 | `createGrave` | `clientRef`, `x`, `y`, `width`, `height` | 管理番号などの情報は設定しない |
 | `createGraveGrid` | `clientRefPrefix`, `x`, `y`, `rows`, `columns`, `graveWidth`, `graveHeight`, `horizontalGap`, `verticalGap` | 左上から行単位で生成する |

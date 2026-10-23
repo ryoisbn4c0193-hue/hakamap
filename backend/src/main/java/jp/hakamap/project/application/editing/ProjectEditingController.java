@@ -39,6 +39,8 @@ public class ProjectEditingController {
               entry(CommandType.CREATE_AREA, CommandPayloads.CreateArea.class),
               entry(CommandType.UPDATE_AREA, CommandPayloads.UpdateArea.class),
               entry(CommandType.MOVE_AREA_WITH_GRAVES, CommandPayloads.MoveAreaWithGraves.class),
+              entry(
+                  CommandType.ROTATE_AREA_WITH_GRAVES, CommandPayloads.RotateAreaWithGraves.class),
               entry(CommandType.DELETE_AREA, CommandPayloads.DeleteArea.class),
               entry(CommandType.CREATE_GRAVE, CommandPayloads.CreateGrave.class),
               entry(CommandType.CREATE_GRAVE_GRID, CommandPayloads.CreateGraveGrid.class),

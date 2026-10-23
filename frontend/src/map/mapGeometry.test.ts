@@ -269,3 +269,14 @@ describe('複数墓所の回転プレビュー', () => {
     ]);
   });
 });
+
+describe('エリアに合わせた墓所の回転プレビュー', () => {
+  it('墓所群の中心ではなくエリアの中心を軸に、位置と向きを回転する', () => {
+    const area = { id: 'area', x: 0, y: 0, width: 100, height: 100, rotation: 0 };
+    const graves = [{ id: 'grave', x: 10, y: 10, width: 10, height: 20, rotation: 270 }];
+    const rotated = rotateSelectionPreview(graves, area, 90);
+    expect(rotated[0].x).toBeCloseTo(75);
+    expect(rotated[0].y).toBeCloseTo(5);
+    expect(rotated[0].rotation).toBe(0);
+  });
+});

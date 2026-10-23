@@ -61,6 +61,7 @@ type MapCanvasProps = {
   onResizeGrave: (rectangle: MapRect) => void;
   onRotateGraves: (graveIds: readonly string[], deltaDegrees: number) => void;
   onMoveAreaWithGraves: (areaId: string, delta: MapPoint) => void;
+  onRotateAreaWithGraves: (areaId: string, rotation: number) => void;
   onUpdateArea: (rectangle: MapRect) => void;
   onTransformBackground: (background: MapBackground) => void;
   onSelectionChange: (graveIds: readonly string[]) => void;
@@ -87,6 +88,7 @@ function MapCanvas({
   onResizeGrave,
   onRotateGraves,
   onMoveAreaWithGraves,
+  onRotateAreaWithGraves,
   onUpdateArea,
   onTransformBackground,
   onSelectionChange,
@@ -108,6 +110,7 @@ function MapCanvas({
     onResizeGrave,
     onRotateGraves,
     onMoveAreaWithGraves,
+    onRotateAreaWithGraves,
     onUpdateArea,
     onTransformBackground,
     onSelectionChange,
@@ -121,6 +124,7 @@ function MapCanvas({
       onResizeGrave,
       onRotateGraves,
       onMoveAreaWithGraves,
+      onRotateAreaWithGraves,
       onUpdateArea,
       onTransformBackground,
       onSelectionChange,
@@ -132,6 +136,7 @@ function MapCanvas({
     onResizeGrave,
     onRotateGraves,
     onMoveAreaWithGraves,
+    onRotateAreaWithGraves,
     onSelectionChange,
     onTransformBackground,
     onUpdateArea,
@@ -218,6 +223,8 @@ function MapCanvas({
         onResizeGrave: (rectangle) => callbacks.current.onResizeGrave(rectangle),
         onRotateGraves: (ids, delta) => callbacks.current.onRotateGraves(ids, delta),
         onMoveAreaWithGraves: (id, delta) => callbacks.current.onMoveAreaWithGraves(id, delta),
+        onRotateAreaWithGraves: (id, rotation) =>
+          callbacks.current.onRotateAreaWithGraves(id, rotation),
         onUpdateArea: (rectangle) => callbacks.current.onUpdateArea(rectangle),
         onTransformBackground: (background) => callbacks.current.onTransformBackground(background),
         onSelectionChange: (ids) => callbacks.current.onSelectionChange(ids),
@@ -389,7 +396,7 @@ function MapCanvas({
                 size="small"
               />
             }
-            label="所属墓所も一緒に移動"
+            label="所属墓所も一緒に移動・回転"
           />
         ) : null}
         {mode === 'editArea' && selectedAreaId !== undefined ? (

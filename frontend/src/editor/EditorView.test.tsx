@@ -103,7 +103,7 @@ describe('EditorView', () => {
       </AppProviders>,
     );
     fireEvent.click(await screen.findByRole('button', { name: 'エリア編集' }));
-    const toggle = screen.getByRole('switch', { name: '所属墓所も一緒に移動' });
+    const toggle = screen.getByRole('switch', { name: '所属墓所も一緒に移動・回転' });
     expect(toggle).not.toBeChecked();
     fireEvent.click(toggle);
     expect(toggle).toBeChecked();
