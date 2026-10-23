@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'mobile/**'
+      - 'shared/**'
       - '.github/workflows/mobile.yml'
   pull_request:
     paths:
       - 'mobile/**'
+      - 'shared/**'
       - '.github/workflows/mobile.yml'
 
 permissions:

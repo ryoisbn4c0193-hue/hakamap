@@ -70,6 +70,12 @@ mobile/      iPhone参照アプリ（初期版の製造完了・実機テスト�
 iPhone版の起動・データ取り込み・検査手順は[mobile/README.md](mobile/README.md)、
 実装工程と未完了事項は[実装状況](docs/design/iphone-implementation.md)を参照します。
 
+## WindowsからiPhoneへのデータ取り込み
+
+[取り込みマニュアル](docs/manuals/windows-to-iphone.md)を参照してください。
+アプリ内では、Windows版の「操作ガイド」、iPhone版の「使い方」から同じ手順を確認できます。
+本文は`shared/manuals/iphoneImport.ts`を両アプリに同梱しており、外部サイトへの接続は不要です。
+
 ## 開発環境
 
 Dev ContainerにはJava 21、Node.js、pnpm、Git、および一般的な開発ツールを用意しています。

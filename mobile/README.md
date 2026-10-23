@@ -24,6 +24,14 @@ PCのExpo CLIとiPhoneのExpo Goは同じExpoアカウントにログインし�
 Windowsでブラウザーの自動起動に失敗する場合は、`npx expo login --no-browser`で
 Expoのユーザー名・パスワードを入力してから起動します。
 
+## 0.1.3の追加
+
+上部に「使い方」を追加しました。Windows版の「操作ガイド」と同じ、
+Windowsからのエクスポート・iPhoneへの保存・取り込み・更新手順を確認できます。
+本文はリポジトリの`shared/manuals/iphoneImport.ts`から同梱しています。
+Metroの共有ファイル設定を追加したため、更新後は開発サーバーを再起動してください。
+[取り込みマニュアル](../docs/manuals/windows-to-iphone.md)も参照できます。
+
 ## 0.1.2の修正
 
 Expo Goで検索欄の`DomWebView`参照エラーが報告されたため、Expo DOMの表示エンジンを

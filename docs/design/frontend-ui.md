@@ -305,3 +305,10 @@ Material UIおよび標準の依存関係はビルド時に取得し、Reactの�
   導入前に利用条件と配布条件を確認する。
 
 ## 採用しない方式
+
+## iPhone向けデータ取り込みの案内
+
+共通メニューの「操作ガイド」に、WindowsでのエクスポートからiPhoneへの
+転送・取り込み・内容確認・更新までのマニュアルを表示する。
+`shared/manuals/iphoneImport.ts`の共通本文を使い、iPhone版の「使い方」と内容を揃える。
+[取り込みマニュアル](../manuals/windows-to-iphone.md)も同じ手順を記載する。

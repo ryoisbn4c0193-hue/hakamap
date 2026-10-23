@@ -33,6 +33,8 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
+import { iphoneImportGuide } from '../../shared/manuals/iphoneImport';
+
 import { subscribeFileSelectionActivity } from './api/fileSelectionActivity';
 import {
   chooseTransferPath,
@@ -281,6 +283,46 @@ function App() {
       <Dialog fullWidth maxWidth="md" onClose={() => setHelpOpen(false)} open={helpOpen}>
         <DialogTitle>Hakamap 操作ガイド</DialogTitle>
         <DialogContent dividers>
+          <Box component="section" aria-label={iphoneImportGuide.title} sx={{ mb: 3 }}>
+            <Typography component="h2" variant="h6" gutterBottom>
+              {iphoneImportGuide.title}
+            </Typography>
+            <Typography sx={{ mb: 2 }}>{iphoneImportGuide.introduction}</Typography>
+            {iphoneImportGuide.steps.map((step, index) => (
+              <Box key={step.title} sx={{ mb: 2 }}>
+                <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>
+                  {index + 1}. {step.title}
+                </Typography>
+                <Box component="ul" sx={{ pl: 3, my: 1 }}>
+                  {step.instructions.map((instruction) => (
+                    <Typography component="li" key={instruction}>
+                      {instruction}
+                    </Typography>
+                  ))}
+                </Box>
+              </Box>
+            ))}
+            <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>
+              ご利用上の注意
+            </Typography>
+            <Box component="ul" sx={{ pl: 3, my: 1 }}>
+              {iphoneImportGuide.notes.map((note) => (
+                <Typography component="li" key={note}>
+                  {note}
+                </Typography>
+              ))}
+            </Box>
+            <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 700 }}>
+              うまく取り込めないとき
+            </Typography>
+            <Box component="ul" sx={{ pl: 3, my: 1 }}>
+              {iphoneImportGuide.troubleshooting.map((note) => (
+                <Typography component="li" key={note}>
+                  {note}
+                </Typography>
+              ))}
+            </Box>
+          </Box>
           <TableContainer component={Paper} variant="outlined">
             <Table aria-label="Hakamapの操作方法">
               <TableHead>

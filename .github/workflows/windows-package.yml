@@ -11,6 +11,7 @@ on:
       - ".github/workflows/windows-package.yml"
       - "backend/**"
       - "frontend/**"
+      - "shared/**"
       - "packaging/windows/**"
   push:
     branches:
@@ -19,6 +20,7 @@ on:
       - ".github/workflows/windows-package.yml"
       - "backend/**"
       - "frontend/**"
+      - "shared/**"
       - "packaging/windows/**"
 
 permissions:

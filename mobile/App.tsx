@@ -23,6 +23,7 @@ import { normalize, search, targets, type SearchTarget } from './src/model';
 import { MapView } from './src/MapView';
 import SearchInput from './src/SearchInput';
 import { GraveDetails } from './src/GraveDetails';
+import { ImportGuide } from './src/ImportGuide';
 
 function Button({
   label,
@@ -58,6 +59,7 @@ function Screen() {
   const [fit, setFit] = useState(0),
     [zoom, setZoom] = useState(0),
     [loadFailed, setLoadFailed] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [selectedGraveId, setSelectedGraveId] = useState<string | null>(null);
   const selectedGrave = data?.map.graves.find((grave) => grave.id === selectedGraveId) ?? null;
   const importLock = useRef(false);
@@ -172,7 +174,10 @@ function Screen() {
       <StatusBar style="light" />
       <View style={styles.header}>
         <Text style={styles.title}>Hakamap</Text>
-        <Button label="データ管理" onPress={() => setManage(true)} />
+        <View style={styles.headerActions}>
+          <Button label="使い方" onPress={() => setGuideOpen(true)} />
+          <Button label="データ管理" onPress={() => setManage(true)} />
+        </View>
       </View>
       <KeyboardAvoidingView
         style={styles.body}
@@ -253,6 +258,7 @@ function Screen() {
           </View>
         )}
       </KeyboardAvoidingView>
+      <ImportGuide visible={guideOpen} onClose={() => setGuideOpen(false)} />
       <GraveDetails
         grave={selectedGrave}
         query={committed}
@@ -335,6 +341,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerActions: { flexDirection: 'row', gap: 6 },
   title: { color: 'white', fontWeight: '700', fontSize: 23 },
   panel: { padding: 12, backgroundColor: 'white', gap: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
