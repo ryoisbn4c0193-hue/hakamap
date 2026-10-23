@@ -13,6 +13,7 @@
 - [写真・添付ファイル機能要件](assets.md)
 - [印刷・出力機能要件](output.md)
 - [将来拡張・検討中機能](future-extensions.md)
+- [iPhone版の要件整理（設計開始・整理中）](iphone.md)
 
 ## 更新時の扱い
 
