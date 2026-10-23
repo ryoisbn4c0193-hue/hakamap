@@ -64,7 +64,11 @@ frontend/    ReactおよびTypeScriptクライアント
 backend/     Spring Bootアプリケーション
 packaging/   Windows向けパッケージ設定とスクリプト
 docs/        要件、基本設計、ADR、開発引継ぎ
+mobile/      iPhone参照アプリ（初期版の製造完了・実機テスト待ち）
 ```
+
+iPhone版の起動・データ取り込み・検査手順は[mobile/README.md](mobile/README.md)、
+実装工程と未完了事項は[実装状況](docs/design/iphone-implementation.md)を参照します。
 
 ## 開発環境
 

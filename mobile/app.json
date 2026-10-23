@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Hakamap",
+    "slug": "hakamap-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "jp.hakamap.mobile"
+    },
+    "plugins": ["expo-document-picker", "expo-sqlite"]
+  }
+}

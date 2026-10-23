@@ -34,3 +34,12 @@ backups/
 packaging/out/
 packaging/work/
 packaging/results/
+
+# iPhone
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/coverage/
+*.hakamap
+mobile/*.db
+mobile/*.db-*

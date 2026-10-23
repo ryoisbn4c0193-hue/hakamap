@@ -1,0 +1,8 @@
+{
+  "cli": { "appVersionSource": "local" },
+  "build": {
+    "preview": { "distribution": "internal" },
+    "simulator": { "extends": "preview", "ios": { "simulator": true } },
+    "production": {}
+  }
+}
