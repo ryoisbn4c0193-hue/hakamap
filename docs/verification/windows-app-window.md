@@ -1,13 +1,14 @@
 # Windows専用ウィンドウの受入確認
 
-状態: 実装候補。Windows実機の受入確認は未実施。
+状態: 実装・Windowsビルド検査完了。Windows実機の受入確認は未実施。
 
-2026-10-27の標準verifyは成功。Javaは156件中154件成功、Windows固有の2件はLinuxのためスキップ。
+2026-10-27の[Windows package実行40480442840](https://github.com/ryoisbn4c0193-hue/hakamap/actions/runs/40480442840)が成功。
+Java157件成功・スキップ0件。ウィンドウ識別・ショートカットの保存と再読み込みをネイティブAPIで確認した。
 フロントエンド71件・Lint・整形・ビルド、JavaのCheckstyle・Spotlessも成功。
-既存・再作成・前面化失敗時の重複防止・起動引数とEdge/Chrome選択は自動検査済み。
-Windows固有のウィンドウ識別とショートカット更新にはWindows限定のネイティブ検査を用意した。
-Linuxでこれらをスキップしたことを、Windowsでの確認成功とは扱わない。
+成果は`hakamap-windows-package` Artifact内の`Hakamap-0.1.56.exe`。
+これはタスクバーの実際の表示・ピン留め操作を確認した結果とは区別する。
 
+旧Hakamapは画面内の「終了」で閉じてから更新する。
 更新インストーラーを上書き導入し、スタートメニューまたはデスクトップのHakamapから起動する。
 IDE起動や開発サーバーは対象外。Edge優先、未導入の場合はChromeで専用画面を開く。
 
