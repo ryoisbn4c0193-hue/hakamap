@@ -94,7 +94,9 @@ final class WindowsAppIdentity implements WindowsAppBrowser.Windows {
                 _invokeNativeObject(
                     6, new Object[] {getPointer(), key.getPointer(), value}, HRESULT.class);
         if (W32Errors.FAILED(result)) {
-          throw new LifecycleException("app-window-identity-failed");
+          throw new LifecycleException(
+              "app-window-identity-failed",
+              new IllegalStateException("HRESULT " + Integer.toHexString(result.intValue())));
         }
       }
     }

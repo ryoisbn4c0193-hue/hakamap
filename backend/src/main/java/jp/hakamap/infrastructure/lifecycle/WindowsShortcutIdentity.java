@@ -106,7 +106,7 @@ final class WindowsShortcutIdentity {
     }
   }
 
-  private static ComObject load(Path file) {
+  private static ComObject load(Path file, int mode) {
     PointerByReference result = new PointerByReference();
     HRESULT created =
         Ole32.INSTANCE.CoCreateInstance(
@@ -120,7 +120,7 @@ final class WindowsShortcutIdentity {
     }
     ComObject link = new ComObject(result.getValue());
     try (ComObject persisted = link.query("{0000010B-0000-0000-C000-000000000046}")) {
-      persisted.call(5, new WString(file.toString()), 0);
+      persisted.call(5, new WString(file.toString()), mode);
       return link;
     } catch (RuntimeException exception) {
       link.close();
@@ -131,7 +131,7 @@ final class WindowsShortcutIdentity {
   static boolean repairFile(Path file, Path launcher) {
     ComObject loaded;
     try {
-      loaded = load(file);
+      loaded = load(file, 2);
     } catch (LifecycleException exception) {
       // 破損した別アプリのショートカットでHakamapの起動を妨げない。
       return false;
@@ -174,7 +174,7 @@ final class WindowsShortcutIdentity {
   }
 
   static String readAppId(Path file) {
-    try (ComObject link = load(file);
+    try (ComObject link = load(file, 0);
         ComObject properties = link.query("{886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99}")) {
       return appId(new WindowsAppIdentity.PropertyStore(properties.getPointer()));
     }
