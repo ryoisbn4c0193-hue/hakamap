@@ -41,6 +41,8 @@ final class WindowsAppBrowser implements BrowserLauncher {
 
     boolean activate(long window);
 
+    void maximize(long window);
+
     void close(long window);
 
     Set<Long> ownedProcesses();
@@ -94,6 +96,7 @@ final class WindowsAppBrowser implements BrowserLauncher {
         "--no-first-run",
         "--no-default-browser-check",
         "--disable-background-mode",
+        "--start-maximized",
         "--app=" + uri.toASCIIString());
   }
 
@@ -135,6 +138,7 @@ final class WindowsAppBrowser implements BrowserLauncher {
       if (found.isPresent()) {
         window = found.orElseThrow();
         identifyWindow();
+        windows.maximize(window);
         if (!windows.activate(window)) {
           throw new LifecycleException("app-window-activation-failed");
         }

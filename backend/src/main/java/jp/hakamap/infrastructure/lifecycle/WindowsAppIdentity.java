@@ -211,6 +211,11 @@ final class WindowsAppIdentity implements WindowsAppBrowser.Windows {
   }
 
   @Override
+  public void maximize(long window) {
+    user.ShowWindow(handle(window), 3);
+  }
+
+  @Override
   public boolean activate(long window) {
     HWND target = handle(window);
     // SW_RESTOREは最大化を解除するため、最小化した場合だけ使用する。

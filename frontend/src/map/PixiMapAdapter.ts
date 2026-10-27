@@ -172,6 +172,9 @@ export class PixiMapAdapter {
   private interactionEnabled = true;
   private textResolution = 1;
   private selectedAreaId?: string;
+  private autoFit = true;
+  private hasModel = false;
+  private canvasSize?: Readonly<{ width: number; height: number }>;
   private viewport: Viewport = { scale: 1, x: 40, y: 40 };
   private readonly viewportContainer = new Container();
   private readonly backgroundLayer = new Container();
@@ -191,7 +194,6 @@ export class PixiMapAdapter {
     const application = new Application();
     await application.init({
       ...STATIC_MAP_APPLICATION_OPTIONS,
-      resizeTo: container,
       resolution: this.textResolution,
     });
     const probe = document.createElement('canvas');
@@ -201,6 +203,7 @@ export class PixiMapAdapter {
       throw new Error('background-texture-size-unsupported');
     }
     this.application = application;
+    this.canvasSize = { width: application.screen.width, height: application.screen.height };
     this.viewportContainer.addChild(
       this.backgroundLayer,
       this.areaLayer,
@@ -218,11 +221,17 @@ export class PixiMapAdapter {
   }
 
   update(model: MapRenderModel): void {
+    const initial = !this.hasModel;
+    this.hasModel = true;
     this.model = model;
     this.preview = undefined;
     this.groupPreview = undefined;
     this.rotationDelta = 0;
     this.backgroundPreview = undefined;
+    if (initial) {
+      this.fit();
+      return;
+    }
     this.ensureMinimumZoom();
     this.render();
   }
@@ -249,6 +258,7 @@ export class PixiMapAdapter {
   }
 
   zoom(factor: number): void {
+    this.autoFit = false;
     const center = {
       x: (this.application?.screen.width ?? 0) / 2,
       y: (this.application?.screen.height ?? 0) / 2,
@@ -259,13 +269,26 @@ export class PixiMapAdapter {
 
   resize(width: number, height: number): void {
     if (this.application === undefined || width <= 0 || height <= 0) return;
+    const previous = this.canvasSize ?? { ...this.application.screen };
     this.application.renderer.resize(width, height);
+    this.canvasSize = { width, height };
+    if (this.autoFit) {
+      this.fit();
+      return;
+    }
+    // 画面の中心にあった地図座標を、サイズ変更後も同じ中心へ保つ。
+    this.viewport = {
+      ...this.viewport,
+      x: this.viewport.x + (width - previous.width) / 2,
+      y: this.viewport.y + (height - previous.height) / 2,
+    };
     this.ensureMinimumZoom();
     this.render();
   }
 
   fit(): void {
     if (this.application === undefined) return;
+    this.autoFit = true;
     this.viewport = fitViewport(
       this.fitRectangles(),
       this.application.screen.width,
@@ -280,6 +303,7 @@ export class PixiMapAdapter {
     if (this.application === undefined) return;
     const grave = this.model.graves.find(({ id }) => id === graveId);
     if (grave === undefined) return;
+    this.autoFit = false;
     const scale = Math.max(this.viewport.scale, 1);
     this.viewport = {
       scale,
@@ -328,6 +352,9 @@ export class PixiMapAdapter {
       textureSource: true,
     });
     this.application = undefined;
+    this.canvasSize = undefined;
+    this.hasModel = false;
+    this.autoFit = true;
     this.backgroundSprites.clear();
     this.backgroundTextures.clear();
     this.backgroundUrls.clear();
@@ -369,6 +396,7 @@ export class PixiMapAdapter {
     const screen = this.localPoint(event);
     const map = screenToMap(screen, this.viewport);
     if (event.button === 1 || (event.button === 0 && event.shiftKey && event.altKey)) {
+      this.autoFit = false;
       this.operation = { kind: 'pan', screen, viewport: this.viewport };
       return;
     }
@@ -755,6 +783,7 @@ export class PixiMapAdapter {
 
   private readonly handleWheel = (event: WheelEvent): void => {
     event.preventDefault();
+    this.autoFit = false;
     this.viewport = zoomAt(
       this.viewport,
       this.localPoint(event),

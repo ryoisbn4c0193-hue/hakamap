@@ -58,6 +58,7 @@ class WindowsAppBrowserTest {
             "--no-first-run",
             "--no-default-browser-check",
             "--disable-background-mode",
+            "--start-maximized",
             "--app=http://127.0.0.1:1234/#bootstrap=token");
     assertThatThrownBy(
             () -> WindowsAppBrowser.command(browser, profile, URI.create("https://example.com/")))
@@ -91,6 +92,7 @@ class WindowsAppBrowserTest {
     verify(starter, times(1)).start(any());
     verify(windows).identify(42L, executable, icon);
     verify(windows, times(2)).activate(42L);
+    verify(windows, times(1)).maximize(42L);
     verify(windows).find(Set.of(123L), Set.of(7L));
     when(windows.activate(42L)).thenReturn(false);
     assertThatThrownBy(() -> browser.open(URI.create("http://127.0.0.1:1234/#bootstrap=blocked")))
@@ -100,6 +102,7 @@ class WindowsAppBrowserTest {
     when(windows.isWindow(42L)).thenReturn(false);
     browser.open(URI.create("http://127.0.0.1:1234/#bootstrap=third"));
     verify(starter, times(2)).start(any());
+    verify(windows, times(2)).maximize(42L);
     when(windows.isWindow(42L)).thenReturn(true);
     browser.close();
     verify(windows).close(42L);
