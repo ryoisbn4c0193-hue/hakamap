@@ -4,6 +4,8 @@ import com.sun.jna.Memory;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import com.sun.jna.WString;
+import com.sun.jna.platform.win32.COM.Unknown;
+import com.sun.jna.platform.win32.Guid.CLSID;
 import com.sun.jna.platform.win32.Guid.IID;
 import com.sun.jna.platform.win32.Guid.REFIID;
 import com.sun.jna.platform.win32.KnownFolders;
@@ -24,18 +26,39 @@ final class WindowsShortcutIdentity {
   private WindowsShortcutIdentity() {}
 
   interface ShellFiles extends StdCallLibrary {
-    HRESULT sHGetPropertyStoreFromParsingName(
-        WString path, Pointer binding, int flags, REFIID iid, PointerByReference result);
-
     void sHChangeNotify(int event, int flags, WString path, Pointer second);
-  }
-
-  interface Properties extends StdCallLibrary {
-    HRESULT pSGetPropertyKeyFromName(WString name, WindowsAppIdentity.PropertyKey result);
   }
 
   interface Variants extends StdCallLibrary {
     HRESULT propVariantClear(Pointer value);
+  }
+
+  private static final class ComObject extends Unknown implements AutoCloseable {
+    ComObject(Pointer pointer) {
+      super(pointer);
+    }
+
+    void call(int slot, Object... arguments) {
+      Object[] all = new Object[arguments.length + 1];
+      all[0] = getPointer();
+      System.arraycopy(arguments, 0, all, 1, arguments.length);
+      if (W32Errors.FAILED((HRESULT) _invokeNativeObject(slot, all, HRESULT.class))) {
+        throw new LifecycleException("app-shortcut-identity-failed");
+      }
+    }
+
+    ComObject query(String iid) {
+      PointerByReference result = new PointerByReference();
+      if (W32Errors.FAILED(QueryInterface(new REFIID(new IID(iid)), result))) {
+        throw new LifecycleException("app-shortcut-identity-failed");
+      }
+      return new ComObject(result.getValue());
+    }
+
+    @Override
+    public void close() {
+      Release();
+    }
   }
 
   static void repair(Path launcher) {
@@ -83,45 +106,70 @@ final class WindowsShortcutIdentity {
     }
   }
 
-  static void repairFile(Path file, Path launcher) {
-    ShellFiles shell = Native.load("shell32", ShellFiles.class, WindowsAppIdentity.NATIVE_OPTIONS);
-    PointerByReference pointer = new PointerByReference();
-    HRESULT result =
-        shell.sHGetPropertyStoreFromParsingName(
-            new WString(file.toString()),
+  private static ComObject load(Path file) {
+    PointerByReference result = new PointerByReference();
+    HRESULT created =
+        Ole32.INSTANCE.CoCreateInstance(
+            new CLSID("{00021401-0000-0000-C000-000000000046}"),
             null,
-            2,
-            new REFIID(new IID("{886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99}")),
-            pointer);
-    if (W32Errors.FAILED(result)) {
-      return;
+            1,
+            new IID("{000214F9-0000-0000-C000-000000000046}"),
+            result);
+    if (W32Errors.FAILED(created)) {
+      throw new LifecycleException("app-shortcut-identity-failed");
     }
-    WindowsAppIdentity.PropertyStore store =
-        new WindowsAppIdentity.PropertyStore(pointer.getValue());
-    try {
-      String target = target(store);
-      if (target == null || !target.equalsIgnoreCase(launcher.toString())) {
-        return;
-      }
-      store.set(5, WindowsAppIdentity.APP_ID);
-      store.commit();
-      shell.sHChangeNotify(0x00002000, 0x0005, new WString(file.toString()), null);
-    } finally {
-      store.Release();
+    ComObject link = new ComObject(result.getValue());
+    try (ComObject persisted = link.query("{0000010B-0000-0000-C000-000000000046}")) {
+      persisted.call(5, new WString(file.toString()), 0);
+      return link;
+    } catch (RuntimeException exception) {
+      link.close();
+      throw exception;
     }
   }
 
-  private static String target(WindowsAppIdentity.PropertyStore store) {
-    Properties properties =
-        Native.load("propsys", Properties.class, WindowsAppIdentity.NATIVE_OPTIONS);
-    WindowsAppIdentity.PropertyKey key = new WindowsAppIdentity.PropertyKey(0);
-    if (W32Errors.FAILED(
-        properties.pSGetPropertyKeyFromName(new WString("System.Link.TargetParsingPath"), key))) {
-      return null;
+  static void repairFile(Path file, Path launcher) {
+    ComObject loaded;
+    try {
+      loaded = load(file);
+    } catch (LifecycleException exception) {
+      // 破損した別アプリのショートカットでHakamapの起動を妨げない。
+      return;
     }
+    try (ComObject link = loaded) {
+      char[] target = new char[32768];
+      link.call(3, target, target.length, null, 4);
+      if (!Native.toString(target).equalsIgnoreCase(launcher.toString())) {
+        return;
+      }
+      try (ComObject properties = link.query("{886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99}")) {
+        WindowsAppIdentity.PropertyStore store =
+            new WindowsAppIdentity.PropertyStore(properties.getPointer());
+        if (WindowsAppIdentity.APP_ID.equals(appId(store))) {
+          return;
+        }
+        store.set(5, WindowsAppIdentity.APP_ID);
+        // Shell Link自身のIPersistFileで保存し、リンク内の拡張プロパティを永続化する。
+        try (ComObject persisted = link.query("{0000010B-0000-0000-C000-000000000046}")) {
+          persisted.call(6, new WString(file.toString()), 1);
+        }
+      }
+      Native.load("shell32", ShellFiles.class, WindowsAppIdentity.NATIVE_OPTIONS)
+          .sHChangeNotify(0x00002000, 0x0005, new WString(file.toString()), null);
+    }
+  }
+
+  static String readAppId(Path file) {
+    try (ComObject link = load(file);
+        ComObject properties = link.query("{886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99}")) {
+      return appId(new WindowsAppIdentity.PropertyStore(properties.getPointer()));
+    }
+  }
+
+  private static String appId(WindowsAppIdentity.PropertyStore store) {
     try (Memory value = new Memory(Native.POINTER_SIZE == 8 ? 24 : 16)) {
       value.clear();
-      if (!store.get(key, value)) {
+      if (!store.get(new WindowsAppIdentity.PropertyKey(5), value)) {
         return null;
       }
       try {

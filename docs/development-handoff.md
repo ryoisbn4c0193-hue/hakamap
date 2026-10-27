@@ -1,5 +1,17 @@
 # 開発引き継ぎメモ
 
+## Windows CIで見つかったショートカット保存の修正（2026-10-27）
+
+- 最初のWindows package実行40477478397で、保存したAppUserModelIDを読み戻せず失敗した。
+- 汎用のファイルプロパティ取得からShell Linkの直接操作へ変更。
+  IShellLinkWで対象を確認し、IPropertyStoreでIDを編集、IPersistFile.Saveでリンクへ永続化する。
+- 更新不要のリンクは保存し直さず、他アプリを指すリンクを変更しない条件は維持する。
+- ウィンドウ識別のWindowsテストは非表示Win32ウィンドウを使用する方式に変更。
+  Spring等のAWT headless設定によってWindows CIでもスキップされる状態を解消する。
+- Linuxでは修正箇所の検査・Checkstyle・Spotless・再ビルドを実施。Windows固有2件は未実施。
+- Windows CIの再実行と受入実機確認はこれから。修正成果のプッシュ後に基準を記録する。
+
+
 ## Windows専用ウィンドウ・タスクバーの実装候補（2026-10-27）
 
 - 利用者の受入条件は正式アイコンでの区別、タスクバーから既存画面へ戻れること、最小化復元、

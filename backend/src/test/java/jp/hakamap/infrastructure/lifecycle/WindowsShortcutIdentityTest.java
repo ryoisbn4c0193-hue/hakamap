@@ -2,7 +2,6 @@ package jp.hakamap.infrastructure.lifecycle;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
 import com.sun.jna.WString;
 import com.sun.jna.platform.win32.COM.Unknown;
@@ -91,33 +90,6 @@ class WindowsShortcutIdentityTest {
   }
 
   private String appId(Path file) {
-    var shell =
-        com.sun.jna.Native.load(
-            "shell32", WindowsShortcutIdentity.ShellFiles.class, WindowsAppIdentity.NATIVE_OPTIONS);
-    PointerByReference pointer = new PointerByReference();
-    assertThat(
-            W32Errors.SUCCEEDED(
-                shell.sHGetPropertyStoreFromParsingName(
-                    new WString(file.toString()),
-                    null,
-                    0,
-                    new REFIID(new IID("{886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99}")),
-                    pointer)))
-        .isTrue();
-    WindowsAppIdentity.PropertyStore store =
-        new WindowsAppIdentity.PropertyStore(pointer.getValue());
-    try (Memory value = new Memory(24)) {
-      value.clear();
-      assertThat(store.get(new WindowsAppIdentity.PropertyKey(5), value)).isTrue();
-      try {
-        return value.getPointer(8).getWideString(0);
-      } finally {
-        com.sun.jna.Native.load(
-                "ole32", WindowsShortcutIdentity.Variants.class, WindowsAppIdentity.NATIVE_OPTIONS)
-            .propVariantClear(value);
-      }
-    } finally {
-      store.Release();
-    }
+    return WindowsShortcutIdentity.readAppId(file);
   }
 }
