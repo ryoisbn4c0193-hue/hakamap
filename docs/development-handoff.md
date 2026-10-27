@@ -12,6 +12,8 @@
 - 共通マニュアルに起動URLを明記。Windowsの「iPhoneへの取り込み」タブにクリック可能な起動URL行を追加。
   新しいタブで開き、Windows編集画面を置き換えない。Windows操作タブが初期表示の仕様は維持。
 - Windows側76件・Lint・整形・ビルド、iPhone側45件・型・Lint・整形・PWA生成・2ブラウザー検査が成功。
+- Windows package実行40515178474が成功し、Hakamap-0.1.58.exeを生成。Windows上のJava157件・画面76件も成功。
+- iPhone PWA検査40515178397とiPhoneネイティブ用検査40515178533も成功。PWAの再公開は行っていない。
 - 作業再開基準コミット: `0f0df9318e51cc15f694c191a30e796209050952`（反映先: `origin/main`）。
 
 
