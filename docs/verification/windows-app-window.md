@@ -2,11 +2,13 @@
 
 状態: 実装・Windowsビルド検査完了。Windows実機の受入確認は未実施。
 
-2026-10-27の[Windows package実行40480442840](https://github.com/ryoisbn4c0193-hue/hakamap/actions/runs/40480442840)が成功。
+2026-10-27の[Windows package実行40506826718](https://github.com/ryoisbn4c0193-hue/hakamap/actions/runs/40506826718)が成功。
 Java157件成功・スキップ0件。ウィンドウ識別・ショートカットの保存と再読み込みをネイティブAPIで確認した。
-フロントエンド71件・Lint・整形・ビルド、JavaのCheckstyle・Spotlessも成功。
-成果は`hakamap-windows-package` Artifact内の`Hakamap-0.1.56.exe`。
-これはタスクバーの実際の表示・ピン留め操作を確認した結果とは区別する。
+フロントエンド76件・Lint・整形・ビルド、JavaのCheckstyle・Spotlessも成功。
+成果は`hakamap-windows-package` Artifact内の`Hakamap-0.1.57.exe`。
+最大化起動とサイズ変更時の全体表示の修正を含む。
+Chromiumの実WebGL描画で初期・最大化後の全体表示と手動拡大後の中心維持も確認済み。
+これはWindows実機での起動・タスクバーの実際の表示・ピン留め操作を確認した結果とは区別する。
 
 旧Hakamapは画面内の「終了」で閉じてから更新する。
 更新インストーラーを上書き導入し、スタートメニューまたはデスクトップのHakamapから起動する。

@@ -12,7 +12,8 @@
 - Java157件中155件成功、Windows固有2件はLinuxのためスキップ。Checkstyle・Spotless・verify成功。
 - Chromiumの実WebGL描画で初期表示・最大化後の全体表示と手動拡大後の中心維持を確認。
   一時ページは削除し、実データは使用していない。
-- 要件とWindows実機手順を更新。Windowsビルドと利用者の実機確認はこれから。
+- Windows package実行40506826718が成功。Java157件・フロントエンド76件が成功し、
+  Hakamap-0.1.57.exeとmanifestをArtifactへ保存済み。利用者の実機確認はこれから。
 - 作業再開基準コミット: `b8fc7c91e328ff2e12a9212b141d95cede0d2790`（反映先: `origin/main`）。
 
 
