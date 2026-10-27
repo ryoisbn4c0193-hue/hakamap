@@ -9,7 +9,8 @@
 - ウィンドウ識別のWindowsテストは非表示Win32ウィンドウを使用する方式に変更。
   Spring等のAWT headless設定によってWindows CIでもスキップされる状態を解消する。
 - Linuxでは修正箇所の検査・Checkstyle・Spotless・再ビルドを実施。Windows固有2件は未実施。
-- Windows CIの再実行と受入実機確認はこれから。修正成果のプッシュ後に基準を記録する。
+- Windows CIの再実行と受入実機確認はこれから。
+- 作業再開基準コミット: `408bb697166ae010adc2f22fcaada9fc77c1bc3c`（反映先: `origin/main`）。
 
 
 ## Windows専用ウィンドウ・タスクバーの実装候補（2026-10-27）
