@@ -84,6 +84,7 @@ $Jar = Get-ChildItem (Join-Path $Backend 'target/hakamap-*.jar') |
 if ($null -eq $Jar) {
     throw 'パッケージ対象JARが見つかりません。'
 }
+Copy-Item $ResolvedIcon (Join-Path $InputDirectory 'hakamap.ico')
 Copy-Item $Jar.FullName (Join-Path $InputDirectory 'hakamap.jar')
 
 & jlink `

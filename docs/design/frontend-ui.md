@@ -281,6 +281,9 @@ Material UIおよび標準の依存関係はビルド時に取得し、Reactの�
 
 ## 対応ブラウザ
 
+インストール版の専用ウィンドウ起動にはEdgeまたはChromeを使用する（ADR 0006）。
+以下のFirefox等の互換性はWeb画面自体と開発時のブラウザ表示についての範囲である。
+
 - Windows 11標準のMicrosoft Edgeを基準ブラウザとする。
 - Microsoft Edge、Google Chrome、およびMozilla Firefoxについて、アプリケーションの
   リリース時点における最新安定版と1つ前の安定メジャーバージョンを動作保証対象とする。

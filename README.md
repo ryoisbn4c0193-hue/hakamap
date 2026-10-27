@@ -28,7 +28,7 @@ Windows 11から接続するSMB 3.x共有だけを動作保証対象とします
 ## アーキテクチャ
 
 ```text
-既定ブラウザ
+Edge / Chromeの専用ウィンドウ（インストール版）
     │ 127.0.0.1 / 同一オリジン
     ▼
 React + TypeScript + PixiJS
@@ -52,7 +52,7 @@ Electron、Tauri、JavaFX、H2、Spring Data JPA、およびFlywayは、確定�
 採用しません。バックエンド雛形からこれらの永続化依存を除去し、JSON Schema検証と
 プロジェクトフォルダ内JSONによる永続化を段階的に実装しています。
 
-ブラウザのタブを閉じただけではHakamap本体は終了しません。画面を閉じた後は、
+画面の×を押しただけではHakamap本体は終了しません。画面を閉じた後は、
 デスクトップまたはスタートメニューのHakamapショートカットを再実行すると開き直せます。
 終了する場合はアプリケーション画面内の「Hakamapを終了」を使用します。
 MVPではタスクトレイへ常駐しません。
@@ -172,3 +172,5 @@ Linuxからのクロスビルドには依存しません。
 ## iPhone PWAの導入
 
 Apple有料加入・Expo Goなしの導入は[PWAの手順](docs/verification/iphone-pwa.md)を参照してください。
+
+Windows版の専用ウィンドウ・タスクバー・ピン留めの確認は[実機手順](docs/verification/windows-app-window.md)を参照してください。

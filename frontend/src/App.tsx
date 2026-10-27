@@ -126,9 +126,7 @@ function App() {
           <Typography component="h1" variant="h1">
             Hakamapを終了しました
           </Typography>
-          <Typography>
-            このページが自動で閉じない場合は、ブラウザのタブを閉じてください。
-          </Typography>
+          <Typography>この画面が自動で閉じない場合は、ウィンドウを閉じてください。</Typography>
         </Stack>
       </Box>
     );
@@ -416,7 +414,7 @@ function App() {
                         終了・再表示
                       </TableCell>
                       <TableCell>
-                        終了は「Hakamapを終了」を使用します。タブだけを閉じた場合は、Hakamapのショートカットから再表示できます。
+                        終了は「Hakamapを終了」を使用します。画面だけを閉じた場合は、Hakamapのショートカットから再表示できます。
                       </TableCell>
                     </TableRow>
                   </TableBody>

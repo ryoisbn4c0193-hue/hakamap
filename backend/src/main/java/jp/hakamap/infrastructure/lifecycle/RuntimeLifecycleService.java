@@ -106,8 +106,12 @@ public final class RuntimeLifecycleService
   @Override
   @PreDestroy
   public void close() {
-    sessions.invalidate();
-    heartbeat.shutdownNow();
-    lease.close();
+    try {
+      browser.close();
+    } finally {
+      sessions.invalidate();
+      heartbeat.shutdownNow();
+      lease.close();
+    }
   }
 }

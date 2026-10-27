@@ -10,7 +10,7 @@ import java.time.Duration;
 import tools.jackson.databind.json.JsonMapper;
 
 final class ExistingInstanceClient {
-  private static final Duration RETRY_LIMIT = Duration.ofSeconds(10);
+  private static final Duration RETRY_LIMIT = Duration.ofSeconds(25);
 
   private final JsonMapper jsonMapper;
 
@@ -50,10 +50,11 @@ final class ExistingInstanceClient {
 
   private boolean sendReopen(RuntimeInstance instance) {
     try {
+      WindowsAppIdentity.allowActivation(instance.processId());
       URI endpoint = URI.create("http://127.0.0.1:" + instance.port() + "/api/internal/reopen");
       HttpRequest request =
           HttpRequest.newBuilder(endpoint)
-              .timeout(Duration.ofSeconds(1))
+              .timeout(Duration.ofSeconds(20))
               .header("X-Hakamap-Instance-Id", instance.instanceId().toString())
               .header("X-Hakamap-Control-Token", instance.controlToken())
               .POST(HttpRequest.BodyPublishers.noBody())

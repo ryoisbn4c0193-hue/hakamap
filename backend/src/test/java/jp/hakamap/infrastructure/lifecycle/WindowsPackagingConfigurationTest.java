@@ -27,6 +27,7 @@ class WindowsPackagingConfigurationTest {
         .contains("create-app-icon.ps1")
         .contains("assets/hakamap-icon.png")
         .contains("Hakamap-$Version.exe")
+        .contains("Copy-Item $ResolvedIcon (Join-Path $InputDirectory 'hakamap.ico')")
         .doesNotContain("--win-console");
     assertThat(content.indexOf("Remove-Item $Work"))
         .isLessThan(content.indexOf("create-app-icon.ps1"));
