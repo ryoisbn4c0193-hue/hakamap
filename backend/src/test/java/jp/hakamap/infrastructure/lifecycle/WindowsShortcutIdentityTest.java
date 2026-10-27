@@ -48,8 +48,10 @@ class WindowsShortcutIdentityTest {
       createLink(ownLink, launcher);
       createLink(otherLink, other);
       byte[] previous = Files.readAllBytes(otherLink);
-      WindowsShortcutIdentity.repairFile(ownLink, launcher);
-      WindowsShortcutIdentity.repairFile(otherLink, launcher);
+      assertThat(WindowsShortcutIdentity.repairFile(ownLink, launcher))
+          .as("Hakamapのリンク対象を識別する")
+          .isTrue();
+      assertThat(WindowsShortcutIdentity.repairFile(otherLink, launcher)).isFalse();
       assertThat(Files.readAllBytes(otherLink)).isEqualTo(previous);
       assertThat(appId(ownLink)).isEqualTo(WindowsAppIdentity.APP_ID);
     } finally {

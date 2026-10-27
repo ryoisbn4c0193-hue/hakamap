@@ -36,6 +36,16 @@ class WindowsAppBrowserTest {
   }
 
   @Test
+  void recognizesShortcutTargetsByFileIdentityInsteadOfPathSpelling() throws Exception {
+    Path launcher = Files.createFile(directory.resolve("Hakamap.exe"));
+    Path alias = Files.createLink(directory.resolve("alias.exe"), launcher);
+    Path other = Files.createFile(directory.resolve("Other.exe"));
+    assertThat(WindowsShortcutIdentity.sameLauncher(alias.toString(), launcher)).isTrue();
+    assertThat(WindowsShortcutIdentity.sameLauncher(other.toString(), launcher)).isFalse();
+    assertThat(WindowsShortcutIdentity.sameLauncher("", launcher)).isFalse();
+  }
+
+  @Test
   void passesPathAndBootstrapAsSeparateArgumentsAndRejectsExternalUrls() {
     Path browser = directory.resolve("Program Files/Edge/msedge.exe");
     Path profile = directory.resolve("reference profile");

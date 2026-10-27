@@ -128,27 +128,31 @@ final class WindowsShortcutIdentity {
     }
   }
 
-  static void repairFile(Path file, Path launcher) {
+  static boolean repairFile(Path file, Path launcher) {
     ComObject loaded;
     try {
       loaded = load(file);
     } catch (LifecycleException exception) {
       // 破損した別アプリのショートカットでHakamapの起動を妨げない。
-      return;
+      return false;
     }
     try (ComObject link = loaded) {
       char[] target = new char[32768];
       link.call(3, target, target.length, null, 4);
-      if (!Native.toString(target).equalsIgnoreCase(launcher.toString())) {
-        return;
+      if (!sameLauncher(Native.toString(target), launcher)) {
+        return false;
       }
       try (ComObject properties = link.query("{886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99}")) {
         WindowsAppIdentity.PropertyStore store =
             new WindowsAppIdentity.PropertyStore(properties.getPointer());
         if (WindowsAppIdentity.APP_ID.equals(appId(store))) {
-          return;
+          return true;
         }
         store.set(5, WindowsAppIdentity.APP_ID);
+        store.commit();
+        if (!WindowsAppIdentity.APP_ID.equals(appId(store))) {
+          throw new LifecycleException("app-shortcut-property-readback-failed");
+        }
         // Shell Link自身のIPersistFileで保存し、リンク内の拡張プロパティを永続化する。
         try (ComObject persisted = link.query("{0000010B-0000-0000-C000-000000000046}")) {
           persisted.call(6, new WString(file.toString()), 1);
@@ -156,6 +160,16 @@ final class WindowsShortcutIdentity {
       }
       Native.load("shell32", ShellFiles.class, WindowsAppIdentity.NATIVE_OPTIONS)
           .sHChangeNotify(0x00002000, 0x0005, new WString(file.toString()), null);
+      return true;
+    }
+  }
+
+  static boolean sameLauncher(String target, Path launcher) {
+    try {
+      // Windowsの短縮名・長い名前やジャンクションの表記差を文字列比較で拒否しない。
+      return !target.isBlank() && Files.isSameFile(Path.of(target), launcher);
+    } catch (IOException | java.nio.file.InvalidPathException exception) {
+      return false;
     }
   }
 
@@ -173,7 +187,7 @@ final class WindowsShortcutIdentity {
         return null;
       }
       try {
-        return value.getShort(0) == 31 && value.getPointer(8) != null
+        return (value.getShort(0) == 31 || value.getShort(0) == 8) && value.getPointer(8) != null
             ? value.getPointer(8).getWideString(0)
             : null;
       } finally {

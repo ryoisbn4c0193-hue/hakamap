@@ -73,6 +73,13 @@ final class WindowsAppIdentity implements WindowsAppBrowser.Windows {
                   5, new Object[] {getPointer(), key.getPointer(), value}, HRESULT.class));
     }
 
+    void commit() {
+      HRESULT result = (HRESULT) _invokeNativeObject(7, new Object[] {getPointer()}, HRESULT.class);
+      if (W32Errors.FAILED(result)) {
+        throw new LifecycleException("app-shortcut-identity-failed");
+      }
+    }
+
     void set(int property, String text) {
       // PROPVARIANTのVT_LPWSTR。文字列はSetValueが戻るまで呼び出し側が保持する。
       try (Memory value = new Memory(Native.POINTER_SIZE == 8 ? 24 : 16);
