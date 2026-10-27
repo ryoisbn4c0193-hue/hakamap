@@ -18,6 +18,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  Link,
   Paper,
   Stack,
   Tab,
@@ -435,6 +436,24 @@ function App() {
                         概要
                       </TableCell>
                       <TableCell>{iphoneImportGuide.introduction}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row">
+                        iPhone版の起動URL
+                      </TableCell>
+                      <TableCell>
+                        <Link
+                          href={iphoneImportGuide.launchUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          sx={{ overflowWrap: 'anywhere' }}
+                        >
+                          {iphoneImportGuide.launchUrl}
+                        </Link>
+                        <Typography variant="body2">
+                          iPhoneのSafariで開き、ホーム画面に追加してください。PCからも表示を確認できます。
+                        </Typography>
+                      </TableCell>
                     </TableRow>
                     {iphoneImportGuide.steps.map((step, index) => (
                       <TableRow key={step.title}>

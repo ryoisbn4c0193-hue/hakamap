@@ -136,6 +136,12 @@ describe('App', () => {
     expect(importTable).toHaveTextContent('.hakamap');
     expect(importTable).toHaveTextContent('置き換えを承認');
     expect(importTable).toHaveTextContent('ホーム画面に追加');
+    const launchLink = within(importTable).getByRole('link', {
+      name: 'https://ryoisbn4c0193-hue.github.io/hakamap/',
+    });
+    expect(launchLink).toHaveAttribute('href', 'https://ryoisbn4c0193-hue.github.io/hakamap/');
+    expect(launchLink).toHaveAttribute('target', '_blank');
+    expect(launchLink).toHaveAttribute('rel', 'noopener noreferrer');
     expect(within(importTable).getByRole('columnheader', { name: '操作' })).toBeInTheDocument();
     expect(within(importTable).getByRole('columnheader', { name: '方法' })).toBeInTheDocument();
     expect(screen.queryByRole('table', { name: 'Hakamapの操作方法' })).not.toBeInTheDocument();

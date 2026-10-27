@@ -1,13 +1,14 @@
 /** Windows版とiPhone版へ同梱する共通の取り込みマニュアル。 */
 export const iphoneImportGuide = {
   title: "WindowsからiPhoneへデータを取り込む",
+  launchUrl: "https://ryoisbn4c0193-hue.github.io/hakamap/",
   introduction:
     "Windows版で管理している墓地をiPhoneで参照できます。既存のエクスポートファイル（.hakamap）をそのまま使い、変換操作は不要です。",
   steps: [
     {
       title: "iPhone版をホーム画面に追加する",
       instructions: [
-        "初回は通信できる場所で、配布されたHakamapのURLをSafariで開きます。Appleの有料加入やExpo Goは不要です。",
+        "初回は通信できる場所で、HakamapのURL（https://ryoisbn4c0193-hue.github.io/hakamap/）をSafariで開きます。Appleの有料加入やExpo Goは不要です。",
         "「オフライン利用の準備完了」を確認し、Safariの共有メニューから「ホーム画面に追加」を選びます。",
         "ホーム画面のHakamapアイコンから開き、準備完了を確認してから取り込みます。Expo Goで使っていたデータは取り込み直してください。",
       ],

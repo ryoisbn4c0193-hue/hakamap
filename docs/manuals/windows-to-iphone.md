@@ -6,9 +6,13 @@ Windows版では上部の「操作ガイド」→「iPhoneへの取り込み」�
 
 Windows版で管理している墓地をiPhoneで参照できます。既存のエクスポートファイル（.hakamap）をそのまま使い、変換操作は不要です。
 
+起動URL: [Hakamap iPhone版](https://ryoisbn4c0193-hue.github.io/hakamap/)
+
+iPhoneのSafariで開いてホーム画面に追加してください。PCでも同じURLで画面とアイコンを確認できます。
+
 ## 1. iPhone版をホーム画面に追加する
 
-- 初回は通信できる場所で、配布されたHakamapのURLをSafariで開きます。Appleの有料加入やExpo Goは不要です。
+- 初回は通信できる場所で、HakamapのURL（https://ryoisbn4c0193-hue.github.io/hakamap/）をSafariで開きます。Appleの有料加入やExpo Goは不要です。
 - 「オフライン利用の準備完了」を確認し、Safariの共有メニューから「ホーム画面に追加」を選びます。
 - ホーム画面のHakamapアイコンから開き、準備完了を確認してから取り込みます。Expo Goで使っていたデータは取り込み直してください。
 
